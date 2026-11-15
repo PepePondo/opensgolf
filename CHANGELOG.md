@@ -51,6 +51,8 @@ Enhanced graphics and HD.
   checked or knit shirts, leather shoes) with softer faces; your own pro in 3D; course sounds heard from where you stand;
   the blimp, the hot air balloons and the desert oil pump as 3D models; smooth balls; mowing stripes that follow the
   fairway's edge; the great-shot photo shown in first person; and the backtick key (`` ` ``) as well as F12, for Macs.
+- **0.8.2:** the anonymous play-time count goes to the project's own counter, with a random number made fresh at each
+  start (never saved) so it can tell how long people play at a time; see docs/PLAYING.md, *Play-time count*.
 
 ## 0.7 (7 November 2026)
 

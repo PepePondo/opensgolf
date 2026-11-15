@@ -337,12 +337,16 @@ miniquad_add_plugin({
         // Report a problem (crates/simgolf/src/bugreport.rs): the bug report form in a new tab (the click on the box's OK
         // is still being handled, so the browser takes it as the player's); a note with the link when the tab is blocked
         env.sg_open_url = function (ptr, len) { sgOpenUrl(sgStr(ptr, len)); };
-        // the play-time count (crates/simgolf/src/playcount.rs): an event for the page's GoatCounter (index.html), counted every
-        // time (no_session); nothing when the page's own tick is off (#playcount), the counter is blocked or the page has none
+        // the play-time count (crates/simgolf/src/playcount.rs): the game hands over the counter's whole address (the project's
+        // own counter, stats/), fetched with no cookies and no answer read; nothing when the page's own tick is off (#playcount)
         env.sg_playcount = function (ptr, len) {
-            const path = sgStr(ptr, len);
-            if (sgPlaycountOff()) return;
-            try { if (window.goatcounter && window.goatcounter.count) window.goatcounter.count({ path: path, title: path, event: true, no_session: true }); } catch (e) {}
+            const url = sgStr(ptr, len);
+            if (sgPlaycountOff() || !/^https:\/\/[a-z0-9.-]+\.workers\.dev\/count\?/.test(url)) return;
+            try { fetch(url, { mode: "no-cors", credentials: "omit", cache: "no-store", keepalive: true }).catch(function () {}); } catch (e) {}
+        };
+        // 32 random bits, for the play-time count's run id (made at each start, never saved)
+        env.sg_random = function () {
+            try { return crypto.getRandomValues(new Uint32Array(1))[0]; } catch (e) { return Math.floor(Math.random() * 4294967296) >>> 0; }
         };
         // 1 when the page's tick has turned the count off (the game then shows no notice either)
         env.sg_playcount_off = function () { return sgPlaycountOff() ? 1 : 0; };

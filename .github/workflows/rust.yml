@@ -77,3 +77,14 @@ jobs:
         with:
           name: opensgolf-web
           path: web/dist
+
+  # the play-time stats Worker (stats/): its tests stand D1 in with node:sqlite (Node 22.5 or later)
+  stats:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Tests
+        run: node --test stats/test/*.test.mjs

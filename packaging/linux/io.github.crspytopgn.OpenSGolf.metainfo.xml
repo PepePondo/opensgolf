@@ -107,6 +107,11 @@
   <content_rating type="oars-1.1"/>
 
   <releases>
+    <release version="0.8.2" date="2026-11-15">
+      <description>
+        <p>The anonymous play-time count now goes to the project's own counter and can tell how long people play at a time.</p>
+      </description>
+    </release>
     <release version="0.8.1" date="2026-11-13">
       <description>
         <p>First-person view: golfers with clothes and softer faces, your pro in 3D, course sounds heard from where you stand, 3D blimps, balloons and oil pumps, and the backtick key as well as F12.</p>

@@ -1111,7 +1111,8 @@ impl App {
         blit(g, s, &art, if st.count & 1 != 0 { STRIP_END_ODD } else { STRIP_END_EVEN }, x, 477.0);
         let (mx, my) = self.pstate.mouse;
         // under the pointer, else the design last under it (the exe's 0x5a9f50 keeps it)
-        let hot = match st.hit(mask, mx, my) {
+        let under = st.hit(mask, mx, my);
+        let hot = match under {
             -1 => (0..st.count).find(|&i| self.design_hover != -1 && self.strip_design(kind, i) == self.design_hover).unwrap_or(-1),
             h => h,
         };
@@ -1174,8 +1175,9 @@ impl App {
             tip_bar(g, s, tr(what), mx, my + 3.0);
             return;
         }
-        // the Design names extra (design_names.rs): the bench, flower bed or scenic tree design under the pointer
-        if crate::extras::design_names() {
+        // the Design names extra (design_names.rs): the bench, flower bed or scenic tree design under the pointer, only
+        // while the pointer is on the strip (the design kept from before is not named out in the panel)
+        if crate::extras::design_names() && under != -1 {
             if let Some(name) = crate::design_names::strip_name(kind, hot, self.exe_theme()) {
                 tip_bar(g, s, &name, mx, my - 7.0);
                 return;

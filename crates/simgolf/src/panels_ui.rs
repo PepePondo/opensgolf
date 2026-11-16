@@ -403,9 +403,10 @@ const ELEVATION_UNDO: (Hit, Cut, Cut, f32, f32) = (hit(267, 561, 12), (0.0, 450.
 // ---- People: the employee panel ------------------------------------------------------------------------------------------------
 
 /// The most employees the club may have: the extras' limit (20 in the original); a larger course size allows more in
-/// proportion to its area (limit x n^2 / 2500), at most sg_core::extras::MAX_STAFF.
+/// proportion to its area (limit x n^2 / 2500), at most sg_core::extras::RECORDS_STAFF (63) unless the limit itself is
+/// higher.
 pub(crate) fn max_employees(limit: usize) -> usize {
-    (sg_core::mapsize::scale_area(limit as i32).max(0) as usize).clamp(limit, limit.max(sg_core::extras::MAX_STAFF))
+    (sg_core::mapsize::scale_area(limit as i32).max(0) as usize).clamp(limit, limit.max(sg_core::extras::RECORDS_STAFF))
 }
 const HIRE: (Hit, f32, f32) = (hit(270, 558, 16), 254.0, 542.0);
 const HIRE_HOVER: Cut = (0.0, 500.0, 42.0, 42.0);
@@ -1172,6 +1173,13 @@ impl App {
             };
             tip_bar(g, s, tr(what), mx, my + 3.0);
             return;
+        }
+        // the Design names extra (design_names.rs): the bench, flower bed or scenic tree design under the pointer
+        if crate::extras::design_names() {
+            if let Some(name) = crate::design_names::strip_name(kind, hot, self.exe_theme()) {
+                tip_bar(g, s, &name, mx, my - 7.0);
+                return;
+            }
         }
         if kind == land::K_LANDMARK {
             let name = sg_core::vips::landmark_short_name(hot);

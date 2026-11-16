@@ -57,6 +57,7 @@ Enhanced graphics and HD.
   windmills, towers, statues and more) instead of their pictures wrapped round boxes; the walls under raised tees, greens
   and buildings show on every side and are lit, so nothing looks hollow or black underneath; slopes shade softly; and
   water lies a little below its banks.
+  The 3D golfers' faces are smooth, with no more lumpy cheeks and chin.
 
 ## 0.7 (7 November 2026)
 

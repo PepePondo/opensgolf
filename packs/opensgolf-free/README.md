@@ -10,7 +10,9 @@ The set has two parts, both built into the game (nothing is downloaded at run ti
 * **Rendered art** in `art/` (about 11 MB): sprite sheets of the trees, bushes, cacti, palms, scenic plants, buildings,
   landmarks, animals and golfers, staff and celebrities, rendered offline by `tools/freeset_art/build.py` from 3D models
   made in code (a painterly tree grower whose crowns are lit as one rounded mass, with warm highlights and cool shade; a
-  building kit in each theme's style with lit windows; a jointed golfer whose hands follow the club's grip through the
+  building kit in each theme's style with lit windows (which also builds the resort amenities: the desert's domed casino
+  with its hotel tower and its spa, the tropics' swim club with its water slides and theme park with its big wheel,
+  carousel, pirate ship and looping coaster); a jointed golfer whose hands follow the club's grip through the
   swing; `landmarks.py` for the windmills, lighthouses, statues, pagoda, barn, volcano and the rest; `animals.py` for the
   crane, crocodile, duck, elk, flamingo, gila monster, roadrunner, sheep and snake; `props.py` for the hole flags and
   tee markers, the range and putting green flags, benches and the swing, flower beds (their blooms in the colour of
@@ -34,7 +36,10 @@ The set has two parts, both built into the game (nothing is downloaded at run ti
 * **Drawn at run time** by code in `crates/sg-core/src/freeset/` for everything else:
   * **Terrain** (`tex.rs`): each theme's surfaces painted from wrapping noise with lit relief (mowing stripes, blades and
     tussocks of grass, a mossy forest floor with fallen leaves, heather, scrub, stones, sand grain and ripples, flower
-    clumps), in the nine blend shapes the terrain renderer uses. Water is one seamless open-water pattern in every depth
+    clumps), in the nine blend shapes the terrain renderer uses. The game picks one of a surface's sets A..E for each tile
+    at random, so the sets share the same ground underneath (only the scattered tufts, stones and leaves differ) and
+    tiles of different sets meet without a seam or a change of tone (`TEX_MIX=out.png cargo test -p sg-core tex_mix --
+    --ignored` lays them out at random to check). Water is one seamless open-water pattern in every depth
     and set (the terrain renderer draws the free set's water as one surface, `Terrain::water_one`, so every water tile
     facing land takes the shore pieces whatever its depth); its shallow pieces that face land carry the shore (lighter shallows, a broken line of foam, wet sand, a beach
     or an earthy bank by theme). `cargo test -p sg-core tex_sheet -- --ignored` with `TEX_SHEET=out.png` writes a

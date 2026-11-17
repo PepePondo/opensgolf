@@ -623,6 +623,8 @@ pub struct Objects {
     /// Frames scaled up smoothly (xBRZ) for the things seen large up close: the trees and the pictures of buildings with no
     /// model, whose pixels would otherwise show as jagged steps.
     smooth: HashMap<(usize, usize), TextureId>,
+    /// Trees' pictures softened for their near solids (`soften`), by sprite and frame.
+    leafy: HashMap<(usize, usize), TextureId>,
     people: HashMap<(usize, usize, sg_core::bodies::Outfit), TextureId>,
     fits: HashMap<(usize, [usize; 4], i32), Option<Fit>>,
     info: HashMap<(usize, usize), FrameInfo>,
@@ -667,7 +669,14 @@ impl Objects {
                 g.delete_mesh(m);
             }
         }
-        for t in self.tex.drain().map(|e| e.1).chain(self.people.drain().map(|e| e.1)).chain(self.smooth.drain().map(|e| e.1)) {
+        for t in self
+            .tex
+            .drain()
+            .map(|e| e.1)
+            .chain(self.people.drain().map(|e| e.1))
+            .chain(self.smooth.drain().map(|e| e.1))
+            .chain(self.leafy.drain().map(|e| e.1))
+        {
             g.ctx.delete_texture(t);
         }
     }
@@ -847,6 +856,17 @@ impl App {
         let img = self.sprites[si].s.frame(i);
         let t = if img.w * img.h <= 256 * 256 { sprite_texture(g, &sg_core::xbrz::scale(&img, 4)) } else { sprite_texture(g, &img) };
         o.smooth.insert((si, i), t);
+        t
+    }
+
+    /// A tree's picture for its near solid: softened (`soften`), then scaled up as `walk_tex_smooth` does.
+    fn walk_tex_leafy(&self, g: &mut Gfx, o: &mut Objects, si: usize, i: usize) -> TextureId {
+        if let Some(&t) = o.leafy.get(&(si, i)) {
+            return t;
+        }
+        let img = soften(&self.sprites[si].s.frame(i));
+        let t = if img.w * img.h <= 256 * 256 { sprite_texture(g, &sg_core::xbrz::scale(&img, 4)) } else { sprite_texture(g, &img) };
+        o.leafy.insert((si, i), t);
         t
     }
 
@@ -1106,6 +1126,50 @@ fn sprite_look(sp: &sg_core::sprites::Sprite, pick: f32) -> Option<crate::walk_g
     let skin = SKIN[((pick * 4.0) as usize).min(3)];
     let hat = band(0.0, 0.1)?;
     Some(crate::walk_golfer::Look { shirt: band(0.25, 0.48)?, pants: band(0.62, 0.85)?, skin, hat, hair: hat, hands: skin, female: false })
+}
+
+/// A tree's picture softened for its near solid. The original art's trees are small pictures dithered texel by texel
+/// (light and dark speckles that read as leaves at the overhead view's size); wrapped round a solid a few metres off,
+/// each speckle becomes a blotch and the crown looks like camouflage. So each opaque texel takes much of the mean of the
+/// opaque texels round it (over a 3 x 3 square), which keeps the crown's painted light and shade and its colours
+/// but not the speckle; the outline (alpha) is kept as it is.
+fn soften(img: &sg_core::assets::Rgba) -> sg_core::assets::Rgba {
+    let (w, h) = (img.w as usize, img.h as usize);
+    let mut cur = img.clone();
+    for _ in 0..1 {
+        let src = cur.clone();
+        for y in 0..h {
+            for x in 0..w {
+                let i = (y * w + x) * 4;
+                if src.px[i + 3] < 128 {
+                    continue;
+                }
+                let mut sum = [0.0f32; 3];
+                let mut n = 0.0;
+                for dy in -1i32..=1 {
+                    for dx in -1i32..=1 {
+                        let (nx, ny) = (x as i32 + dx, y as i32 + dy);
+                        if nx < 0 || ny < 0 || nx >= w as i32 || ny >= h as i32 {
+                            continue;
+                        }
+                        let j = (ny as usize * w + nx as usize) * 4;
+                        if src.px[j + 3] < 128 {
+                            continue;
+                        }
+                        for c in 0..3 {
+                            sum[c] += src.px[j + c] as f32;
+                        }
+                        n += 1.0;
+                    }
+                }
+                for c in 0..3 {
+                    let v = src.px[i + c] as f32 * 0.3 + sum[c] / n * 0.7;
+                    cur.px[i + c] = v.round().clamp(0.0, 255.0) as u8;
+                }
+            }
+        }
+    }
+    cur
 }
 
 fn place_hash(x: f32, z: f32) -> f32 {
@@ -1487,7 +1551,7 @@ impl App {
                     None
                 };
                 if let Some(i) = solid {
-                    let t = self.walk_tex_smooth(g, o, si, i);
+                    let t = self.walk_tex_leafy(g, o, si, i);
                     let (sn, cs) = (ph * std::f32::consts::TAU).sin_cos();
                     let tall = ay.max(1.0);
                     let l = cut.get(t);
@@ -1505,7 +1569,7 @@ impl App {
                     // and its picture through its middle, turned to the eye: the solid's rings follow the outline's mean,
                     // so the picture's leafy edge stands out round it as the crown's sprigs
                     let i = self.sprites[si].s.frame_index(self.prop_view(&p, si, sc.quarter), p.frame);
-                    let t = self.walk_tex_smooth(g, o, si, i);
+                    let t = self.walk_tex_leafy(g, o, si, i);
                     let rect = (-ax * k, (w - ax) * k, ay * k * v, -(h - ay) * k * v);
                     card(cut.get(t), anchor, right, up, rect, false, sway, white);
                 } else {

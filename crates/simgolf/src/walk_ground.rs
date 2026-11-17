@@ -517,20 +517,28 @@ impl App {
         Ground { key, chunks, water, skirt, sea, walls, fringes, own, beyond, water_colour: wa }
     }
 
-    /// Where a green, a tee or a fairway meets coarser grass, the tiles' pictures meet in a straight line along the tile's
-    /// edge: from above it reads as the course's plan, but from the ground it is a ruled line across the grass, hardest with
-    /// the original art, whose fairway has no edge pictures. So along each such edge the coarser grass's own picture runs a
+    /// Where a green, a tee or a fairway meets coarser grass (or rough meets the woods' floor, brush or rock), the tiles'
+    /// pictures meet in a straight line along the tile's edge: from above it reads as the course's plan, but from the
+    /// ground it is a ruled line across the grass, hardest with the original art, whose fairway has no edge pictures. So
+    /// along each such edge the coarser ground's own picture runs a
     /// little way onto the finer one, fading out over a width that wanders along the edge: a soft, uneven fringe, as mown
     /// grass meets longer grass on a real course. Edges where the ground steps (a raised tee or green) keep their wall.
     fn walk_fringes(&mut self, g: &mut Gfx, known: &HashMap<TextureId, (TextureId, f32)>, cat_avg: &[[f32; 3]]) -> Vec<(Part, u8)> {
-        use sg_core::terrain::{TT_DEEP_ROUGH, TT_FAIRWAY, TT_FIRM_FAIRWAY, TT_PUTTING_GREEN, TT_ROUGH, TT_TEE, TT_TRICKY_GREEN, TT_WOODS};
-        // how finely each kind is cut (None: not grass this deals with)
+        use sg_core::terrain::{
+            TT_BRUSH, TT_DEEP_ROUGH, TT_FAIRWAY, TT_FIRM_FAIRWAY, TT_MARSH, TT_OVERGROWTH, TT_OVERGROWTH2, TT_PUTTING_GREEN, TT_ROCK,
+            TT_ROUGH, TT_TEE, TT_TRICKY_GREEN, TT_WOODS,
+        };
+        // how finely each kind of ground is kept, finest highest (None: ground this leaves alone: sand, which has its
+        // bunker's shape, water, buildings, cliffs, the land beyond the property)
         let fine = |ty: i32| -> Option<u8> {
             match ty as u8 {
-                TT_PUTTING_GREEN | TT_TRICKY_GREEN => Some(3),
-                TT_TEE => Some(2),
-                TT_FAIRWAY | TT_FIRM_FAIRWAY => Some(1),
-                TT_ROUGH | TT_DEEP_ROUGH | TT_WOODS => Some(0),
+                TT_PUTTING_GREEN | TT_TRICKY_GREEN => Some(6),
+                TT_TEE => Some(5),
+                TT_FAIRWAY | TT_FIRM_FAIRWAY => Some(4),
+                TT_ROUGH => Some(3),
+                TT_DEEP_ROUGH => Some(2),
+                TT_WOODS => Some(1),
+                TT_BRUSH | TT_OVERGROWTH | TT_OVERGROWTH2 | TT_ROCK | TT_MARSH | 14 => Some(0),
                 _ => None,
             }
         };
@@ -555,7 +563,9 @@ impl App {
                         continue;
                     }
                     let Some(fb) = fine(t.type_at(nx, ny)) else { continue };
-                    if fb >= fa {
+                    // (the finer side takes the fringe; two kinds kept alike, the one of the higher number)
+                    let (ta, tb) = (t.type_at(x, y), t.type_at(nx, ny));
+                    if ta == tb || fb > fa || (fb == fa && tb > ta) {
                         continue;
                     }
                     // the coarser neighbour's picture
@@ -593,9 +603,10 @@ impl App {
                     };
                     // wider into a green's collar or a tee's surround than a fairway's edge, wandering along it
                     let base = match fa {
-                        3 => 0.10,
-                        2 => 0.12,
-                        _ => 0.22,
+                        6 => 0.10,
+                        5 => 0.12,
+                        4 => 0.22,
+                        _ => 0.3,
                     } * TILE_SIZE;
                     let width = |k: i32| {
                         // shared by the neighbouring edge at a tile's corner, so the fringe runs on round it

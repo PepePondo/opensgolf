@@ -91,7 +91,6 @@ impl Mat4 {
         Mat4(m)
     }
     /// The matrix times the point (x, y, z, 1): clip coordinates for a projection.
-    #[cfg(test)]
     pub fn apply(&self, p: [f32; 3]) -> [f32; 4] {
         let m = &self.0;
         let mut r = [0.0; 4];

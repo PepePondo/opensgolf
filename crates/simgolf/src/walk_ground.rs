@@ -141,6 +141,8 @@ pub struct Ground {
     pub sea: Option<Part>,
     /// The retaining walls where the ground steps and the cliff round the property, every side of them (`walk_walls`).
     pub walls: Vec<Part>,
+    /// Soft fringes where a finer cut of grass meets a coarser one (`walk_fringes`), drawn blended over the ground.
+    pub fringes: Vec<(Part, u8)>,
     /// The textures made for the walk (the skirt's, the de-featured copies), freed with it.
     own: Vec<TextureId>,
     /// The land beyond the edge.
@@ -156,7 +158,7 @@ impl Ground {
                 g.delete_mesh(p.mesh);
             }
         }
-        for p in self.skirt.into_iter().chain(self.sea).chain(self.walls) {
+        for p in self.skirt.into_iter().chain(self.sea).chain(self.walls).chain(self.fringes.into_iter().map(|f| f.0)) {
             g.delete_mesh(p.mesh);
         }
         for t in self.own {
@@ -511,7 +513,155 @@ impl App {
         let skirt_colour = if cat_sum[skirt_cat as usize][3] > 0.0 { cat_avg[skirt_cat as usize] } else { skirt_avg.unwrap_or([0.5; 3]) };
         let (skirt, sea) = walk_skirt(g, &beyond, skirt_tex, sea_tex, sea_level, skirt_cat, skirt_colour, wa);
         let walls = self.walk_walls(g);
-        Ground { key, chunks, water, skirt, sea, walls, own, beyond, water_colour: wa }
+        let fringes = self.walk_fringes(g, &known, &cat_avg);
+        Ground { key, chunks, water, skirt, sea, walls, fringes, own, beyond, water_colour: wa }
+    }
+
+    /// Where a green, a tee or a fairway meets coarser grass, the tiles' pictures meet in a straight line along the tile's
+    /// edge: from above it reads as the course's plan, but from the ground it is a ruled line across the grass, hardest with
+    /// the original art, whose fairway has no edge pictures. So along each such edge the coarser grass's own picture runs a
+    /// little way onto the finer one, fading out over a width that wanders along the edge: a soft, uneven fringe, as mown
+    /// grass meets longer grass on a real course. Edges where the ground steps (a raised tee or green) keep their wall.
+    fn walk_fringes(&mut self, g: &mut Gfx, known: &HashMap<TextureId, (TextureId, f32)>, cat_avg: &[[f32; 3]]) -> Vec<(Part, u8)> {
+        use sg_core::terrain::{TT_DEEP_ROUGH, TT_FAIRWAY, TT_FIRM_FAIRWAY, TT_PUTTING_GREEN, TT_ROUGH, TT_TEE, TT_TRICKY_GREEN, TT_WOODS};
+        // how finely each kind is cut (None: not grass this deals with)
+        let fine = |ty: i32| -> Option<u8> {
+            match ty as u8 {
+                TT_PUTTING_GREEN | TT_TRICKY_GREEN => Some(3),
+                TT_TEE => Some(2),
+                TT_FAIRWAY | TT_FIRM_FAIRWAY => Some(1),
+                TT_ROUGH | TT_DEEP_ROUGH | TT_WOODS => Some(0),
+                _ => None,
+            }
+        };
+        let terrain = self.terrain.clone();
+        let t = &terrain;
+        let (w, h) = (t.w, t.h);
+        let hash = |a: i32, b: i32, k: i32| {
+            let v = ((a as f32 * 12.9898 + b as f32 * 78.233 + k as f32 * 37.719).sin() * 43758.547).fract();
+            v.abs()
+        };
+        let mut by: HashMap<TextureId, (u8, Vec<Vert>)> = HashMap::new();
+        let theme = self.theme;
+        let mut tris = Vec::new();
+        let white = g.white;
+        const SEG: i32 = 6;
+        for y in 0..h {
+            for x in 0..w {
+                let Some(fa) = fine(t.type_at(x, y)) else { continue };
+                for (dx, dy) in [(1, 0), (-1, 0), (0, 1), (0, -1)] {
+                    let (nx, ny) = (x + dx, y + dy);
+                    if nx < 0 || ny < 0 || nx >= w || ny >= h {
+                        continue;
+                    }
+                    let Some(fb) = fine(t.type_at(nx, ny)) else { continue };
+                    if fb >= fa {
+                        continue;
+                    }
+                    // the coarser neighbour's picture
+                    tris.clear();
+                    sg_core::terrain::build_tile_triangles(t, nx, ny, &mut tris);
+                    let Some(tt) = tris.first() else { continue };
+                    let Some(tex) = self.catalog.pick(tt.tex_type, tt.set, 0).cloned().and_then(|p| self.texture_for(g, &p)) else {
+                        continue;
+                    };
+                    if tex == white {
+                        continue;
+                    }
+                    // the shared edge, in world units, and the way into this tile
+                    let ox = x as f32 * TILE_SIZE - w as f32 * TILE_SIZE * 0.5;
+                    let oz = y as f32 * TILE_SIZE - h as f32 * TILE_SIZE * 0.5;
+                    let (bx0, bz0) = (ox + dx as f32 * TILE_SIZE, oz + dy as f32 * TILE_SIZE);
+                    let (p0, p1, inward) = match (dx, dy) {
+                        (1, _) => ((ox + TILE_SIZE, oz), (ox + TILE_SIZE, oz + TILE_SIZE), (-1.0, 0.0)),
+                        (-1, _) => ((ox, oz), (ox, oz + TILE_SIZE), (1.0, 0.0)),
+                        (_, 1) => ((ox, oz + TILE_SIZE), (ox + TILE_SIZE, oz + TILE_SIZE), (0.0, -1.0)),
+                        _ => ((ox, oz), (ox + TILE_SIZE, oz), (0.0, 1.0)),
+                    };
+                    // a step in the ground here: the wall stands, no fringe
+                    let mid = ((p0.0 + p1.0) * 0.5, (p0.1 + p1.1) * 0.5);
+                    let e = 0.05 * TILE_SIZE;
+                    let (ha, hb) =
+                        (t.height_at(mid.0 + inward.0 * e, mid.1 + inward.1 * e), t.height_at(mid.0 - inward.0 * e, mid.1 - inward.1 * e));
+                    if (ha - hb).abs() > 0.25 * crate::walk::METRE {
+                        continue;
+                    }
+                    // the picture of the neighbour mirrored across the edge, so it runs on without a seam
+                    let uv = |px: f32, pz: f32| {
+                        let (mx, mz) = (px - inward.0 * 2.0 * ((px - p0.0) * inward.0), pz - inward.1 * 2.0 * ((pz - p0.1) * inward.1));
+                        ((mx - bx0) / TILE_SIZE, (mz - bz0) / TILE_SIZE)
+                    };
+                    // wider into a green's collar or a tee's surround than a fairway's edge, wandering along it
+                    let base = match fa {
+                        3 => 0.10,
+                        2 => 0.12,
+                        _ => 0.22,
+                    } * TILE_SIZE;
+                    let width = |k: i32| {
+                        // shared by the neighbouring edge at a tile's corner, so the fringe runs on round it
+                        let (cx, cz) = (p0.0 + (p1.0 - p0.0) * k as f32 / SEG as f32, p0.1 + (p1.1 - p0.1) * k as f32 / SEG as f32);
+                        base * (0.45 + 1.1 * hash((cx * 0.37) as i32, (cz * 0.53) as i32, fa as i32))
+                    };
+                    // drawn as the neighbour's ground is (its category and that's colour), fading out by alpha
+                    let c = category(tt.tex_type, theme);
+                    let rgb = cat_avg.get(c as usize & 15).copied().unwrap_or([0.5; 3]);
+                    let list = &mut by.entry(tex).or_insert_with(|| (c, Vec::new())).1;
+                    let lift = 0.03 * crate::walk::METRE;
+                    let vert = |px: f32, pz: f32, a: f32| {
+                        let (u, v) = uv(px, pz);
+                        let mut vv = Vert::new(px, t.height_at(px, pz) + lift, pz, u, v).col([rgb[0], rgb[1], rgb[2], a]);
+                        vv.normal = [0.0, 1.0, 0.0];
+                        vv
+                    };
+                    for k in 0..SEG {
+                        let f = |k: i32| (p0.0 + (p1.0 - p0.0) * k as f32 / SEG as f32, p0.1 + (p1.1 - p0.1) * k as f32 / SEG as f32);
+                        let (a, b) = (f(k), f(k + 1));
+                        let (wa, wb) = (width(k), width(k + 1));
+                        // three bands: solid at the edge, half way, gone
+                        let rows = [(0.0, 0.95), (0.45, 0.6), (1.0, 0.0)];
+                        for r in 0..2 {
+                            let (s0, a0) = rows[r];
+                            let (s1, a1) = rows[r + 1];
+                            let q = [
+                                vert(a.0 + inward.0 * wa * s0, a.1 + inward.1 * wa * s0, a0),
+                                vert(b.0 + inward.0 * wb * s0, b.1 + inward.1 * wb * s0, a0),
+                                vert(b.0 + inward.0 * wb * s1, b.1 + inward.1 * wb * s1, a1),
+                                vert(a.0 + inward.0 * wa * s1, a.1 + inward.1 * wa * s1, a1),
+                            ];
+                            // (wound to face up, whichever way the edge runs)
+                            let up = (q[1].pos[0] - q[0].pos[0]) * (q[3].pos[2] - q[0].pos[2])
+                                - (q[1].pos[2] - q[0].pos[2]) * (q[3].pos[0] - q[0].pos[0]);
+                            if up < 0.0 {
+                                list.extend([q[0], q[1], q[2], q[0], q[2], q[3]]);
+                            } else {
+                                list.extend([q[0], q[2], q[1], q[0], q[3], q[2]]);
+                            }
+                        }
+                    }
+                }
+            }
+        }
+        if std::env::var_os("SG_WALK_DUMP").is_some() {
+            let mut pairs: HashMap<(i32, i32), usize> = HashMap::new();
+            for y in 0..h - 1 {
+                for x in 0..w - 1 {
+                    for (a, b) in [((x, y), (x + 1, y)), ((x, y), (x, y + 1))] {
+                        let (ta, tb) = (t.type_at(a.0, a.1), t.type_at(b.0, b.1));
+                        if ta != tb {
+                            *pairs.entry((ta.min(tb), ta.max(tb))).or_default() += 1;
+                        }
+                    }
+                }
+            }
+            println!("walk ground edges by type pair: {pairs:?}");
+            println!("walk fringes: {} textures, {} triangles", by.len(), by.values().map(|v| v.1.len() / 3).sum::<usize>());
+        }
+        by.into_iter()
+            .map(|(tex, (c, v))| {
+                let (clean, size) = known.get(&tex).copied().unwrap_or((tex, 64.0));
+                (Part { tex, clean, mesh: g.mesh(&v), size }, c)
+            })
+            .collect()
     }
 
     /// The walls the ground's steps and the property's edge show from eye level. The overhead view builds them only on the

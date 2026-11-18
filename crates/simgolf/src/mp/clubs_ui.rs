@@ -260,7 +260,7 @@ impl App {
         } else if BACK.has(x, y) || !BOX.has(x, y) {
             self.close_clubs_page();
         } else if let List::Rows(rows) = &p.list {
-            if x >= BOX.x + 24.0 && x < BOX.x + BOX.w - 24.0 && y >= LIST_TOP {
+            if (BOX.x + 24.0..BOX.x + BOX.w - 24.0).contains(&x) && y >= LIST_TOP {
                 let k = ((y - LIST_TOP) / ROW_H) as usize;
                 if k < rows.len().min(ROWS) {
                     if p.picked == Some(k) {

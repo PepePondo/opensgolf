@@ -5,8 +5,12 @@ use super::challenge::Challenge;
 use serde::Serialize;
 use sg_core::scenario::Facts;
 
-/// The leaderboard Worker (not deployed yet: the address is set when it is).
-pub const BOARD_URL: &str = "https://opensgolf-board.example.invalid";
+/// The multiplayer Worker (the board and the shared clubs, multiplayer/worker): where `wrangler deploy` puts it on the
+/// project's Cloudflare account. A build may name another with OPENSGOLF_BOARD_URL set when it is compiled.
+pub const BOARD_URL: &str = match option_env!("OPENSGOLF_BOARD_URL") {
+    Some(u) => u,
+    None => "https://opensgolf-board.openmcm2-laps.workers.dev",
+};
 
 /// What the Worker reads (multiplayer/worker/src/index.js `readResult`).
 #[derive(Serialize)]

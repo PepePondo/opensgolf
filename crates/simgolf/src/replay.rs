@@ -527,7 +527,7 @@ impl App {
     }
 
     /// What the log's start holds besides the save.
-    fn log_start(&self) -> Start {
+    pub(crate) fn log_start(&self) -> Start {
         let c = &self.club;
         Start {
             tick: self.game_tick,
@@ -559,7 +559,7 @@ impl App {
     }
 
     /// The fingerprint's sections and the club's, the economy's and the course's fields, by name.
-    fn start_parts(&self) -> Vec<(String, u64)> {
+    pub(crate) fn start_parts(&self) -> Vec<(String, u64)> {
         let mut v: Vec<(String, u64)> = self.fingerprint().parts.into_iter().map(|(k, h)| (k.to_string(), h)).collect();
         v.extend(self.fingerprint_field_list());
         v
@@ -759,23 +759,9 @@ impl App {
         encode_replay(&self.rec.base, &log).ok()
     }
 
-    /// Starts a replay: the game the file's log starts from is loaded, with what no save keeps, and its actions are played
-    /// at their ticks from the next tick on.
-    pub fn start_replay(&mut self, g: Option<&mut crate::gfx::Gfx>, data: &[u8]) -> Result<(), String> {
-        let (save, log) = decode_replay(data)?;
-        let s = read_save_bytes(&save, "replay")?;
-        self.keep_plan_on_load = log.start.planned;
-        let r = match g {
-            Some(g) => self.load_save(g, s),
-            None => {
-                self.undo.clear();
-                self.editor = None;
-                self.load_save_into(None, s, false)
-            }
-        };
-        self.keep_plan_on_load = false;
-        r?;
-        let st = &log.start;
+    /// What no save keeps, as a log's start holds it, put back in the game just loaded (a replay; a shared club's save,
+    /// mp/club.rs).
+    pub(crate) fn apply_start(&mut self, st: &Start) {
         for (g, &(sx, sy)) in self.club.g.iter_mut().zip(&st.screen) {
             g.sx = sx;
             g.sy = sy;
@@ -806,6 +792,26 @@ impl App {
         self.speed = st.speed.max(1);
         self.rec.sim_speed = self.speed;
         self.club.turbo = self.speed > 1;
+    }
+
+    /// Starts a replay: the game the file's log starts from is loaded, with what no save keeps, and its actions are played
+    /// at their ticks from the next tick on.
+    pub fn start_replay(&mut self, g: Option<&mut crate::gfx::Gfx>, data: &[u8]) -> Result<(), String> {
+        let (save, log) = decode_replay(data)?;
+        let s = read_save_bytes(&save, "replay")?;
+        self.keep_plan_on_load = log.start.planned;
+        let r = match g {
+            Some(g) => self.load_save(g, s),
+            None => {
+                self.undo.clear();
+                self.editor = None;
+                self.load_save_into(None, s, false)
+            }
+        };
+        self.keep_plan_on_load = false;
+        r?;
+        let st = &log.start;
+        self.apply_start(st);
         self.rec.pending = false;
         self.rec.base = save;
         let now = self.replay_hash();

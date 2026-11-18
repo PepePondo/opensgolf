@@ -3148,6 +3148,11 @@ impl App {
         // test hook SG_MP_STEP=S: at most S seconds of play a frame, so a scripted run draws between ticks (mp/lockstep.rs)
         #[cfg(feature = "multiplayer")]
         let to = crate::mp::lockstep::frame_target(self.sim_time, to);
+        // a shared club plays its own clock's ticks (mp/club.rs club_frame): the game's stands still
+        #[cfg(feature = "multiplayer")]
+        if self.club_on() {
+            self.sim_time = to;
+        }
         while self.sim_time < to && self.great_shot.is_none() && !self.comfort.hold {
             let t0 = now();
             self.step_game(1.0 / 60.0);

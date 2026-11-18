@@ -181,14 +181,14 @@ impl App {
 }
 
 #[cfg(test)]
-mod tests {
+pub(crate) mod tests {
     use super::super::session::{Room, Session, ToGame, LEAD_MS};
     use super::*;
     use sg_core::action::Action;
     use sg_core::terrain::Terrain;
 
     /// A flat fairway with hole 1 planned from 10,10 to 10,30 (app.rs's building_game), in a shared game as `me`.
-    fn shared_game(me: u32) -> App {
+    pub(crate) fn shared_game(me: u32) -> App {
         let mut a = App::with_clock(std::path::PathBuf::new(), 4242);
         let n = sg_core::mapsize::ORIGINAL;
         let tiles = (n * n) as usize;
@@ -209,7 +209,7 @@ mod tests {
     }
 
     /// The terrain brush `ty` (app.rs PAINT: 4 rough, 13 woods, which plants trees) on these tiles.
-    fn paint(ty: i32, tiles: &[(i32, i32)]) -> Action {
+    pub(crate) fn paint(ty: i32, tiles: &[(i32, i32)]) -> Action {
         Action::Paint { ty, vbyte: 0, turn: None, look: None, tiles: tiles.to_vec(), tee: 0 }
     }
 

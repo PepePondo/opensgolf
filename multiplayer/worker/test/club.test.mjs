@@ -72,7 +72,7 @@ test("a joiner gets the save and every action since it, in order", async () => {
   const j = await join(k, P2);
   const got = j.take();
   assert.equal(got[0].Welcome.me, 2);
-  assert.deepEqual(got[1], { Save: { tick: 40, data: "SAVE" } });
+  assert.deepEqual(got[1], { Save: { tick: 40, data: "SAVE", extra: "" } });
   assert.deepEqual(got.slice(2, 4).map((m) => m.Act.action), [{ speed: 1 }, { paint: [1, 2] }]);
   assert.deepEqual(got[4], { Players: [{ me: 1, nick: "aa" }, { me: 2, nick: "bb" }] });
   assert.equal(got.length, 5);

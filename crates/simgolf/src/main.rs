@@ -1867,6 +1867,11 @@ impl Stage {
     }
 
     fn toggle_pause(&mut self) {
+        // in a shared club the pause is everyone's (mp/club.rs)
+        #[cfg(feature = "multiplayer")]
+        if self.app.club_pause_toggle() {
+            return;
+        }
         let t = now();
         self.app.paused = !self.app.paused;
         // the player's own pause or unpause: no longer one the comfort pauses made (comfort.rs)
@@ -3580,7 +3585,11 @@ impl EventHandler for Stage {
         // "Check for updates": the answer from GitHub (update.rs), and "Update now" under way (autoupdate.rs)
         self.app.poll_update_check();
         #[cfg(feature = "multiplayer")]
-        self.app.rival_poll();
+        {
+            self.app.rival_poll();
+            // a shared club's network and ticks (mp/club.rs)
+            self.app.club_frame(Some(&mut self.g));
+        }
         #[cfg(all(not(target_arch = "wasm32"), feature = "net"))]
         self.app.poll_update_job();
         // the course editor: the browser's file picker, and the editor left for the title menu (editor.rs)
@@ -3654,7 +3663,14 @@ impl EventHandler for Stage {
         // the play-time count at each 15 minutes of that time, and its one-time notice (playcount.rs)
         app.playcount_frame();
         // the exe's fast mode follows the speed the game is played at (replay.rs: a replay's own, whatever the keys say)
-        app.club.turbo = app.rec.sim_speed > 1;
+        #[cfg(feature = "multiplayer")]
+        let shared = crate::mp::lockstep::on();
+        #[cfg(not(feature = "multiplayer"))]
+        let shared = false;
+        // (a shared game's is set by the speed action at its stamped tick, never by the frame: mp/lockstep.rs)
+        if !shared {
+            app.club.turbo = app.rec.sim_speed > 1;
+        }
         let (w, h) = window::screen_size();
         app.draw_w = w.max(1.0);
         app.draw_h = h.max(1.0);

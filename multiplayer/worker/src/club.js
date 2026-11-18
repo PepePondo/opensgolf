@@ -56,7 +56,7 @@ export class Club {
     this.sql = ctx.storage.sql;
     this.sql.exec(`CREATE TABLE IF NOT EXISTS meta (k TEXT PRIMARY KEY, v TEXT NOT NULL)`);
     this.sql.exec(`CREATE TABLE IF NOT EXISTS log (seq INTEGER PRIMARY KEY, tick INTEGER NOT NULL, msg TEXT NOT NULL)`);
-    this.sql.exec(`CREATE TABLE IF NOT EXISTS save (id INTEGER PRIMARY KEY, tick INTEGER NOT NULL, data TEXT NOT NULL)`);
+    this.sql.exec(`CREATE TABLE IF NOT EXISTS save (id INTEGER PRIMARY KEY, tick INTEGER NOT NULL, data TEXT NOT NULL, extra TEXT NOT NULL DEFAULT '')`);
     this.sql.exec(`CREATE TABLE IF NOT EXISTS seats (player TEXT PRIMARY KEY, me INTEGER NOT NULL)`);
     this.checks = new Map(); // tick -> the first hash sent (kept in memory: a lost one only skips a check)
     this.asked = null; // {tick, me}: a save asked for
@@ -86,7 +86,7 @@ export class Club {
   }
 
   saved() {
-    return this.sql.exec(`SELECT tick, data FROM save WHERE id = 1`).toArray()[0] || null;
+    return this.sql.exec(`SELECT tick, data, extra FROM save WHERE id = 1`).toArray()[0] || null;
   }
 
   savedTick() {
@@ -245,7 +245,7 @@ export class Club {
       this.send(ws, { SaveAsk: this.room.clock.base_tick });
     } else {
       this.send(ws, { Welcome: { me, ms: now, clock: this.room.clock } });
-      this.send(ws, { Save: { tick: save.tick, data: save.data } });
+      this.send(ws, { Save: { tick: save.tick, data: save.data, extra: save.extra } });
       for (const r of this.sql.exec(`SELECT msg FROM log WHERE tick >= ? ORDER BY tick, seq`, save.tick)) this.send(ws, JSON.parse(r.msg));
       if (others.length === 0 && this.room.clock.rate === 0 && this.want > 0) this.publish(this.room.setRate(now, me, this.want));
     }
@@ -259,8 +259,9 @@ export class Club {
     if (have !== null && s.tick < have) return;
     if (s.tick > tickAt(this.room.clock, now)) return; // a save from ahead of the clock can't be right
     if (this.asked && this.asked.me !== a.me) return; // only the player asked
-    this.sql.exec(`INSERT INTO save (id, tick, data) VALUES (1, ?, ?) ON CONFLICT (id) DO UPDATE SET tick = excluded.tick,
-      data = excluded.data`, s.tick, s.data);
+    const extra = typeof s.extra === "string" ? s.extra : "";
+    this.sql.exec(`INSERT INTO save (id, tick, data, extra) VALUES (1, ?, ?, ?) ON CONFLICT (id) DO UPDATE SET
+      tick = excluded.tick, data = excluded.data, extra = excluded.extra`, s.tick, s.data, extra);
     this.sql.exec(`DELETE FROM log WHERE tick < ?`, s.tick);
     this.asked = null;
     if (have === null && this.want > 0) this.publish(this.room.setRate(now, a.me, this.want)); // the new club starts

@@ -81,6 +81,9 @@ pub enum ToServer {
     Save {
         tick: u32,
         data: String,
+        /// The shared game's state the save file leaves out (club.rs Extra), as JSON.
+        #[serde(default)]
+        extra: String,
     },
     /// A hash of the game when it had played up to `tick`: a game whose hash differs from the first one sent is
     /// told to load again ([`ToGame::Reload`]).
@@ -110,6 +113,9 @@ pub enum ToGame {
     Save {
         tick: u32,
         data: String,
+        /// The shared game's state the save file leaves out (club.rs Extra), as JSON.
+        #[serde(default)]
+        extra: String,
     },
     Act(Stamped),
     Clock(Clock),

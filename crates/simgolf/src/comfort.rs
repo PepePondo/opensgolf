@@ -84,6 +84,11 @@ impl App {
 
     /// After a club tick that brought news: the game pauses (when it is running) and the frame's other ticks are dropped.
     pub fn pause_for_news(&mut self) {
+        // a shared game never holds (its clock is everyone's: mp/lockstep.rs)
+        #[cfg(feature = "multiplayer")]
+        if crate::mp::lockstep::on() {
+            return;
+        }
         if self.paused {
             return;
         }

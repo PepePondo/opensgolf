@@ -1,0 +1,110 @@
+name: determinism across platforms
+
+# Does the same scripted game play exactly the same on every platform? Each runner builds OpenSGolf, plays the scripted
+# game of tools/determinism_check.sh on the free base set (no original game files) with the simulation fingerprint on,
+# and the compare job checks every platform's fingerprints against Linux x86-64's, tick by tick
+# (tools/xplat_compare.sh). This is the groundwork for a shared course, where every player's computer runs the same game.
+# Run it by hand only (Actions > determinism across platforms > Run workflow): in this private repository Actions
+# minutes are limited, and macOS minutes count ten times.
+on:
+  workflow_dispatch:
+    inputs:
+      time:
+        description: "Seconds of play to simulate (one game tick is 87 ms)"
+        default: "1800"
+
+concurrency:
+  group: determinism-xplat-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  TIME: ${{ inputs.time || '1800' }}
+  # the property's land with --clock 4242: a hole, a groundskeeper and a soda vendor, a celebrity's home and the pro's
+  # practice round (the same edit as tools/determinism_check.sh)
+  EDIT: "t:16,30,0;t:32,24,1;p:20,29,2,0,1;p:24,28,2,0,1;p:28,26,2,0,1;o;h:2,24,27;h:3,22,26;y:36,20;j:0"
+
+jobs:
+  play:
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - { os: ubuntu-latest, name: linux-x86_64 }
+          - { os: ubuntu-24.04-arm, name: linux-arm64 }
+          - { os: macos-latest, name: macos-arm64 }
+          - { os: macos-15-intel, name: macos-x86_64 }
+          - { os: windows-latest, name: windows-x86_64 }
+          - { os: windows-11-arm, name: windows-arm64 }
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
+      - name: Linux packages
+        if: runner.os == 'Linux'
+        run: |
+          sudo apt-get -o Acquire::Retries=5 update
+          sudo apt-get -o Acquire::Retries=5 install -y libasound2-dev libudev-dev xvfb libgl1-mesa-dri fonts-dejavu-core
+      - name: Build
+        run: cargo build --release -p opensgolf
+      # Windows runners have no OpenGL driver: put Mesa's software OpenGL next to the game
+      - name: Software OpenGL (Windows)
+        if: runner.os == 'Windows'
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release download -R pal1000/mesa-dist-win -p '*release-msvc.7z' -O mesa.7z
+          7z x -omesa mesa.7z > /dev/null
+          arch=x64
+          [ "${{ matrix.name }}" = windows-arm64 ] && [ -d mesa/arm64 ] && arch=arm64
+          ls mesa
+          cp mesa/$arch/*.dll target/release/
+      - name: Play the scripted game
+        shell: bash
+        env:
+          SG_FINGERPRINT_PARTS: "1"
+          LIBGL_ALWAYS_SOFTWARE: "1"
+          GALLIUM_DRIVER: llvmpipe
+        run: |
+          mkdir -p out/save
+          exe=target/release/opensgolf
+          [ "$RUNNER_OS" = Windows ] && exe=$exe.exe
+          run=""
+          [ "$RUNNER_OS" = Linux ] && run="xvfb-run -a"
+          OPENSGOLF_SAVE_DIR="$PWD/out/save" SG_FINGERPRINT="$PWD/out/${{ matrix.name }}.fp" \
+            $run "$exe" --game "$PWD/out/no-game-folder" --mute --size 800x600 --png "out/${{ matrix.name }}.png" \
+            --property 0 --clock 4242 --edit "$EDIT" --time "$TIME" > "out/${{ matrix.name }}.log" 2>&1 || echo "exit $?"
+          tail -5 "out/${{ matrix.name }}.log"
+          test -s "out/${{ matrix.name }}.fp"
+          echo "$(grep -c . "out/${{ matrix.name }}.fp") game ticks"
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: fp-${{ matrix.name }}
+          path: out/${{ matrix.name }}.*
+          if-no-files-found: warn
+
+  compare:
+    needs: play
+    if: always()
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/download-artifact@v4
+        with:
+          pattern: fp-*
+          merge-multiple: true
+          path: fp
+      - name: Compare with Linux x86-64
+        shell: bash
+        run: |
+          ls fp
+          others=$(ls fp/*.fp | grep -v linux-x86_64)
+          tools/xplat_compare.sh fp/linux-x86_64.fp $others | tee report.txt
+          { echo '```'; cat report.txt; echo '```'; } >> "$GITHUB_STEP_SUMMARY"
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: report
+          path: report.txt

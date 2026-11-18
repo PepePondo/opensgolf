@@ -3755,7 +3755,11 @@ impl EventHandler for Stage {
         }
         if let Some(out) = self.png_out.clone() {
             // (an import the test hook started finishes first: it starts the program again on the files)
-            if self.frames >= 2 && !gamefiles::importing() {
+            #[cfg(feature = "multiplayer")]
+            let mp_wait = crate::mp::lockstep::test_waiting(&self.app);
+            #[cfg(not(feature = "multiplayer"))]
+            let mp_wait = false;
+            if self.frames >= 2 && !gamefiles::importing() && !mp_wait {
                 // SG_FX_BENCH=N: the frame time over N frames drawn offscreen (Classic or with the effects), for measuring
                 if let Some(n) = std::env::var("SG_FX_BENCH").ok().and_then(|v| v.parse::<u32>().ok()) {
                     self.bench(n.max(1));

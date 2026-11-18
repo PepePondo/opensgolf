@@ -587,6 +587,11 @@ impl App {
     /// hole being built again after a terrain change. During a replay only the log's do it. Returns false when the caller
     /// must leave it.
     pub(crate) fn sync_hook(&mut self) -> bool {
+        // a shared game brings the course up to date at each tick's start only (mp/lockstep.rs)
+        #[cfg(feature = "multiplayer")]
+        if crate::mp::lockstep::on() {
+            return self.rec.depth > 0;
+        }
         if self.rec.depth > 0 || self.rec.log.is_none() && !self.rec.replaying() {
             return true;
         }
@@ -612,6 +617,8 @@ impl App {
             }
         }
         self.rec.depth += 1;
+        #[cfg(feature = "multiplayer")]
+        self.lockstep_tick();
     }
 
     /// The end of a game tick: every [`CHECK_EVERY`] ticks a hash of the game goes on the log.
@@ -652,6 +659,10 @@ impl App {
     /// The flags the simulation is handed before a tick: from the screen during play (logged when they change), the log's
     /// during a replay.
     pub(crate) fn tick_flags(&mut self) -> TickFlags {
+        #[cfg(feature = "multiplayer")]
+        if crate::mp::lockstep::on() {
+            return crate::mp::lockstep::FLAGS;
+        }
         if let Some(r) = &self.rec.replay {
             return r.flags;
         }
@@ -706,6 +717,10 @@ impl App {
     /// During play it is measured in the frame's view, and logged when it changes anything; during a replay only the log's
     /// measures count.
     pub(crate) fn screen_hook(&mut self) {
+        #[cfg(feature = "multiplayer")]
+        if crate::mp::lockstep::on() {
+            return self.lockstep_screen();
+        }
         if self.rec.replaying() {
             return;
         }

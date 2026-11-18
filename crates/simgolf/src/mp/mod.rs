@@ -3,6 +3,7 @@
 //!
 //! * [`challenge`]: the weekly rival-courses challenge, the same for everyone each ISO week.
 //! * [`lobby`]: the weekly challenge's page (nickname, group, the board, turning Multiplayer on).
+//! * [`lockstep`]: a shared game's simulation, with nothing the screen, the art or the drawing's clock sees reaching it.
 //! * [`result`]: a finished challenge's result, as the leaderboard Worker (multiplayer/worker) reads it.
 //! * [`rival`]: the weekly challenge in the game (a Start New Game row) and its result sent when 2001 ends.
 //! * [`settings`]: the player's own settings.json key (on, id, nickname, group).
@@ -12,6 +13,7 @@
 
 pub mod challenge;
 pub mod lobby;
+pub mod lockstep;
 pub mod result;
 pub mod rival;
 pub mod settings;

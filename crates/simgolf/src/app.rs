@@ -2083,6 +2083,11 @@ impl App {
         if self.rec.replaying() {
             return;
         }
+        // a shared game's are set in its ticks (mp/lockstep.rs)
+        #[cfg(feature = "multiplayer")]
+        if crate::mp::lockstep::on() {
+            return;
+        }
         let camera = 2 * ((self.rot / 90.0).round() as i32).rem_euclid(4);
         if self.tee_arrows_change(camera) {
             self.log_tee_arrows(camera);
@@ -2091,7 +2096,7 @@ impl App {
     }
 
     /// Whether the tees' arrows for the view turned `camera` differ from those the tiles hold.
-    fn tee_arrows_change(&self, camera: i32) -> bool {
+    pub(crate) fn tee_arrows_change(&self, camera: i32) -> bool {
         self.tee_arrow_tiles(camera).iter().any(|&(o, v)| self.terrain.variation[o] != v)
     }
 
@@ -2223,6 +2228,10 @@ impl App {
     /// last frame of the tree or bed piece ends the growing (sg_core::decor::sprout_frame), and the plants are then drawn
     /// again as grown ones, exactly as they are drawn after a load.
     fn update_tree_growth(&mut self) {
+        #[cfg(feature = "multiplayer")]
+        if crate::mp::lockstep::on() {
+            return self.lockstep_tree_growth();
+        }
         let ticks = self.game_tick.wrapping_sub(self.sprout_tick);
         self.sprout_tick = self.game_tick;
         let hold = sprout_hold();
@@ -3130,7 +3139,11 @@ impl App {
         if self.editor.is_some() {
             self.sim_time = self.time;
         }
-        while self.sim_time < self.time && self.great_shot.is_none() && !self.comfort.hold {
+        let to = self.time;
+        // test hook SG_MP_STEP=S: at most S seconds of play a frame, so a scripted run draws between ticks (mp/lockstep.rs)
+        #[cfg(feature = "multiplayer")]
+        let to = crate::mp::lockstep::frame_target(self.sim_time, to);
+        while self.sim_time < to && self.great_shot.is_none() && !self.comfort.hold {
             let t0 = now();
             self.step_game(1.0 / 60.0);
             tick_bench_add(now() - t0);
@@ -4936,13 +4949,17 @@ impl App {
         let mut out = Vec::new();
         {
             let weed_frames = self.weed_sprite.map(|w| self.sprites[w].s.frames_per_view).unwrap_or(1);
+            let clicked = self.hover_tile;
+            // a shared game's are fixed (mp/lockstep.rs)
+            #[cfg(feature = "multiplayer")]
+            let (weed_frames, clicked) = crate::mp::lockstep::staff_inputs(weed_frames, clicked);
             let club = self.club_anchor();
             let mut world = staff::World {
                 terrain: &self.terrain,
                 tiles: &mut self.staff_tiles,
                 golfers: &mut self.staff_golfers,
                 club,
-                clicked: self.hover_tile,
+                clicked,
                 follow_pointer: self.club.holes[1].par == 0,
                 tick: self.game_tick,
                 difficulty: self.difficulty,
@@ -5228,7 +5245,7 @@ impl App {
     /// The generated land's objects as the exe draws them: landmarks (sprite 0x168 + type, animated, facing one of four ways)
     /// and buildings (layers by kind, theme and level; level 2 once the course has more than 10 holes), each standing in the
     /// middle of its footprint.
-    fn add_land_objects(&mut self) {
+    pub(crate) fn add_land_objects(&mut self) {
         let Some(land) = self.land.clone() else { return };
         let theme = land.slot.record().theme;
         let exe_theme = self.exe_theme();

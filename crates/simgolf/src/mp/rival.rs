@@ -4,8 +4,8 @@
 //! The game is an ordinary scenario game whose scenario id is `*rival/<week>` (never a pack id: packs can't start with
 //! `*`), so the save already remembers which week it is and nothing new goes into the save format.
 //!
-//! The hooks outside this folder, each one line behind the `multiplayer` feature: scenario_ui.rs (the row, and starting
-//! it), app.rs (the year end) and main.rs (polling the send each frame).
+//! The hooks outside this folder, each one line behind the `multiplayer` feature: scenario_ui.rs (the row, picking it,
+//! and the page's draw, click and key), app.rs (the year end) and main.rs (polling each frame, typed characters).
 
 use super::challenge::{self, Challenge, Measure};
 use super::{result, settings};
@@ -25,7 +25,7 @@ thread_local! {
 }
 
 /// The board's address: OPENSGOLF_BOARD_URL when set (a local Worker, for tests), else the real one.
-fn board_url() -> String {
+pub fn board_url() -> String {
     std::env::var("OPENSGOLF_BOARD_URL").ok().filter(|u| !u.is_empty()).unwrap_or_else(|| result::BOARD_URL.to_string())
 }
 
@@ -73,11 +73,8 @@ pub fn scenario(c: &Challenge) -> Scenario {
     }
 }
 
-/// The rows Start New Game adds: this week's challenge while Multiplayer is on.
+/// The row Start New Game adds: this week's challenge (its page is where Multiplayer is turned on, lobby.rs).
 pub fn entries() -> Vec<ScenarioEntry> {
-    if !settings::get().on {
-        return Vec::new();
-    }
     let c = challenge::this_week(now_s());
     let sc = scenario(&c);
     vec![ScenarioEntry {
@@ -89,6 +86,16 @@ pub fn entries() -> Vec<ScenarioEntry> {
 }
 
 impl App {
+    /// Start New Game's row picked: its page (lobby.rs) on Start New Game, else (the `--scenario` test hook) the game at
+    /// once. False when `id` isn't a week's challenge.
+    pub fn pick_rival(&mut self, g: &mut Gfx, id: &str) -> bool {
+        if self.screen == crate::app::Screen::Scenarios && self.ui_ok {
+            self.open_rival_lobby(id)
+        } else {
+            self.start_rival(g, id)
+        }
+    }
+
     /// Starts a week's challenge (`id` is the row's scenario id); false when it isn't one.
     pub fn start_rival(&mut self, g: &mut Gfx, id: &str) -> bool {
         let Some(c) = challenge_of(Some(id)) else { return false };
@@ -138,6 +145,7 @@ impl App {
 
     /// Each frame: the board's answer to a result sent.
     pub fn rival_poll(&mut self) {
+        super::lobby::poll();
         let Some(reply) = SENDING.with(|r| {
             let mut r = r.borrow_mut();
             let reply = r.as_mut()?.poll()?;

@@ -4361,6 +4361,8 @@ impl EventHandler for Stage {
         self.app.save_char(c);
         self.app.profile_char(c);
         self.app.cust_char(c);
+        #[cfg(feature = "multiplayer")]
+        self.app.rival_lobby_char(c);
     }
 
     fn touch_event(&mut self, phase: TouchPhase, id: u64, x: f32, y: f32) {

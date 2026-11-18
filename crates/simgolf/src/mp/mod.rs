@@ -2,6 +2,7 @@
 //! feature, and even then off until the player turns the Multiplayer extra on.
 //!
 //! * [`challenge`]: the weekly rival-courses challenge, the same for everyone each ISO week.
+//! * [`lobby`]: the weekly challenge's page (nickname, group, the board, turning Multiplayer on).
 //! * [`result`]: a finished challenge's result, as the leaderboard Worker (multiplayer/worker) reads it.
 //! * [`rival`]: the weekly challenge in the game (a Start New Game row) and its result sent when 2001 ends.
 //! * [`settings`]: the player's own settings.json key (on, id, nickname, group).
@@ -10,6 +11,7 @@
 #![allow(dead_code)]
 
 pub mod challenge;
+pub mod lobby;
 pub mod result;
 pub mod rival;
 pub mod settings;

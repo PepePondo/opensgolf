@@ -129,6 +129,10 @@ impl App {
 
     /// A click on the Start New Game screen.
     pub fn scenarios_click(&mut self, g: &mut Gfx, x: f32, y: f32) {
+        #[cfg(feature = "multiplayer")]
+        if self.rival_lobby_click(g, x, y) {
+            return;
+        }
         if Rect::new(BOX.x + BOX.w - 70.0, BOX.y + BOX.h - 58.0, 50.0, 50.0).has(x, y) {
             return self.scenario_go(g);
         }
@@ -164,6 +168,10 @@ impl App {
     /// Keys: Up and Down pick, Enter starts, Esc goes back to the title.
     pub fn scenarios_key(&mut self, g: &mut Gfx, k: miniquad::KeyCode) {
         use miniquad::KeyCode;
+        #[cfg(feature = "multiplayer")]
+        if self.rival_lobby_key(g, k) {
+            return;
+        }
         let n = self.scenario_rows();
         match k {
             KeyCode::Escape => self.screen = Screen::Menu,
@@ -211,7 +219,7 @@ impl App {
         self.scen.chosen = None;
         // the weekly challenge's row (mp/rival.rs)
         #[cfg(feature = "multiplayer")]
-        if self.scen.list.get(k).map(|e| e.id.clone()).is_some_and(|id| self.start_rival(g, &id)) {
+        if self.scen.list.get(k).map(|e| e.id.clone()).is_some_and(|id| self.pick_rival(g, &id)) {
             return;
         }
         // a scenario is played on the original's map size (one with its own course takes that course's size)
@@ -282,6 +290,10 @@ impl App {
 
     pub fn draw_scenarios(&mut self, g: &mut Gfx) {
         use crate::info_ui::c15;
+        #[cfg(feature = "multiplayer")]
+        if self.rival_lobby_draw(g) {
+            return;
+        }
         let s = Ui::new(self.draw_w, self.draw_h);
         self.view = s.view;
         crate::info_ui::dim(g, &s);

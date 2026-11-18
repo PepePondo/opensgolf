@@ -212,6 +212,8 @@ fn keys_in_code() -> Vec<(String, String)> {
             } else if p.extension().is_some_and(|x| x == "rs")
                 && !p.ends_with("sg-core/src/lang.rs")
                 && !p.ends_with("sg-core/src/lang_golden.rs")
+                // the multiplayer feature's keys are in multiplayer/lang/en.txt (its own test: simgolf mp/mod.rs)
+                && !p.to_string_lossy().replace('\\', "/").contains("simgolf/src/mp/")
             {
                 let src = std::fs::read_to_string(&p).unwrap();
                 let mut rest = src.as_str();

@@ -13,6 +13,7 @@ use super::session::{Seat, Session, ToGame, ToServer};
 use super::version::{Compat, PROTOCOL};
 use crate::app::App;
 use crate::gfx::Gfx;
+use sg_core::lang::{tr, trf};
 
 /// Ticks between the hashes sent for the out-of-step check.
 pub const CHECK_EVERY: u32 = 128;
@@ -197,7 +198,7 @@ impl App {
         super::settings::with_player();
         let url = make_url(&server(), &self.club_player(), name, listed, &self.club_compat());
         self.mp.live = Some(Live::new("", name, Phase::Making(crate::net::get(&url, 4096)), true));
-        self.show_toast(&format!("Making the club \"{name}\"..."));
+        self.show_toast(&trf("STR_MP_CLUB_MAKING", &[("CLUB", &name)]));
     }
 
     /// Joins the club `id` (its game replaces the one being played).
@@ -208,7 +209,7 @@ impl App {
         super::settings::with_player();
         self.mp.live = Some(Live::new(id, name, Phase::Connecting, false));
         self.club_connect();
-        self.show_toast(&format!("Joining \"{name}\"..."));
+        self.show_toast(&trf("STR_MP_CLUB_JOINING", &[("CLUB", &name)]));
     }
 
     /// Leaves the club; the game goes on as the player's own copy (`why`, when not empty, is told).
@@ -285,7 +286,7 @@ impl App {
         self.clubs_make_pending();
         // back on the title menu: the club is left
         if self.club_on() && self.screen == crate::app::Screen::Menu {
-            self.club_leave("You left the club.");
+            self.club_leave(tr("STR_MP_CLUB_LEFT"));
         }
         let Some(l) = self.mp.live.as_mut() else { return };
         // a club being made: the server's answer
@@ -301,7 +302,7 @@ impl App {
                     l.phase = Phase::Connecting;
                     self.club_connect();
                 }
-                None => self.club_leave("The club could not be made. Check the connection and try again."),
+                None => self.club_leave(tr("STR_MP_CLUB_NOT_MADE")),
             }
             return;
         }
@@ -330,7 +331,7 @@ impl App {
                 l.conn = None;
                 l.retries += 1;
                 if l.retries > RETRIES {
-                    self.club_leave(&format!("Lost the club ({why}). The game goes on as your own copy."));
+                    self.club_leave(&trf("STR_MP_CLUB_LOST", &[("WHY", &why)]));
                     return false;
                 }
                 l.retry_at = ms + 1000.0 * (1u32 << l.retries.min(5)) as f64;
@@ -357,7 +358,7 @@ impl App {
             }
             ToGame::Refused { reason, parts } => {
                 let why = if parts.is_empty() { reason } else { format!("{reason} ({})", parts.join(", ")) };
-                self.club_leave(&format!("Can't join the club: {why}."));
+                self.club_leave(&trf("STR_MP_CLUB_REFUSED", &[("WHY", &why)]));
                 return false;
             }
             ToGame::Save { tick, data, extra } => {
@@ -365,11 +366,11 @@ impl App {
                     return true;
                 }
                 if let Err(e) = self.club_restore(g, &data, &extra, false) {
-                    self.club_leave(&format!("The club's game could not be loaded: {e}"));
+                    self.club_leave(&trf("STR_MP_CLUB_NOT_LOADED", &[("ERROR", &e)]));
                     return false;
                 }
                 if self.game_tick != tick {
-                    self.club_leave("The club's save was not at its tick.");
+                    self.club_leave(tr("STR_MP_CLUB_BAD_SAVE"));
                     return false;
                 }
                 self.screen = crate::app::Screen::Play;
@@ -391,7 +392,9 @@ impl App {
                 let told: Vec<String> = if matches!(l.phase, Phase::Playing) {
                     let came = p.iter().filter(|n| Some(n.me) != me && !l.players.iter().any(|o| o.me == n.me));
                     let went = l.players.iter().filter(|o| Some(o.me) != me && !p.iter().any(|n| n.me == o.me));
-                    came.map(|n| format!("{} joined the club.", n.nick)).chain(went.map(|o| format!("{} left the club.", o.nick))).collect()
+                    came.map(|n| trf("STR_MP_CLUB_CAME", &[("NICK", &n.nick)]))
+                        .chain(went.map(|o| trf("STR_MP_CLUB_WENT", &[("NICK", &o.nick)])))
+                        .collect()
                 } else {
                     Vec::new()
                 };

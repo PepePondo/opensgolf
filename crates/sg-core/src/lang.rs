@@ -117,6 +117,15 @@ pub fn tr(key: &'static str) -> &'static str {
     }
 }
 
+/// More built-in English text, kept in a file of its own (the multiplayer feature's, multiplayer/lang/en.txt): its keys
+/// join the English table; a key already there keeps its text.
+pub fn add_english(text: &'static str) {
+    let mut t = table().write().unwrap_or_else(|e| e.into_inner());
+    for (k, v) in parse(text) {
+        t.en.entry(k).or_insert_with(|| leak(v));
+    }
+}
+
 /// The built-in English text of a key whatever the language (for comparing with text saved by an older version), or the
 /// key itself.
 pub fn en(key: &'static str) -> &'static str {

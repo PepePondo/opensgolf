@@ -88,7 +88,7 @@ impl App {
                 Some(true)
             }
             Route::Refused => {
-                self.show_toast("Not in a shared game.");
+                self.show_toast(sg_core::lang::tr("STR_MP_CANT_IN_SHARED"));
                 Some(false)
             }
         }

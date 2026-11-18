@@ -15,6 +15,7 @@ use crate::info_ui::c15;
 use crate::render::Rect;
 use crate::scenario_ui::ScenarioEntry;
 use crate::ui::{Screen as Ui, F_ARIAL10, F_INFO14, F_MANUAL20};
+use sg_core::lang::{tr, trf};
 use sg_core::scenario::{Scenario, ScenarioDef};
 use std::cell::RefCell;
 
@@ -87,39 +88,40 @@ pub fn is_open() -> bool {
 
 /// The row Start New Game adds (once Multiplayer is on, or always while it is private: the page says what is sent).
 pub fn entry() -> ScenarioEntry {
+    super::texts();
     let sc = Scenario {
         scenario: ScenarioDef {
-            name: Some("Shared clubs".into()),
-            description: "Play one course together with friends: everyone builds and runs the same club, and it pauses \
-                          when nobody is on."
-                .into(),
+            name: Some(tr("STR_MP_CLUBS").into()),
+            description: tr("STR_MP_CLUBS_DESCRIPTION").into(),
             // (set so Start New Game opens the page instead of Select Difficulty: a new club asks for it later)
             difficulty: Some(sg_core::scenario::Difficulty::Easy),
             ..Default::default()
         },
         goals: Vec::new(),
     };
-    ScenarioEntry { id: ROW_ID.into(), name: "Shared clubs".into(), description: sc.scenario.description.clone(), def: Ok(sc) }
+    ScenarioEntry { id: ROW_ID.into(), name: tr("STR_MP_CLUBS").into(), description: sc.scenario.description.clone(), def: Ok(sc) }
 }
 
 /// The Start New Game row's line for the shared clubs' row (other rows: None).
 pub fn row_line(id: &str) -> Option<String> {
-    (id == ROW_ID).then(|| "Play one course together: everyone builds and runs the same club.".to_string())
+    super::texts();
+    (id == ROW_ID).then(|| tr("STR_MP_CLUBS_ROW").to_string())
 }
 
 /// What the player reads for the first part that differs.
 pub fn why_not(m: &[Mismatch]) -> String {
+    super::texts();
     match m.first() {
         None => String::new(),
-        Some(Mismatch::Protocol { .. } | Mismatch::Log { .. }) => "needs another game version".into(),
-        Some(Mismatch::Version { theirs, .. }) => format!("needs version {theirs}"),
-        Some(Mismatch::Rules) => "other rules settings (Fix original bugs, Random trees)".into(),
-        Some(Mismatch::Map { .. }) => "another course size".into(),
-        Some(Mismatch::Extras) => "other gameplay extras".into(),
+        Some(Mismatch::Protocol { .. } | Mismatch::Log { .. }) => tr("STR_MP_WHY_VERSION_OTHER").into(),
+        Some(Mismatch::Version { theirs, .. }) => trf("STR_MP_WHY_VERSION", &[("VERSION", theirs)]),
+        Some(Mismatch::Rules) => tr("STR_MP_WHY_RULES").into(),
+        Some(Mismatch::Map { .. }) => tr("STR_MP_WHY_MAP").into(),
+        Some(Mismatch::Extras) => tr("STR_MP_WHY_EXTRAS").into(),
         Some(Mismatch::Packs { missing, extra }) => match (missing.first(), extra.first()) {
-            (Some(p), _) => format!("needs the pack {p}"),
-            (None, Some(p)) => format!("turn off the pack {p}"),
-            _ => "other packs".into(),
+            (Some(p), _) => trf("STR_MP_WHY_PACK_MISSING", &[("PACK", p)]),
+            (None, Some(p)) => trf("STR_MP_WHY_PACK_EXTRA", &[("PACK", p)]),
+            _ => tr("STR_MP_WHY_PACKS").into(),
         },
     }
 }
@@ -172,7 +174,11 @@ pub fn poll(ours: &Compat) {
     };
     let l = match reply {
         Ok(body) => read_list(&body, ours),
-        Err(e) => List::Failed(e),
+        Err(e) => {
+            // the details go to the log; the page says it plainly
+            println!("clubs: the list couldn't be fetched: {e}");
+            List::Failed(tr("STR_MP_CHECK_CONNECTION").into())
+        }
     };
     change(|p| p.list = l);
 }
@@ -210,11 +216,11 @@ impl App {
         let List::Rows(rows) = &p.list else { return };
         let Some(r) = p.picked.and_then(|k| rows.get(k)) else { return };
         if !r.why_not.is_empty() {
-            self.show_toast(&format!("Can't join \"{}\": {}.", r.name, r.why_not));
+            self.show_toast(&trf("STR_MP_CLUBS_CANT_JOIN", &[("CLUB", &r.name), ("WHY", &r.why_not)]));
             return;
         }
         if r.players >= 8 {
-            self.show_toast("That club is full (8 on).");
+            self.show_toast(tr("STR_MP_CLUBS_FULL"));
             return;
         }
         let (id, name) = (r.id.clone(), r.name.clone());
@@ -229,7 +235,7 @@ impl App {
         let Some(p) = page() else { return };
         let name = p.name.trim().replace("  ", " ");
         if name.chars().count() < 3 {
-            self.show_toast("Type the new club's name first (3 to 32 letters).");
+            self.show_toast(tr("STR_MP_CLUBS_NAME_FIRST"));
             change(|p| p.editing = true);
             return;
         }
@@ -324,27 +330,19 @@ impl App {
         let (px, py) = self.info.pointer;
         let f = crate::textsize::big(F_INFO14);
         let x = BOX.x + 24.0;
-        s.put_shadowed(g, F_MANUAL20, 400.0, BOX.y + 14.0, "Shared clubs", yellow, true);
-        s.put(g, f, x, BOX.y + 50.0, "Everyone in a club builds and runs the same course, together. It pauses when nobody is on.", white);
+        s.put_shadowed(g, F_MANUAL20, 400.0, BOX.y + 14.0, tr("STR_MP_CLUBS"), yellow, true);
+        s.put(g, f, x, BOX.y + 50.0, tr("STR_MP_CLUBS_INTRO"), white);
         let st = settings::get();
-        let who = if settings::is_player(&st.player) { settings::nick(&st) } else { "a name made for you".into() };
-        s.put_fit(
-            g,
-            F_ARIAL10,
-            x,
-            BOX.y + 74.0,
-            BOX.w - 48.0,
-            &format!("You play as {who} (the Weekly challenge page changes it). A club sends your nickname, a random player id and what you do in it; nothing else."),
-            navy,
-        );
-        s.put(g, F_ARIAL10, x, LIST_TOP - 16.0, "Club", navy);
-        s.put(g, F_ARIAL10, x + 360.0, LIST_TOP - 16.0, "On now", navy);
+        let who = if settings::is_player(&st.player) { settings::nick(&st) } else { tr("STR_MP_CLUBS_NAME_MADE").into() };
+        s.put_fit(g, F_ARIAL10, x, BOX.y + 74.0, BOX.w - 48.0, &trf("STR_MP_CLUBS_WHO", &[("NICK", &who)]), navy);
+        s.put(g, F_ARIAL10, x, LIST_TOP - 16.0, tr("STR_MP_CLUBS_CLUB"), navy);
+        s.put(g, F_ARIAL10, x + 360.0, LIST_TOP - 16.0, tr("STR_MP_CLUBS_ON_NOW"), navy);
         match &p.list {
-            List::Loading => s.put(g, f, x, LIST_TOP, "Loading the clubs...", white),
-            List::Failed(e) => s.put_fit(g, f, x, LIST_TOP, BOX.w - 48.0, &format!("The clubs couldn't be reached: {e}"), white),
+            List::Loading => s.put(g, f, x, LIST_TOP, tr("STR_MP_CLUBS_LOADING"), white),
+            List::Failed(e) => s.put_fit(g, f, x, LIST_TOP, BOX.w - 48.0, &trf("STR_MP_CLUBS_UNREACHABLE", &[("ERROR", e)]), white),
             List::Rows(rows) => {
                 if rows.is_empty() {
-                    s.put(g, f, x, LIST_TOP, "No clubs yet: make the first one below.", white);
+                    s.put(g, f, x, LIST_TOP, tr("STR_MP_CLUBS_EMPTY"), white);
                 }
                 for (i, r) in rows.iter().take(ROWS).enumerate() {
                     let y = LIST_TOP + i as f32 * ROW_H;
@@ -362,33 +360,33 @@ impl App {
                         white
                     };
                     s.put(g, f, x, y, &r.name, col);
-                    s.put(g, f, x + 360.0, y, &format!("{} of 8", r.players), col);
+                    s.put(g, f, x + 360.0, y, &trf("STR_MP_CLUBS_PLAYERS", &[("N", &r.players)]), col);
                     if !r.why_not.is_empty() {
                         s.put_fit(g, F_ARIAL10, x + 450.0, y + 3.0, BOX.w - 498.0, &r.why_not, col);
                     }
                 }
             }
         }
-        s.put(g, f, x, NAME.y + 2.0, "New club", white);
+        s.put(g, f, x, NAME.y + 2.0, tr("STR_MP_CLUBS_NEW"), white);
         s.fill(g, NAME.x - 1.0, NAME.y - 1.0, NAME.w + 2.0, NAME.h + 2.0, c15(if p.editing { 0x7ff0 } else { 0x2d6b }));
         s.fill(g, NAME.x, NAME.y, NAME.w, NAME.h, c15(0x7fff));
         let caret = if p.editing && (miniquad::date::now() * 2.0) as i64 % 2 == 0 { "|" } else { "" };
-        let shown = if p.name.is_empty() && !p.editing { "its name".to_string() } else { p.name.clone() };
+        let shown = if p.name.is_empty() && !p.editing { tr("STR_MP_CLUBS_NEW_NAME").to_string() } else { p.name.clone() };
         s.put(g, f, NAME.x + 6.0, NAME.y + 2.0, &format!("{shown}{caret}"), if p.name.is_empty() && !p.editing { grey } else { navy });
-        draw_button(g, &s, MAKE, "Make the club", true, MAKE.has(px, py));
+        draw_button(g, &s, MAKE, tr("STR_MP_CLUBS_MAKE"), true, MAKE.has(px, py));
         s.put_fit(
             g,
             F_ARIAL10,
             MAKE.x + MAKE.w + 10.0,
             MAKE.y + 6.0,
             BOX.x + BOX.w - 24.0 - (MAKE.x + MAKE.w + 10.0),
-            "a new game, everyone's",
+            tr("STR_MP_CLUBS_MAKE_NOTE"),
             navy,
         );
-        draw_button(g, &s, BACK, "Back", true, BACK.has(px, py));
-        draw_button(g, &s, REFRESH, "Refresh", true, REFRESH.has(px, py));
+        draw_button(g, &s, BACK, tr("STR_MP_BACK"), true, BACK.has(px, py));
+        draw_button(g, &s, REFRESH, tr("STR_MP_CLUBS_REFRESH"), true, REFRESH.has(px, py));
         let can = matches!(&p.list, List::Rows(r) if p.picked.and_then(|k| r.get(k)).is_some_and(|r| r.why_not.is_empty()));
-        draw_button(g, &s, JOIN, "Join", can, can && JOIN.has(px, py));
+        draw_button(g, &s, JOIN, tr("STR_MP_CLUBS_JOIN"), can, can && JOIN.has(px, py));
         g.flush();
         true
     }

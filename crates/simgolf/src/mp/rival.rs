@@ -13,6 +13,7 @@ use crate::app::App;
 use crate::gfx::Gfx;
 use crate::scenario_ui::ScenarioEntry;
 use sg_core::land::{ExeRng, Noise};
+use sg_core::lang::{tr, trf};
 use sg_core::scenario::{GoalDef, Scenario, ScenarioDef};
 use std::cell::RefCell;
 
@@ -41,33 +42,30 @@ pub fn challenge_of(scenario: Option<&str>) -> Option<Challenge> {
 
 fn measure_text(m: Measure) -> &'static str {
     match m {
-        Measure::Cash => "the most cash",
-        Measure::Fun => "the highest fun rating",
-        Measure::Members => "the most members",
-        Measure::Skill => "the highest skill rating",
+        Measure::Cash => tr("STR_MP_GOAL_CASH"),
+        Measure::Fun => tr("STR_MP_GOAL_FUN"),
+        Measure::Members => tr("STR_MP_GOAL_MEMBERS"),
+        Measure::Skill => tr("STR_MP_GOAL_SKILL"),
     }
 }
 
 /// The challenge as a scenario. Its one goal only says what the week is about: it has no conditions or deadline, so it
 /// never ends the game (the board decides who did best).
 pub fn scenario(c: &Challenge) -> Scenario {
+    super::texts();
     let goal = measure_text(c.measure);
     Scenario {
         scenario: ScenarioDef {
-            name: Some(format!("Weekly challenge {}", c.id)),
-            description: format!(
-                "Everyone gets the same land and start this week. Have {goal} at the end of {}. Your nickname and \
-                 result go to the weekly board then.",
-                c.end_year
-            ),
+            name: Some(trf("STR_MP_WEEKLY_NAME", &[("WEEK", &c.id)])),
+            description: trf("STR_MP_WEEKLY_DESCRIPTION", &[("GOAL", &goal), ("YEAR", &c.end_year)]),
             theme: Some(c.theme),
             difficulty: Some(c.difficulty),
-            intro: format!("Weekly challenge {}: have {goal} when {} ends.", c.id, c.end_year),
+            intro: trf("STR_MP_WEEKLY_INTRO", &[("WEEK", &c.id), ("GOAL", &goal), ("YEAR", &c.end_year)]),
             ..Default::default()
         },
         goals: vec![GoalDef {
             id: Some("weekly".into()),
-            text: format!("Have {goal} when {} ends (the weekly board)", c.end_year),
+            text: trf("STR_MP_WEEKLY_GOAL", &[("GOAL", &goal), ("YEAR", &c.end_year)]),
             ..Default::default()
         }],
     }
@@ -141,10 +139,10 @@ impl App {
             Ok(url) => {
                 println!("rival: sending {} = {score}", c.measure.id());
                 SENDING.with(|r| *r.borrow_mut() = Some(crate::net::get(&url, 4096)));
-                self.show_toast(&format!("Weekly challenge over: {score}. Sending it to the board..."));
+                self.show_toast(&trf("STR_MP_WEEKLY_OVER_SENDING", &[("SCORE", &score)]));
             }
             Err(result::NotSent::Cheated) => {
-                self.show_toast(&format!("Weekly challenge over: {score}. Cheats were used, so it isn't sent."));
+                self.show_toast(&trf("STR_MP_WEEKLY_OVER_CHEATS", &[("SCORE", &score)]));
             }
             Err(result::NotSent::YearNotOver) => {}
         }
@@ -163,7 +161,7 @@ impl App {
         };
         let msg = match reply {
             Ok(body) => answer_text(&body),
-            Err(e) => format!("The board couldn't be reached: {e}"),
+            Err(e) => trf("STR_MP_BOARD_UNREACHABLE", &[("ERROR", &e)]),
         };
         println!("rival: {msg}");
         self.show_toast(&msg);
@@ -172,13 +170,14 @@ impl App {
 
 /// What the player is told of the Worker's answer.
 fn answer_text(body: &[u8]) -> String {
+    super::texts();
     let v: serde_json::Value = serde_json::from_slice(body).unwrap_or_default();
     match (v["ok"].as_bool(), v["better"].as_bool(), v["error"].as_str()) {
-        (Some(true), Some(true), _) => "Your result is on the weekly board.".into(),
-        (Some(true), _, _) => "Result sent: your best this week is still the one on the board.".into(),
-        (_, _, Some("update the game")) => "Update the game to send results to the board.".into(),
-        (_, _, Some(e)) => format!("The board didn't take the result: {e}."),
-        _ => "The board's answer couldn't be read.".into(),
+        (Some(true), Some(true), _) => tr("STR_MP_RESULT_ON_BOARD").into(),
+        (Some(true), _, _) => tr("STR_MP_RESULT_NOT_BETTER").into(),
+        (_, _, Some("update the game")) => tr("STR_MP_RESULT_UPDATE").into(),
+        (_, _, Some(e)) => trf("STR_MP_RESULT_REFUSED", &[("ERROR", &e)]),
+        _ => tr("STR_MP_RESULT_UNREADABLE").into(),
     }
 }
 

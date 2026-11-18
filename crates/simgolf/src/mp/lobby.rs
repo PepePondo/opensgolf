@@ -13,6 +13,7 @@ use crate::gfx::Gfx;
 use crate::info_ui::c15;
 use crate::render::Rect;
 use crate::ui::{Screen as Ui, F_ARIAL10, F_INFO14, F_MANUAL20};
+use sg_core::lang::{tr, trf};
 use std::cell::RefCell;
 
 const BOX: Rect = Rect { x: 40.0, y: 36.0, w: 720.0, h: 528.0 };
@@ -124,11 +125,12 @@ pub fn score_text(m: Measure, v: i64) -> String {
 }
 
 fn measure_name(m: Measure) -> &'static str {
+    super::texts();
     match m {
-        Measure::Cash => "Cash",
-        Measure::Fun => "Fun",
-        Measure::Members => "Members",
-        Measure::Skill => "Skill",
+        Measure::Cash => tr("STR_MP_MEASURE_CASH"),
+        Measure::Fun => tr("STR_MP_MEASURE_FUN"),
+        Measure::Members => tr("STR_MP_MEASURE_MEMBERS"),
+        Measure::Skill => tr("STR_MP_MEASURE_SKILL"),
     }
 }
 
@@ -169,7 +171,10 @@ pub fn poll() {
     };
     let b = match reply {
         Ok(body) => read_board(&body),
-        Err(e) => Board::Failed(e),
+        Err(e) => {
+            println!("board: couldn't be fetched: {e}");
+            Board::Failed(tr("STR_MP_CHECK_CONNECTION").into())
+        }
     };
     change(|l| l.board = b);
 }
@@ -316,7 +321,7 @@ impl App {
         let c = &l.challenge;
         let f = crate::textsize::big(F_INFO14);
         let x = BOX.x + 24.0;
-        s.put_shadowed(g, F_MANUAL20, 400.0, BOX.y + 14.0, &format!("Weekly challenge {}", c.id), yellow, true);
+        s.put_shadowed(g, F_MANUAL20, 400.0, BOX.y + 14.0, &trf("STR_MP_WEEKLY_NAME", &[("WEEK", &c.id)]), yellow, true);
         let sc = rival::scenario(c);
         let place = sg_core::data::properties().get(sc.property_index()).map(|p| p.name().to_string()).unwrap_or_default();
         let diff = sg_core::lang::tr(crate::render::DIFFICULTY_KEYS[c.difficulty.level() as usize]);
@@ -325,21 +330,20 @@ impl App {
             f,
             x,
             BOX.y + 50.0,
-            &format!("{place}, {diff}. Score: {} at the end of {}.", measure_name(c.measure).to_lowercase(), c.end_year),
+            &trf(
+                "STR_MP_WEEKLY_PLACE",
+                &[("PLACE", &place), ("DIFFICULTY", &diff), ("MEASURE", &measure_name(c.measure).to_lowercase()), ("YEAR", &c.end_year)],
+            ),
             white,
         );
-        s.put(g, f, x, BOX.y + 72.0, "Everyone gets the same land and start this week. Cheats keep a result off the board.", white);
+        s.put(g, f, x, BOX.y + 72.0, tr("STR_MP_WEEKLY_SAME"), white);
         let on = settings::get().on;
-        let note = if on {
-            "Multiplayer is on: your nickname, a random player id and your result go to the board when 2001 ends."
-        } else {
-            "Multiplayer is off. Turning it on sends your nickname, a random player id and your result when 2001 ends."
-        };
+        let note = if on { tr("STR_MP_ON_NOTE") } else { tr("STR_MP_OFF_NOTE") };
         s.put_fit(g, F_ARIAL10, x, BOX.y + 104.0, BOX.w - 48.0, note, navy);
-        s.put_fit(g, F_ARIAL10, x, BOX.y + 118.0, BOX.w - 48.0, "Nothing else about you or your computer is sent.", navy);
+        s.put_fit(g, F_ARIAL10, x, BOX.y + 118.0, BOX.w - 48.0, tr("STR_MP_NOTHING_ELSE"), navy);
         for (label, r, text, field, hint) in [
-            ("Nickname", NICK, &l.nick, Field::Nick, "3 to 16 letters, digits, spaces, dots or dashes"),
-            ("Friends' group", GROUP, &l.group, Field::Group, "6 letters or digits, or empty for the public board"),
+            (tr("STR_MP_NICKNAME"), NICK, &l.nick, Field::Nick, tr("STR_MP_NICKNAME_HINT")),
+            (tr("STR_MP_GROUP"), GROUP, &l.group, Field::Group, tr("STR_MP_GROUP_HINT")),
         ] {
             let editing = l.editing == Some(field);
             s.put(g, f, x, r.y + 2.0, label, white);
@@ -351,10 +355,10 @@ impl App {
                     if settings::is_player(&s.player) {
                         settings::nick(&s)
                     } else {
-                        "one is made for you".into()
+                        tr("STR_MP_NICKNAME_MADE").into()
                     }
                 } else {
-                    "none".into()
+                    tr("STR_MP_GROUP_NONE").into()
                 }
             } else {
                 text.clone()
@@ -364,14 +368,14 @@ impl App {
             s.put_fit(g, F_ARIAL10, r.x + r.w + 12.0, r.y + 6.0, BOX.x + BOX.w - 24.0 - (r.x + r.w + 12.0), hint, navy);
         }
         let grp = &l.board_group;
-        let title = if grp.is_empty() { "This week's board".to_string() } else { format!("This week's board: group {grp}") };
+        let title = if grp.is_empty() { tr("STR_MP_BOARD_TITLE").to_string() } else { trf("STR_MP_BOARD_TITLE_GROUP", &[("GROUP", grp)]) };
         s.put_shadowed(g, crate::ui::F_MANUAL15, x, BOARD_TOP - 26.0, &title, yellow, false);
         match &l.board {
-            Board::Loading => s.put(g, f, x, BOARD_TOP, "Loading the board...", white),
-            Board::Failed(e) => s.put_fit(g, f, x, BOARD_TOP, BOX.w - 48.0, &format!("The board couldn't be reached: {e}"), white),
+            Board::Loading => s.put(g, f, x, BOARD_TOP, tr("STR_MP_BOARD_LOADING"), white),
+            Board::Failed(e) => s.put_fit(g, f, x, BOARD_TOP, BOX.w - 48.0, &trf("STR_MP_BOARD_UNREACHABLE", &[("ERROR", e)]), white),
             Board::Rows { rows, me } => {
                 if rows.is_empty() {
-                    s.put(g, f, x, BOARD_TOP, "No results yet this week: be the first.", white);
+                    s.put(g, f, x, BOARD_TOP, tr("STR_MP_BOARD_EMPTY"), white);
                 }
                 for (i, r) in rows.iter().take(ROWS).enumerate() {
                     let y = BOARD_TOP + i as f32 * 18.0;
@@ -382,14 +386,14 @@ impl App {
                 }
                 if let Some((place, score)) = me {
                     let y = BOARD_TOP + ROWS as f32 * 18.0 + 4.0;
-                    s.put(g, f, x, y, &format!("You: {place}. with {}", score_text(c.measure, *score)), yellow);
+                    s.put(g, f, x, y, &trf("STR_MP_BOARD_YOU", &[("PLACE", place), ("SCORE", &score_text(c.measure, *score))]), yellow);
                 }
             }
         }
-        draw_button(g, &s, BACK, "Back", true, BACK.has(px, py));
-        draw_button(g, &s, PLAY, if on { "Play" } else { "Turn on and play" }, true, PLAY.has(px, py));
+        draw_button(g, &s, BACK, tr("STR_MP_BACK"), true, BACK.has(px, py));
+        draw_button(g, &s, PLAY, tr(if on { "STR_MP_PLAY" } else { "STR_MP_TURN_ON_AND_PLAY" }), true, PLAY.has(px, py));
         if on {
-            draw_button(g, &s, OFF, "Turn Multiplayer off", true, OFF.has(px, py));
+            draw_button(g, &s, OFF, tr("STR_MP_TURN_OFF"), true, OFF.has(px, py));
         }
         g.flush();
         true

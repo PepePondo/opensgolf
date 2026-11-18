@@ -76,6 +76,11 @@ fn change(f: impl FnOnce(&mut Page)) {
     })
 }
 
+/// Whether the new club's name is being typed (a phone shows its keyboard: touch.rs).
+pub fn editing() -> bool {
+    PAGE.with(|p| p.borrow().as_ref().is_some_and(|p| p.editing))
+}
+
 pub fn is_open() -> bool {
     PAGE.with(|p| p.borrow().is_some())
 }

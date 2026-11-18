@@ -1722,6 +1722,18 @@ impl App {
             || self.content.profile_name.is_some()
             || self.cust.as_ref().is_some_and(|c| c.typing.is_some())
             || self.popup.as_ref().is_some_and(|p| p.kind == crate::popup_ui::PopupKind::Search)
+            || self.mp_typing()
+    }
+
+    /// The multiplayer pages' fields (mp/lobby.rs, mp/clubs_ui.rs).
+    #[cfg(feature = "multiplayer")]
+    fn mp_typing(&self) -> bool {
+        crate::mp::lobby::editing() || crate::mp::clubs_ui::editing()
+    }
+
+    #[cfg(not(feature = "multiplayer"))]
+    fn mp_typing(&self) -> bool {
+        false
     }
 }
 

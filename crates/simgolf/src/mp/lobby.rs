@@ -77,6 +77,11 @@ fn change(f: impl FnOnce(&mut Lobby)) {
     })
 }
 
+/// Whether a field is being typed in (a phone shows its keyboard: touch.rs).
+pub fn editing() -> bool {
+    LOBBY.with(|l| l.borrow().as_ref().is_some_and(|l| l.editing.is_some()))
+}
+
 /// Whether the page is open.
 pub fn is_open() -> bool {
     LOBBY.with(|l| l.borrow().is_some())

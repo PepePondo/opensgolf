@@ -282,6 +282,11 @@ impl App {
     }
 
     pub(crate) fn club_frame_at(&mut self, mut g: Option<&mut Gfx>, ms: f64) {
+        self.clubs_make_pending();
+        // back on the title menu: the club is left
+        if self.club_on() && self.screen == crate::app::Screen::Menu {
+            self.club_leave("You left the club.");
+        }
         let Some(l) = self.mp.live.as_mut() else { return };
         // a club being made: the server's answer
         if let Phase::Making(req) = &mut l.phase {
@@ -380,7 +385,21 @@ impl App {
                 }
             }
             ToGame::SaveAsk(t) => l.ask = Some(t),
-            ToGame::Players(p) => l.players = p,
+            ToGame::Players(p) => {
+                // who came and went, once the club is being played
+                let me = self.mp.session.as_ref().map(|s| s.me);
+                let told: Vec<String> = if matches!(l.phase, Phase::Playing) {
+                    let came = p.iter().filter(|n| Some(n.me) != me && !l.players.iter().any(|o| o.me == n.me));
+                    let went = l.players.iter().filter(|o| Some(o.me) != me && !p.iter().any(|n| n.me == o.me));
+                    came.map(|n| format!("{} joined the club.", n.nick)).chain(went.map(|o| format!("{} left the club.", o.nick))).collect()
+                } else {
+                    Vec::new()
+                };
+                l.players = p;
+                for t in told {
+                    self.show_toast(&t);
+                }
+            }
             ToGame::Reload(t) => {
                 self.club_reload(&format!("out of step at tick {t}"));
                 return false;

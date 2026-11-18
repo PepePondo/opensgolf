@@ -3,6 +3,7 @@
 //!
 //! * [`challenge`]: the weekly rival-courses challenge, the same for everyone each ISO week.
 //! * [`club`]: a shared club in the game: making, joining, playing it through the club's room, leaving.
+//! * [`clubs_ui`]: the shared clubs' page (the list, joining, making a club).
 //! * [`conn`]: a shared club's WebSocket, on its own thread.
 //! * [`lobby`]: the weekly challenge's page (nickname, group, the board, turning Multiplayer on).
 //! * [`lockstep`]: a shared game's simulation, with nothing the screen, the art or the drawing's clock sees reaching it.
@@ -16,6 +17,7 @@
 
 pub mod challenge;
 pub mod club;
+pub mod clubs_ui;
 pub mod conn;
 pub mod lobby;
 pub mod lockstep;
@@ -34,4 +36,6 @@ pub struct State {
     pub live: Option<club::Live>,
     /// The player's id in a club, when not settings.json's (the tests play two players in one process).
     pub player: Option<String>,
+    /// A club to make from the new game being started (clubs_ui.rs), by its name.
+    pub make_next: Option<String>,
 }

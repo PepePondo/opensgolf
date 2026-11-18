@@ -236,6 +236,9 @@ impl App {
 
     /// A click while the page is open (false: it isn't).
     pub fn rival_lobby_click(&mut self, g: &mut Gfx, x: f32, y: f32) -> bool {
+        if self.clubs_click(x, y) {
+            return true;
+        }
         let Some(l) = lobby() else { return false };
         if l.editing.is_some() && !NICK.has(x, y) && !GROUP.has(x, y) {
             self.finish_editing();
@@ -257,6 +260,9 @@ impl App {
     /// A key while the page is open (false: it isn't).
     pub fn rival_lobby_key(&mut self, g: &mut Gfx, k: miniquad::KeyCode) -> bool {
         use miniquad::KeyCode;
+        if self.clubs_key(k) {
+            return true;
+        }
         let Some(l) = lobby() else { return false };
         match (l.editing, k) {
             (Some(_), KeyCode::Backspace) => change(|l| {
@@ -279,6 +285,9 @@ impl App {
 
     /// A typed character (nothing unless a field is being edited).
     pub fn rival_lobby_char(&mut self, c: char) {
+        if self.clubs_char(c) {
+            return;
+        }
         change(|l| match l.editing {
             Some(Field::Nick) if allowed(Field::Nick, &l.nick, c) => l.nick.push(c),
             Some(Field::Group) if allowed(Field::Group, &l.group, c) => l.group.push(c.to_ascii_uppercase()),
@@ -288,6 +297,10 @@ impl App {
 
     /// Draws the page while it is open (false: it isn't).
     pub fn rival_lobby_draw(&mut self, g: &mut Gfx) -> bool {
+        // the shared clubs' page (clubs_ui.rs) is drawn the same way
+        if self.clubs_draw(g) {
+            return true;
+        }
         let Some(l) = lobby() else { return false };
         let s = Ui::new(self.draw_w, self.draw_h);
         self.view = s.view;

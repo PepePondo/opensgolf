@@ -73,22 +73,29 @@ pub fn scenario(c: &Challenge) -> Scenario {
     }
 }
 
-/// The row Start New Game adds: this week's challenge (its page is where Multiplayer is turned on, lobby.rs).
+/// The rows Start New Game adds: this week's challenge (its page is where Multiplayer is turned on, lobby.rs) and the
+/// shared clubs (clubs_ui.rs).
 pub fn entries() -> Vec<ScenarioEntry> {
     let c = challenge::this_week(now_s());
     let sc = scenario(&c);
-    vec![ScenarioEntry {
-        id: format!("{ID_PREFIX}{}", c.id),
-        name: sc.scenario.name.clone().unwrap_or_default(),
-        description: sc.scenario.description.clone(),
-        def: Ok(sc),
-    }]
+    vec![
+        ScenarioEntry {
+            id: format!("{ID_PREFIX}{}", c.id),
+            name: sc.scenario.name.clone().unwrap_or_default(),
+            description: sc.scenario.description.clone(),
+            def: Ok(sc),
+        },
+        super::clubs_ui::entry(),
+    ]
 }
 
 impl App {
     /// Start New Game's row picked: its page (lobby.rs) on Start New Game, else (the `--scenario` test hook) the game at
     /// once. False when `id` isn't a week's challenge.
     pub fn pick_rival(&mut self, g: &mut Gfx, id: &str) -> bool {
+        if id == super::clubs_ui::ROW_ID {
+            return self.screen == crate::app::Screen::Scenarios && self.ui_ok && self.open_clubs_page();
+        }
         if self.screen == crate::app::Screen::Scenarios && self.ui_ok {
             self.open_rival_lobby(id)
         } else {

@@ -43,6 +43,9 @@ net = ["dep:ureq", "dep:ed25519-compact"]
 picker = ["dep:rfd"]
 # Controllers on the desktop (gamepad.rs). Without it only the browser reads controllers.
 gamepad = ["dep:gilrs"]
+# Multiplayer (private until launch: crates/simgolf/src/mp). Off by default; even when built, the Multiplayer extra is
+# off until the player turns it on.
+multiplayer = []
 
 # Android only: hands miniquad's Java VM to cpal's oboe sound output (src/android.rs).
 [target.'cfg(target_os = "android")'.dependencies]

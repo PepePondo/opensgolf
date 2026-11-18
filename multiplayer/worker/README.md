@@ -7,10 +7,12 @@ work in `multiplayer/` (see the plan in the project's docs). Not deployed yet.
   by (cash, fun, members or skill at the end of the first game year), the course theme, the difficulty and the new game's
   seed. The game has the same function in Rust; both are tested against `test/vectors.json`, so they cannot drift apart.
   `GET /challenge` gives this week's, but the game never needs to ask.
-* `POST /result`: `{challenge, player, nick, group, platform, version, cheats, facts}`. `player` is a random id the
+* `POST /result`: `{protocol, challenge, player, nick, group, platform, version, cheats, facts}`. `player` is a random id the
   game makes once (16 to 32 hex digits); `group` a friends' code of 6 capitals or digits, or `""` for the public board;
   `facts` the year, cash, holes, fun, skill (hundredths), members and rank at the end of the challenge's year. Results
-  are taken for this week's challenge and last week's, never with cheats on. Only a player's best of the week is kept, so
+  are taken for this week's challenge and last week's. `GET /result?d=<the same JSON, base64url>` does the same for
+  the game's own HTTP client, which only sends GETs, never with cheats on, and only with this Worker's `protocol` (1) and a game version at least the
+  `MIN_VERSION` variable, when set; otherwise the game is told to update. Only a player's best of the week is kept, so
   a worse result writes nothing.
 * `GET /board?c=<week>&g=<group>&p=<player>`: the top 50 and the asking player's own place. Without `p` the answer may be
   cached for a minute.

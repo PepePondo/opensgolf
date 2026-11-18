@@ -1,0 +1,75 @@
+name: sync with the public repo
+
+# Keeps this private repository up to date with the public one (github.com/crspytopgn/opensgolf), every day and by hand:
+#   1. main here is fast-forwarded to the public main (main here is never committed to directly: it mirrors public);
+#   2. that main is merged into the multiplayer branch. A clean merge is pushed; a conflict pushes nothing and opens
+#      (or comments on) an issue titled "Sync conflict" listing the files, for a person or Claude to resolve by hand.
+# The multiplayer code keeps to its own files (crates/simgolf/src/mp, multiplayer/) and a few marked lines elsewhere,
+# so most days the merge is clean.
+on:
+  schedule:
+    - cron: "17 5 * * *"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+  issues: write
+
+concurrency:
+  group: sync-public
+
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          ref: multiplayer
+      - name: Fetch the public main
+        run: |
+          git config user.name "opensgolf sync"
+          git config user.email "sync@users.noreply.github.com"
+          git remote add public https://github.com/crspytopgn/opensgolf.git
+          git fetch --no-tags public main
+          git fetch --no-tags origin main
+      - name: Fast-forward main
+        run: |
+          if git merge-base --is-ancestor origin/main public/main; then
+            git push origin public/main:refs/heads/main
+          else
+            echo "::error::main here has commits the public main lacks; it should only ever mirror the public repo"
+            exit 1
+          fi
+      - name: Merge into multiplayer
+        id: merge
+        run: |
+          if git merge-base --is-ancestor public/main HEAD; then
+            echo "already up to date"
+            exit 0
+          fi
+          if git merge --no-edit -m "Merge the public main ($(git rev-parse --short public/main)) into multiplayer" public/main; then
+            git push origin HEAD:multiplayer
+          else
+            git diff --name-only --diff-filter=U > conflicts.txt
+            git merge --abort
+            echo "conflict=1" >> "$GITHUB_OUTPUT"
+          fi
+      - name: Report a conflict
+        if: steps.merge.outputs.conflict == '1'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          body=$(printf 'Merging the public main (%s) into multiplayer conflicts in:\n\n%s\n\nResolve it by hand: merge public/main into multiplayer, fix these files, push. This issue closes itself on the next clean sync.' \
+            "$(git rev-parse --short public/main)" "$(sed 's/^/- /' conflicts.txt)")
+          n=$(gh issue list --state open --search 'in:title "Sync conflict"' --json number -q '.[0].number')
+          if [ -n "$n" ]; then gh issue comment "$n" --body "$body"; else gh issue create --title "Sync conflict" --body "$body"; fi
+          exit 1
+      - name: Close a solved conflict
+        if: steps.merge.outputs.conflict != '1'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          for n in $(gh issue list --state open --search 'in:title "Sync conflict"' --json number -q '.[].number'); do
+            gh issue close "$n" --comment "The sync merged cleanly."
+          done

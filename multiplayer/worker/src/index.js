@@ -1,6 +1,7 @@
 // The rival-courses leaderboard (README.md): a Cloudflare Worker with a D1 database.
 //
 // * POST /result: a player's result in this week's challenge (JSON, see readResult). Only their best of the week is kept.
+//   GET /result?d=<the same JSON, base64url> does the same, for the game's own HTTP client, which only GETs (net.rs).
 // * GET /board?c=<week>&g=<group>&p=<player>: the top 50 of a week's board (the public one, or a friends' group), and
 //   the asking player's own place.
 // * GET /admin (password): the latest results, hidden ones too; POST /admin/hide hides a result or a nickname.
@@ -20,12 +21,20 @@ export const PLATFORMS = new Set([
   "windows", "macos", "linux", "android", "web", "other",
   "windows-arm64", "macos-arm64", "linux-arm64", "other-arm64",
 ]);
+/** The network protocol this Worker speaks (crates/simgolf/src/mp/version.rs PROTOCOL). */
+export const PROTOCOL = 1;
 /** The largest request body read. */
 export const MAX_BODY = 4096;
 
 const isPlayer = (s) => typeof s === "string" && /^[0-9a-f]{16,32}$/.test(s);
 const isGroup = (s) => s === "" || (typeof s === "string" && /^[A-Z0-9]{6}$/.test(s));
 const isVersion = (v) => typeof v === "string" && /^\d{1,3}\.\d{1,3}\.\d{1,3}$/.test(v);
+/** Whether version `a` is newer than `b` ("1.2.3"). */
+export function newer(a, b) {
+  const pa = a.split(".").map(Number), pb = b.split(".").map(Number);
+  for (let i = 0; i < 3; i++) if (pa[i] !== pb[i]) return pa[i] > pb[i];
+  return false;
+}
 const int = (v, lo, hi) => Number.isInteger(v) && v >= lo && v <= hi;
 
 /** The weeks a result may be for at `now`: this one, and last week's (a week's game may end after midnight Sunday). */
@@ -34,14 +43,16 @@ export function openWeeks(now) {
 }
 
 /** A result's body, checked: what to store, or a string saying why not. */
-export function readResult(body, now) {
+export function readResult(body, now, minVersion = "") {
   if (!body || typeof body !== "object") return "not a result";
-  const { challenge: c, player, nick, group = "", platform, version, cheats, facts } = body;
+  const { protocol, challenge: c, player, nick, group = "", platform, version, cheats, facts } = body;
+  if (protocol !== PROTOCOL) return "update the game";
   if (!isWeekId(c) || !openWeeks(now).includes(c)) return "not an open challenge";
   if (!isPlayer(player)) return "bad player id";
   if (!isGroup(group)) return "bad group code";
   if (!PLATFORMS.has(platform)) return "bad platform";
   if (!isVersion(version)) return "bad version";
+  if (minVersion && newer(minVersion, version)) return "update the game";
   if (cheats !== false) return "cheats were on";
   if (!facts || typeof facts !== "object") return "no facts";
   const f = facts;
@@ -162,6 +173,17 @@ async function readJson(request) {
   }
 }
 
+/** The JSON in a base64url text (GET /result's `d`), or null. */
+export function fromBase64Url(d) {
+  if (typeof d !== "string" || d.length > MAX_BODY) return null;
+  try {
+    const bin = atob(d.replace(/-/g, "+").replace(/_/g, "/"));
+    return JSON.parse(new TextDecoder().decode(Uint8Array.from(bin, (c) => c.charCodeAt(0))));
+  } catch {
+    return null;
+  }
+}
+
 export default {
   async fetch(request, env) {
     const url = new URL(request.url);
@@ -171,11 +193,12 @@ export default {
         "Access-Control-Allow-Origin": "*", "Access-Control-Allow-Methods": "GET, POST", "Access-Control-Allow-Headers": "Content-Type",
       } });
     }
-    if (url.pathname === "/result" && request.method === "POST") {
-      const r = readResult(await readJson(request), now);
+    if (url.pathname === "/result" && (request.method === "POST" || request.method === "GET")) {
+      const r = readResult(request.method === "POST" ? await readJson(request) : fromBase64Url(url.searchParams.get("d")), now,
+        env.MIN_VERSION || "");
       if (typeof r === "string") return json({ ok: false, error: r }, 400);
       const better = await storeResult(env.DB, r, now);
-      return json({ ok: true, better });
+      return json({ ok: true, better }, 200, { "Cache-Control": "no-store" });
     }
     if (url.pathname === "/board" && request.method === "GET") {
       const c = url.searchParams.get("c") || weekId(now);

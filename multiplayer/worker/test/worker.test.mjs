@@ -11,7 +11,7 @@ const NOW = new Date("2026-11-18T12:00:00Z"); // 2026-W47
 
 const facts = (over = {}) => ({ year: 2002, cash: 50000, holes: 9, fun: 120, skill: 1250, members: 40, rank: 1, ...over });
 const body = (over = {}) => ({
-  challenge: "2026-W47", player: "0123456789abcdef", nick: "Michael", group: "", platform: "macos-arm64",
+  protocol: 1, challenge: "2026-W47", player: "0123456789abcdef", nick: "Michael", group: "", platform: "macos-arm64",
   version: "0.9.0", cheats: false, facts: facts(), ...over,
 });
 
@@ -35,10 +35,13 @@ test("only sound results are read", () => {
     "cheats were on": [{ cheats: true }, { cheats: undefined }],
     "bad facts": [{ facts: facts({ rank: 4 }) }, { facts: facts({ cash: 1.5 }) }, { facts: facts({ holes: 99 }) }],
     "the challenge's year is not over": [{ facts: facts({ year: 2001 }) }],
+    "update the game": [{ protocol: 2 }, { protocol: undefined }],
     "bad nickname": [{ nick: "ab" }, { nick: "x".repeat(17) }, { nick: "<script>" }, { nick: "sh1t head" }],
   };
   for (const [why, list] of Object.entries(bad)) for (const o of list) assert.equal(readResult(body(o), NOW), why, JSON.stringify(o));
   assert.equal(readResult(null, NOW), "not a result");
+  assert.equal(readResult(body({ version: "0.8.9" }), NOW, "0.9.0"), "update the game");
+  assert.equal(readResult(body({ version: "0.10.0" }), NOW, "0.9.0").version, "0.10.0");
 });
 
 test("nicknames: tidied, blocked words caught through look-alikes, hidden ones get a stable generated name", () => {
@@ -106,10 +109,15 @@ test("the Worker's routes", async () => {
   assert.deepEqual(await r.json(), { ok: true, better: true });
   r = await post(body({ challenge: wk, cheats: true }));
   assert.equal(r.status, 400);
+  const b64 = Buffer.from(JSON.stringify(body({ challenge: wk, player: "fedcba9876543210" }))).toString("base64url");
+  r = await call(`/result?d=${b64}`);
+  assert.deepEqual(await r.json(), { ok: true, better: true });
+  r = await call("/result?d=not-json");
+  assert.equal(r.status, 400);
   r = await call("/result", { method: "POST", body: "x".repeat(5000) });
   assert.equal(r.status, 400);
   r = await call(`/board?c=${wk}`);
-  assert.equal((await r.json()).rows.length, 1);
+  assert.equal((await r.json()).rows.length, 2);
   assert.match(r.headers.get("Cache-Control"), /max-age=60/);
   r = await call("/board?c=bad");
   assert.equal(r.status, 400);
@@ -118,7 +126,7 @@ test("the Worker's routes", async () => {
   r = await call("/admin");
   assert.equal(r.status, 401);
   r = await call("/admin", { headers: { Authorization: `Basic ${btoa("x:secret")}` } });
-  assert.equal((await r.json()).results.length, 1);
+  assert.equal((await r.json()).results.length, 2);
   r = await call("/nope");
   assert.equal(r.status, 404);
 });

@@ -84,6 +84,8 @@ mod language;
 mod launcher;
 mod member_panel;
 mod message_ui;
+#[cfg(feature = "multiplayer")]
+mod mp;
 mod net;
 mod packart;
 mod panels_ui;

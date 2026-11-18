@@ -1,0 +1,51 @@
+{
+ "weeks": {
+  "2026-11-18": "2026-W47",
+  "2027-01-01": "2026-W53",
+  "2026-12-28": "2026-W53",
+  "2025-12-29": "2026-W01",
+  "2024-12-30": "2025-W01"
+ },
+ "challenges": [
+  {
+   "id": "2026-W47",
+   "measure": "cash",
+   "theme": "links",
+   "difficulty": "easy",
+   "seed": 2120436,
+   "endYear": 2001
+  },
+  {
+   "id": "2026-W48",
+   "measure": "fun",
+   "theme": "parkland",
+   "difficulty": "moderate",
+   "seed": 2579199,
+   "endYear": 2001
+  },
+  {
+   "id": "2027-W01",
+   "measure": "fun",
+   "theme": "tropical",
+   "difficulty": "difficult",
+   "seed": 5693122,
+   "endYear": 2001
+  },
+  {
+   "id": "2026-W53",
+   "measure": "fun",
+   "theme": "tropical",
+   "difficulty": "difficult",
+   "seed": 1857711,
+   "endYear": 2001
+  },
+  {
+   "id": "2030-W10",
+   "measure": "skill",
+   "theme": "desert",
+   "difficulty": "difficult",
+   "seed": 1127220,
+   "endYear": 2001
+  }
+ ]
+}

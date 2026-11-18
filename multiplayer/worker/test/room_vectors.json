@@ -1,0 +1,240 @@
+{
+  "start": {
+    "ms": 0.0,
+    "tick": 500
+  },
+  "steps": [
+    {
+      "in": {
+        "Act": "sync"
+      },
+      "ms": 1000.0,
+      "out": [
+        {
+          "Act": {
+            "action": "sync",
+            "player": 1,
+            "seq": 1,
+            "tick": 501
+          }
+        }
+      ],
+      "player": 1
+    },
+    {
+      "in": {
+        "Speed": 1
+      },
+      "ms": 1500.0,
+      "out": [
+        {
+          "Clock": {
+            "base_ms": 1500.0,
+            "base_tick": 500,
+            "rate": 1
+          }
+        },
+        {
+          "Act": {
+            "action": {
+              "speed": 1
+            },
+            "player": 1,
+            "seq": 2,
+            "tick": 508
+          }
+        }
+      ],
+      "player": 1
+    },
+    {
+      "in": {
+        "Act": "screen"
+      },
+      "ms": 1500.0,
+      "out": [
+        {
+          "Act": {
+            "action": "screen",
+            "player": 2,
+            "seq": 3,
+            "tick": 508
+          }
+        }
+      ],
+      "player": 2
+    },
+    {
+      "in": {
+        "Act": "undo"
+      },
+      "ms": 1587.0,
+      "out": [
+        {
+          "Act": {
+            "action": "undo",
+            "player": 1,
+            "seq": 4,
+            "tick": 509
+          }
+        }
+      ],
+      "player": 1
+    },
+    {
+      "in": {
+        "Act": {
+          "speed": 4
+        }
+      },
+      "ms": 2222.5,
+      "out": [
+        {
+          "Clock": {
+            "base_ms": 2222.5,
+            "base_tick": 508,
+            "rate": 4
+          }
+        },
+        {
+          "Act": {
+            "action": {
+              "speed": 4
+            },
+            "player": 2,
+            "seq": 5,
+            "tick": 540
+          }
+        }
+      ],
+      "player": 2
+    },
+    {
+      "in": {
+        "Act": "sync"
+      },
+      "ms": 2223.0,
+      "out": [
+        {
+          "Act": {
+            "action": "sync",
+            "player": 1,
+            "seq": 6,
+            "tick": 540
+          }
+        }
+      ],
+      "player": 1
+    },
+    {
+      "in": {
+        "Speed": 3
+      },
+      "ms": 2300.0,
+      "out": [
+        {
+          "Clock": {
+            "base_ms": 2300.0,
+            "base_tick": 511,
+            "rate": 2
+          }
+        },
+        {
+          "Act": {
+            "action": {
+              "speed": 2
+            },
+            "player": 2,
+            "seq": 7,
+            "tick": 527
+          }
+        }
+      ],
+      "player": 2
+    },
+    {
+      "in": {
+        "Speed": 0
+      },
+      "ms": 9000.0,
+      "out": [
+        {
+          "Clock": {
+            "base_ms": 9000.0,
+            "base_tick": 665,
+            "rate": 0
+          }
+        }
+      ],
+      "player": 1
+    },
+    {
+      "in": {
+        "Act": "sync"
+      },
+      "ms": 9100.0,
+      "out": [
+        {
+          "Act": {
+            "action": "sync",
+            "player": 3,
+            "seq": 8,
+            "tick": 666
+          }
+        }
+      ],
+      "player": 3
+    },
+    {
+      "in": {
+        "Speed": 2
+      },
+      "ms": 20000.0,
+      "out": [
+        {
+          "Clock": {
+            "base_ms": 20000.0,
+            "base_tick": 665,
+            "rate": 2
+          }
+        },
+        {
+          "Act": {
+            "action": {
+              "speed": 2
+            },
+            "player": 3,
+            "seq": 9,
+            "tick": 681
+          }
+        }
+      ],
+      "player": 3
+    },
+    {
+      "in": {
+        "Ping": 5.0
+      },
+      "ms": 20000.0,
+      "out": [],
+      "player": 3
+    },
+    {
+      "in": {
+        "Act": "sync"
+      },
+      "ms": 123456.789,
+      "out": [
+        {
+          "Act": {
+            "action": "sync",
+            "player": 1,
+            "seq": 10,
+            "tick": 3059
+          }
+        }
+      ],
+      "player": 1
+    }
+  ]
+}

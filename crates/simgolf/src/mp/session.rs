@@ -13,6 +13,7 @@
 //! * While the clock is paused (nobody on, or a player paused it) actions wait for it to go on again. (Building while
 //!   paused, as one can alone, needs actions played between ticks: not yet.)
 
+use super::version::Compat;
 use serde::{Deserialize, Serialize};
 use sg_core::action::Action;
 use std::collections::BTreeMap;
@@ -61,19 +62,72 @@ pub struct Stamped {
     pub action: Action,
 }
 
-/// What a game sends the server.
+/// What a game sends the server (as JSON over the club's WebSocket; multiplayer/worker/src/club.js).
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 pub enum ToServer {
+    /// The first message: who this is and whether their game can play this club ([`Compat`]); `tick` is the tick the
+    /// game has played up to, which starts a new club's clock.
+    Hello {
+        protocol: u32,
+        player: String,
+        nick: String,
+        compat: Compat,
+        tick: u32,
+    },
     Act(Action),
     /// The game speed asked for (0 pause, 1, 2, 4).
     Speed(u8),
+    /// The game saved when it had played up to `tick` (before that tick's actions), base64: what a joiner starts from.
+    Save {
+        tick: u32,
+        data: String,
+    },
+    /// A hash of the game when it had played up to `tick`: a game whose hash differs from the first one sent is
+    /// told to load again ([`ToGame::Reload`]).
+    Check {
+        tick: u32,
+        hash: String,
+    },
+    /// This computer's time, in ms: the server answers with its own ([`ToGame::Pong`]).
+    Ping(f64),
 }
 
 /// What the server sends the games.
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 pub enum ToGame {
+    /// The answer to Hello: this player's number in the club, the server's time and the clock. A [`ToGame::Save`] and
+    /// every action since it follow.
+    Welcome {
+        me: u32,
+        ms: f64,
+        clock: Clock,
+    },
+    /// The club can't be joined; `parts` names what differs (version.rs Mismatch, as "version", "rules", ...).
+    Refused {
+        reason: String,
+        parts: Vec<String>,
+    },
+    Save {
+        tick: u32,
+        data: String,
+    },
     Act(Stamped),
     Clock(Clock),
+    /// Send a save when you have played up to this tick (or now, if past it).
+    SaveAsk(u32),
+    /// Who is on.
+    Players(Vec<Seat>),
+    /// Your game is out of step from this tick: load the club again.
+    Reload(u32),
+    /// A Ping's time and the server's.
+    Pong(f64, f64),
+}
+
+/// A player on in a club.
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+pub struct Seat {
+    pub me: u32,
+    pub nick: String,
 }
 
 /// Whether an action is the player's own business and goes to the server, is kept on their own computer, or can't be
@@ -135,7 +189,8 @@ impl Session {
                 }
                 self.scheduled.insert((s.tick, s.seq), s);
             }
-            ToGame::Clock(c) => self.clock = Some(c),
+            ToGame::Clock(c) | ToGame::Welcome { clock: c, .. } => self.clock = Some(c),
+            _ => {}
         }
     }
 
@@ -198,6 +253,7 @@ impl Room {
                 }
                 v
             }
+            _ => Vec::new(),
         };
         self.log.extend(out.iter().cloned());
         out
@@ -238,6 +294,60 @@ mod tests {
         assert_eq!(s.late, None);
         s.receive(room.handle(0.0, 1, ToServer::Act(Action::Sync)).remove(0), 100);
         assert_eq!(s.late, Some((LEAD_MS / TICK_MS) as u32), "an action for a tick already played");
+    }
+
+    /// The inputs of the vectors the server's JavaScript room is tested against (multiplayer/worker/test/room_vectors.json;
+    /// SG_WRITE_VECTORS=1 writes the file again).
+    fn vector_inputs() -> Vec<(f64, u32, ToServer)> {
+        use sg_core::action::Action as A;
+        vec![
+            (1000.0, 1, ToServer::Act(A::Sync)),
+            (1500.0, 1, ToServer::Speed(1)),
+            (1500.0, 2, ToServer::Act(A::Screen)),
+            (1587.0, 1, ToServer::Act(A::Undo)),
+            (2222.5, 2, ToServer::Act(A::Speed(4))),
+            (2223.0, 1, ToServer::Act(A::Sync)),
+            (2300.0, 2, ToServer::Speed(3)),
+            (9000.0, 1, ToServer::Speed(0)),
+            (9100.0, 3, ToServer::Act(A::Sync)),
+            (20_000.0, 3, ToServer::Speed(2)),
+            (20_000.0, 3, ToServer::Ping(5.0)),
+            (123_456.789, 1, ToServer::Act(A::Sync)),
+        ]
+    }
+
+    #[test]
+    fn the_server_room_matches_the_vectors() {
+        let mut room = Room::new(500, 0.0);
+        let steps: Vec<serde_json::Value> = vector_inputs()
+            .into_iter()
+            .map(|(ms, player, m)| {
+                let input = serde_json::to_value(&m).unwrap();
+                let out = room.handle(ms, player, m);
+                serde_json::json!({ "ms": ms, "player": player, "in": input, "out": out })
+            })
+            .collect();
+        let v = serde_json::json!({ "start": { "tick": 500, "ms": 0.0 }, "steps": steps });
+        let path = concat!(env!("CARGO_MANIFEST_DIR"), "/../../multiplayer/worker/test/room_vectors.json");
+        let text = serde_json::to_string_pretty(&v).unwrap() + "\n";
+        if std::env::var_os("SG_WRITE_VECTORS").is_some() {
+            std::fs::write(path, &text).unwrap();
+        }
+        let want: serde_json::Value = serde_json::from_str(&std::fs::read_to_string(path).unwrap()).unwrap();
+        assert_eq!(v, want, "the vectors changed: SG_WRITE_VECTORS=1 writes them again, then test the Worker");
+    }
+
+    #[test]
+    fn messages_read_back() {
+        let c = Compat::new(true, false, 74, 0, vec![]);
+        let m = ToServer::Hello { protocol: 1, player: "ab".into(), nick: "x".into(), compat: c, tick: 3 };
+        let t = serde_json::to_string(&m).unwrap();
+        assert!(t.starts_with("{\"Hello\":{"), "{t}");
+        assert_eq!(serde_json::from_str::<ToServer>(&t).unwrap(), m);
+        let g: ToGame = serde_json::from_str(r#"{"Pong":[1.5,2.0]}"#).unwrap();
+        assert_eq!(g, ToGame::Pong(1.5, 2.0));
+        let g: ToGame = serde_json::from_str(r#"{"Act":{"tick":4,"seq":1,"player":2,"action":"sync"}}"#).unwrap();
+        assert!(matches!(g, ToGame::Act(Stamped { tick: 4, action: Action::Sync, .. })));
     }
 
     #[test]

@@ -17,6 +17,12 @@ const BLOCKED = [
 ];
 const FOLD = { 0: "o", 1: "i", 3: "e", 4: "a", 5: "s", 7: "t", 8: "b", "@": "a", $: "s", "!": "i", "|": "i" };
 
+/** Whether a text (a nickname, a club's name) has none of the blocked words. */
+export function clean(s) {
+  const f = folded(s);
+  return !BLOCKED.some((w) => f.includes(w));
+}
+
 /** The letters a nickname reads as, for the blocklist. */
 export function folded(s) {
   return [...s.toLowerCase()].map((c) => FOLD[c] ?? c).filter((c) => c >= "a" && c <= "z").join("");

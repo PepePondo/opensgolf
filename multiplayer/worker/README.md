@@ -41,3 +41,25 @@ npx wrangler@4.152.0 deploy
 ## Tests
 
 `node --test multiplayer/worker/test/*.test.mjs` (Node 22.5 or later: the tests stand D1 in with node:sqlite).
+
+## Shared clubs
+
+The same Worker serves the shared courses: `src/club.js` is a Durable Object per club (SQLite storage, hibernating
+WebSockets, so a club with nobody on costs nothing), `src/room.js` its clock and the order of actions, the same logic as
+the game's `crates/simgolf/src/mp/session.rs` Room and tested against the same vectors (`test/room_vectors.json`, written by
+the Rust test `the_server_room_matches_the_vectors` with `SG_WRITE_VECTORS=1`).
+
+* `GET /clubs`: the listed clubs, those with someone on first (clubs nobody has played for 60 days drop off).
+* `GET /clubs/new?d=<JSON, base64url>`: `{protocol, player, nick, name, compat, listed}` makes a club; the answer is its id.
+* `GET /clubs/<id>/ws`: the club's WebSocket. Messages are the game's `ToServer` and `ToGame` as serde JSON. A game says
+  `Hello` with its `Compat`; one that differs is refused, naming what differs. A new club starts from its owner's game
+  (the room asks for a save); a joiner is sent the latest save and every action since it. The longest-on player is asked
+  for a new save every 2,000 ticks, which trims the log. Nobody on: the clock stops, and it goes on at the same speed when
+  someone joins. Hashes sent with `Check` are compared, and a game whose hash differs is told to `Reload`.
+* `GET /clubs/<id>/state` (admin password): the club's record, clock, save tick and who is on.
+
+Free-plan use: each WebSocket message is a small part of a request (20 to 1), and a hibernating club uses no time. A club
+of 4 playing for an hour sends a few thousand messages.
+
+Local check: `npx wrangler@4.152.0 d1 execute opensgolf-board --local --file schema.sql`, `npx wrangler@4.152.0 dev`, then
+`node test/live.mjs http://127.0.0.1:8787`.

@@ -4,6 +4,8 @@
 //   GET /result?d=<the same JSON, base64url> does the same, for the game's own HTTP client, which only GETs (net.rs).
 // * GET /board?c=<week>&g=<group>&p=<player>: the top 50 of a week's board (the public one, or a friends' group), and
 //   the asking player's own place.
+// * GET /clubs: the shared clubs' list. GET /clubs/new?d=<JSON, base64url> makes a club (newClub). GET /clubs/<id>/ws is
+//   a club's WebSocket, served by its Durable Object (club.js).
 // * GET /admin (password): the latest results, hidden ones too; POST /admin/hide hides a result or a nickname.
 //
 // Nothing about the player is kept but the random id their game made, the nickname they typed, their group code, the
@@ -12,7 +14,9 @@
 // Copyright the OpenSGolf contributors. GPL-2.0-or-later.
 
 import { challenge, isWeekId, previousWeekId, score, weekId } from "./challenge.js";
-import { cleanNick, generatedNick } from "./names.js";
+import { clean, cleanNick, generatedNick } from "./names.js";
+import { isCompat } from "./club.js";
+
 
 /** Rows a board shows. */
 export const BOARD_SIZE = 50;
@@ -157,6 +161,44 @@ export async function hide(db, body, now) {
   return false;
 }
 
+// ---------------------------------------------------------------- shared clubs
+
+/** Clubs the list shows. */
+export const CLUB_LIST = 100;
+/** Days a club with nobody on stays in the list. */
+export const CLUB_LIST_DAYS = 60;
+
+/** A club's name, tidied, or null: 3 to 32 letters, digits, spaces and a few marks. */
+export function cleanClubName(name) {
+  if (typeof name !== "string") return null;
+  const n = name.trim().replace(/\s+/g, " ");
+  if (n.length < 3 || n.length > 32 || !/^[A-Za-z0-9 _.,'&!\-]+$/.test(n)) return null;
+  return clean(n) ? n : null;
+}
+
+/** A new club's request, checked: what the club is made with, or a string saying why not. */
+export function readNewClub(b) {
+  if (!b || typeof b !== "object") return "not a club";
+  if (b.protocol !== PROTOCOL) return "update the game";
+  if (!isPlayer(b.player)) return "bad player id";
+  const name = cleanClubName(b.name);
+  if (!name) return "bad club name";
+  if (!isCompat(b.compat)) return "bad game record";
+  return { name, owner: b.player, compat: b.compat, listed: b.listed !== false };
+}
+
+/** The clubs list: those with someone on first, then the latest played. */
+export async function clubs(db, now) {
+  const since = new Date(now.getTime() - CLUB_LIST_DAYS * 86400e3).toISOString();
+  const { results } = await db.prepare(
+    `SELECT id, name, version, compat, players, tick, at FROM clubs WHERE listed = 1 AND hidden = 0 AND at >= ?1
+     ORDER BY players > 0 DESC, at DESC LIMIT ?2`,
+  ).bind(since, CLUB_LIST).all();
+  return results.map((r) => ({ ...r, compat: JSON.parse(r.compat) }));
+}
+
+const isClubId = (s) => typeof s === "string" && /^[0-9a-f]{64}$/.test(s);
+
 // ---------------------------------------------------------------- the Worker
 
 const json = (v, status = 200, extra = {}) => new Response(JSON.stringify(v), {
@@ -210,6 +252,34 @@ export default {
     }
     if (url.pathname === "/challenge" && request.method === "GET") {
       return json({ ok: true, challenge: challenge(weekId(now)) }, 200, { "Cache-Control": "public, max-age=3600" });
+    }
+    if (url.pathname === "/clubs" && request.method === "GET") {
+      if (!env.CLUB) return json({ ok: false, error: "no shared clubs here" }, 404);
+      return json({ ok: true, protocol: PROTOCOL, clubs: await clubs(env.DB, now) }, 200, { "Cache-Control": "no-store" });
+    }
+    if (url.pathname === "/clubs/new" && request.method === "GET") {
+      if (!env.CLUB) return json({ ok: false, error: "no shared clubs here" }, 404);
+      const c = readNewClub(fromBase64Url(url.searchParams.get("d")));
+      if (typeof c === "string") return json({ ok: false, error: c }, 400);
+      if (env.MIN_VERSION && newer(env.MIN_VERSION, c.compat.version)) return json({ ok: false, error: "update the game" }, 400);
+      const id = env.CLUB.newUniqueId();
+      const r = await env.CLUB.get(id).fetch("https://club/init", {
+        method: "POST", body: JSON.stringify({ id: id.toString(), ...c }),
+      });
+      if (!r.ok) return json({ ok: false, error: "the club could not be made" }, 500);
+      return json({ ok: true, id: id.toString() }, 200, { "Cache-Control": "no-store" });
+    }
+    const m = url.pathname.match(/^\/clubs\/([0-9a-f]+)\/(ws|state)$/);
+    if (m && request.method === "GET" && env.CLUB) {
+      if (!isClubId(m[1])) return json({ ok: false, error: "no such club" }, 404);
+      let id;
+      try {
+        id = env.CLUB.idFromString(m[1]);
+      } catch {
+        return json({ ok: false, error: "no such club" }, 404);
+      }
+      if (m[2] === "state" && !authorised(request, env)) return new Response("password needed", { status: 401 });
+      return env.CLUB.get(id).fetch(new Request(`https://club/${m[2]}`, request));
     }
     if (url.pathname.startsWith("/admin")) {
       if (!authorised(request, env)) {

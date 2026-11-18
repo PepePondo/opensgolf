@@ -1,7 +1,7 @@
 # The rival-courses leaderboard Worker (README.md). Not deployed yet: create the database, put its id here, then deploy
 # from this folder with npx wrangler@4.152.0 deploy.
 name = "opensgolf-board"
-main = "src/index.js"
+main = "src/worker.js"
 compatibility_date = "2026-10-01"
 workers_dev = true
 
@@ -12,3 +12,12 @@ database_id = "00000000-0000-0000-0000-000000000000"
 
 [observability]
 enabled = true
+
+# The shared clubs (src/club.js): one Durable Object per club, SQLite storage (the free plan's kind).
+[[durable_objects.bindings]]
+name = "CLUB"
+class_name = "Club"
+
+[[migrations]]
+tag = "v1"
+new_sqlite_classes = ["Club"]

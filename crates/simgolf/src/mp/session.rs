@@ -250,7 +250,10 @@ impl Room {
                 } else {
                     rate
                 };
-                self.clock = self.clock.with_rate(ms, rate);
+                // the new rate starts LEAD_MS from now, as an action would: a game whose clock runs a little ahead of
+                // the server's (the offset is only known to about half a round trip) must not have played past the tick
+                // a pause stops at. Until then the games wait at that tick.
+                self.clock = self.clock.with_rate(ms + LEAD_MS, rate);
                 // the clock moves at the new rate from now; the simulation's fast mode (which the speed sets) changes at
                 // a stamped tick like any action
                 let mut v = vec![ToGame::Clock(self.clock)];
@@ -285,7 +288,8 @@ mod tests {
     #[test]
     fn actions_are_stamped_ahead_and_played_in_order() {
         let mut room = Room::new(0, 0.0);
-        let speed = room.handle(0.0, 1, ToServer::Speed(1));
+        // (asked LEAD_MS before 0, so the clock runs from 0)
+        let speed = room.handle(-LEAD_MS, 1, ToServer::Speed(1));
         assert_eq!(speed.len(), 2, "the clock, and the speed as an action");
         let a = room.handle(87.0 * 3.0, 1, ToServer::Act(Action::Sync)).remove(0);
         let b = room.handle(87.0 * 3.0, 2, ToServer::Act(Action::Screen)).remove(0);

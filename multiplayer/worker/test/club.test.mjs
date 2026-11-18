@@ -82,7 +82,7 @@ test("a joiner gets the save and every action since it, in order", async () => {
   const a = o.take().at(-1), b = j.take().at(-1);
   assert.deepEqual(a, b);
   assert.equal(a.Act.player, 2);
-  assert.equal(a.Act.tick, 40 + 11 + 8);
+  assert.equal(a.Act.tick, 40 + 11); // the clock runs from LEAD_MS after the save (957 + 700 - 700 ms)
 });
 
 test("a game that can't stay in step is refused, saying why", async () => {
@@ -102,12 +102,12 @@ test("nobody on: the club stops, and goes on when someone joins", async () => {
   const o = await join(k, OWNER);
   await k.c.webSocketMessage(o, JSON.stringify({ Save: { tick: 40, data: "S" } }));
   await k.c.webSocketMessage(o, JSON.stringify({ Speed: 4 }));
-  clock += 870; // 10 ticks at 4x = 40
+  clock += 870; // the 4x clock runs from 700 ms on: 170 ms = 7 ticks
   o.close();
   await k.c.webSocketClose(o);
   const stopped = k.c.room.clock;
   assert.equal(stopped.rate, 0);
-  assert.equal(stopped.base_tick, 80);
+  assert.equal(stopped.base_tick, 47);
   clock += 3_600_000;
   // the object is made again (hibernation): the clock comes back from storage
   const again = new Club(k.ctx, {});
@@ -115,7 +115,7 @@ test("nobody on: the club stops, and goes on when someone joins", async () => {
   const k2 = { ctx: k.ctx, c: again };
   const j = await join(k2, P2);
   const got = j.take();
-  assert.equal(got[0].Welcome.clock.base_tick, 80);
+  assert.equal(got[0].Welcome.clock.base_tick, 47);
   const resumed = got.find((m) => m.Clock);
   assert.equal(resumed.Clock.rate, 4, "at the speed it had");
 });

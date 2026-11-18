@@ -22,9 +22,10 @@ ureq = { version = "3", optional = true, default-features = false, features = ["
 # "Update now" (autoupdate.rs): the release's SHA256SUMS is checked against OpenSGolf's ed25519 signing key before anything
 # downloaded is installed. A small pure-Rust implementation with no dependencies of its own.
 ed25519-compact = { version = "2", optional = true, default-features = false }
-# Multiplayer's shared clubs (mp/conn.rs): a WebSocket client in pure Rust over the same rustls as ureq. The browser uses
+# Multiplayer's shared clubs (mp/conn.rs): a WebSocket client in pure Rust over the same rustls as ureq, trusting the
+# built-in roots and the system's own (an HTTPS-scanning antivirus or company proxy, issue #65). The browser uses
 # the page's WebSocket.
-tungstenite = { version = "0.28", optional = true, default-features = false, features = ["handshake", "rustls-tls-webpki-roots"] }
+tungstenite = { version = "0.28", optional = true, default-features = false, features = ["handshake", "rustls-tls-webpki-roots", "rustls-tls-native-roots"] }
 
 # "Use my SimGolf files..." (gamefiles.rs): the system's own folder picker on Windows, macOS and Linux. On Linux it asks
 # the desktop through the XDG portal over D-Bus (no GTK, nothing extra to install to build it). Not built for the browser

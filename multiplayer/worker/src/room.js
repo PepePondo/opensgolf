@@ -41,7 +41,8 @@ export class RoomCore {
 
   /** Sets the clock's rate at `ms`: the Clock message, and (when it goes on) the speed as a stamped action. */
   setRate(ms, player, rate) {
-    this.clock = withRate(this.clock, ms, clampRate(rate));
+    // from LEAD_MS on, as an action (session.rs: a game running a little ahead must not be past a pause's tick)
+    this.clock = withRate(this.clock, ms + LEAD_MS, clampRate(rate));
     const out = [{ Clock: this.clock }];
     if (this.clock.rate > 0) out.push(this.stamp(ms, player, { speed: this.clock.rate }));
     return out;

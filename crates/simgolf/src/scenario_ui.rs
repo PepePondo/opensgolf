@@ -45,7 +45,7 @@ pub struct ScenarioState {
     /// A scenario waiting for the Select Difficulty screen (its scenario.toml names no difficulty).
     pub chosen: Option<usize>,
     /// The scenario a game is being started with: (pack id, scenario), taken when the game starts.
-    starting: Option<(String, Scenario)>,
+    pub(crate) starting: Option<(String, Scenario)>,
     /// The cash a scenario starts with, taken by `start_game`.
     pub start_money: Option<i64>,
 }
@@ -81,6 +81,8 @@ pub fn find_scenarios(c: &crate::content::ContentState) -> Vec<ScenarioEntry> {
         })
         .collect();
     v.sort_by_key(|e| e.name.to_lowercase());
+    #[cfg(feature = "multiplayer")]
+    v.splice(0..0, crate::mp::rival::entries());
     v
 }
 
@@ -207,6 +209,11 @@ impl App {
     /// Starts scenario `k` of the list (after Select Difficulty when it was needed: `self.difficulty` is set then).
     pub fn start_scenario(&mut self, g: &mut Gfx, k: usize) {
         self.scen.chosen = None;
+        // the weekly challenge's row (mp/rival.rs)
+        #[cfg(feature = "multiplayer")]
+        if self.scen.list.get(k).map(|e| e.id.clone()).is_some_and(|id| self.start_rival(g, &id)) {
+            return;
+        }
         // a scenario is played on the original's map size (one with its own course takes that course's size)
         self.course_size = sg_core::mapsize::ORIGINAL;
         let Some(e) = self.scen.list.get(k) else { return };

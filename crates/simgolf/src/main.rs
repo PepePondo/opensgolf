@@ -3579,6 +3579,8 @@ impl EventHandler for Stage {
         }
         // "Check for updates": the answer from GitHub (update.rs), and "Update now" under way (autoupdate.rs)
         self.app.poll_update_check();
+        #[cfg(feature = "multiplayer")]
+        self.app.rival_poll();
         #[cfg(all(not(target_arch = "wasm32"), feature = "net"))]
         self.app.poll_update_job();
         // the course editor: the browser's file picker, and the editor left for the title menu (editor.rs)

@@ -2921,6 +2921,8 @@ impl App {
             println!("[{:6.1}s] end of year {}", self.sim_time, 2000 + (self.club.date() >> 13));
             self.open_year_end();
             self.top10_year_end();
+            #[cfg(feature = "multiplayer")]
+            self.rival_year_end();
         }
         self.wildlife_tick();
         self.tourney_after_tick();

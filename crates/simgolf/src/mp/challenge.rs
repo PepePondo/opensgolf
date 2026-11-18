@@ -97,6 +97,16 @@ pub fn week_id(unix_s: i64) -> String {
     format!("{year}-W{week:02}")
 }
 
+/// Whether `id` looks like a week id ("YYYY-Www", weeks 01 to 53), as challenge.js `isWeekId`.
+pub fn is_week_id(id: &str) -> bool {
+    let b = id.as_bytes();
+    b.len() == 8
+        && b[..4].iter().all(u8::is_ascii_digit)
+        && &b[4..6] == b"-W"
+        && b[6..].iter().all(u8::is_ascii_digit)
+        && (1..=53).contains(&id[6..].parse::<u32>().unwrap_or(0))
+}
+
 /// The challenge of a week id.
 pub fn challenge(id: &str) -> Challenge {
     let h = fnv1a(&format!("opensgolf-challenge/{id}"));
@@ -120,6 +130,14 @@ mod tests {
     use super::*;
 
     const VECTORS: &str = include_str!("../../../../multiplayer/worker/test/vectors.json");
+
+    #[test]
+    fn week_ids() {
+        assert!(is_week_id("2026-W47") && is_week_id("2020-W53") && is_week_id("2026-W01"));
+        for id in ["2026-W00", "2026-W54", "2026-47", "2026-w47", "26-W47", "2026-W4x", "2026-W470"] {
+            assert!(!is_week_id(id), "{id}");
+        }
+    }
 
     fn theme_id(t: Theme) -> &'static str {
         match t {

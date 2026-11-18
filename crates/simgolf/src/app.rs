@@ -780,6 +780,9 @@ pub struct App {
     pub game_files_found: bool,
     /// The play-time count (playcount.rs; the port's own, kept in settings.json, never in saves).
     pub playcount: crate::playcount::State,
+    /// Multiplayer (mp/mod.rs).
+    #[cfg(feature = "multiplayer")]
+    pub mp: crate::mp::State,
     /// The Change keys screen, the hidden interface and the save's content packs question (controls_ui.rs).
     pub ctl: crate::controls_ui::CtlState,
     /// The scenario's goals and the packs' scripts of the game in progress (scenario_ui).
@@ -1119,6 +1122,8 @@ impl App {
             launcher: None,
             game_files_found: false,
             playcount: Default::default(),
+            #[cfg(feature = "multiplayer")]
+            mp: Default::default(),
             ctl: Default::default(),
             scen: Default::default(),
             last_message: String::new(),

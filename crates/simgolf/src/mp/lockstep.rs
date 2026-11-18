@@ -12,8 +12,8 @@
 //! * a new plant's growing: [`SPROUT_TICKS`] game ticks, counted in the tick (not by the frames drawn);
 //! * the course brought up to date with the land: at the start of every tick, not when a frame or report asks.
 //!
-//! The hooks outside this folder are one line each behind the `multiplayer` feature (replay.rs: tick_flags, screen_hook,
-//! sync_hook, tick_begin; app.rs: the staff's world, update_tee_arrows, update_tree_growth).
+//! The hooks outside this folder are one line each behind the `multiplayer` feature (replay.rs: act, tick_flags,
+//! screen_hook, sync_hook, tick_begin; app.rs: the staff's world, update_tee_arrows, update_tree_growth).
 
 use crate::app::App;
 use sg_core::action::TickFlags;
@@ -73,6 +73,33 @@ pub fn test_waiting(app: &App) -> bool {
 }
 
 impl App {
+    /// A player's action in a shared game: sent to the server (Some(true)), refused (Some(false)), or None when it is
+    /// the player's own and is applied at once as usual.
+    pub(crate) fn lockstep_act(&mut self, a: &sg_core::action::Action) -> Option<bool> {
+        use super::session::{route, Route, ToServer};
+        if !on() || !self.rec.depth_zero() {
+            return None;
+        }
+        let s = self.mp.session.as_mut()?;
+        match route(a) {
+            Route::Local => None,
+            Route::Shared => {
+                s.send(ToServer::Act(a.clone()));
+                Some(true)
+            }
+            Route::Refused => {
+                self.show_toast("Not in a shared game.");
+                Some(false)
+            }
+        }
+    }
+
+    /// Plays one game tick of a shared game (its clock decides when: session.rs).
+    pub fn lockstep_step(&mut self) {
+        self.tick_acc = sg_core::flight::TICK_MS as f64 / 1000.0;
+        self.step_game(0.0);
+    }
+
     /// The golfers' screen places in a shared game: all off the screen.
     pub(crate) fn lockstep_screen(&mut self) {
         for g in self.club.g.iter_mut() {
@@ -86,6 +113,11 @@ impl App {
     pub(crate) fn lockstep_tick(&mut self) {
         if !on() {
             return;
+        }
+        // the actions the server ordered for this tick
+        let due = self.mp.session.as_mut().map(|s| s.due(self.game_tick)).unwrap_or_default();
+        for d in due {
+            self.apply(&d.action);
         }
         // (a golfer who arrived since the last drawn frame has the screen place he was made with otherwise)
         self.lockstep_screen();
@@ -150,7 +182,123 @@ impl App {
 
 #[cfg(test)]
 mod tests {
+    use super::super::session::{Room, Session, ToGame, LEAD_MS};
     use super::*;
+    use sg_core::action::Action;
+    use sg_core::terrain::Terrain;
+
+    /// A flat fairway with hole 1 planned from 10,10 to 10,30 (app.rs's building_game), in a shared game as `me`.
+    fn shared_game(me: u32) -> App {
+        let mut a = App::with_clock(std::path::PathBuf::new(), 4242);
+        let n = sg_core::mapsize::ORIGINAL;
+        let tiles = (n * n) as usize;
+        a.terrain = Terrain { w: n, h: n, ty: vec![2; tiles], variation: vec![0; tiles], set: vec![0; tiles], ..Default::default() };
+        a.terrain.corner = vec![1; ((n + 1) * (n + 1)) as usize];
+        a.terrain.path_kind = vec![0; tiles];
+        a.terrain.wall_mask = vec![0; tiles];
+        a.terrain.paint(10, 10, 0, 0);
+        a.terrain.paint(10, 30, 1, 0);
+        let h = &mut a.club.holes[1];
+        h.back = (10, 10);
+        h.fwd = (10, 10);
+        h.pin = (10, 30);
+        a.sync_course();
+        a.game_tick = 1;
+        a.mp.session = Some(Session::new(me));
+        a
+    }
+
+    /// The terrain brush `ty` (app.rs PAINT: 4 rough, 13 woods, which plants trees) on these tiles.
+    fn paint(ty: i32, tiles: &[(i32, i32)]) -> Action {
+        Action::Paint { ty, vbyte: 0, turn: None, look: None, tiles: tiles.to_vec(), tee: 0 }
+    }
+
+    /// Two games, the server between them: messages reach B up to `delay` ms late, and B plays its ticks in bursts.
+    fn play(delay: f64, burst: f64) -> (App, App, Room) {
+        set(true);
+        let (mut a, mut b) = (shared_game(1), shared_game(2));
+        let mut room = Room::new(1, 0.0);
+        let mut to_a: Vec<ToGame> = Vec::new();
+        let mut to_b: Vec<(f64, ToGame)> = Vec::new();
+        let mut ms = 0.0;
+        let mut next_burst = 0.0;
+        // A asks for normal speed, opens the hole and paints; B paints too
+        a.act(Action::Speed(1));
+        let script: Vec<(f64, u32, Action)> = vec![
+            (400.0, 1, Action::OpenHole),
+            (900.0, 1, paint(13, &[(20, 20), (21, 20), (22, 20)])),
+            (905.0, 2, paint(4, &[(20, 21), (21, 21)])),
+            (5000.0, 2, Action::Speed(4)),
+            (7000.0, 1, paint(13, &[(30, 30), (31, 30)])),
+        ];
+        let mut script = script.into_iter().peekable();
+        while ms < 12_000.0 {
+            while script.peek().is_some_and(|s| s.0 <= ms) {
+                let (_, who, act) = script.next().unwrap();
+                (if who == 1 { &mut a } else { &mut b }).act(act);
+            }
+            for (who, g) in [(1, &mut a), (2, &mut b)] {
+                for m in g.mp.session.as_mut().unwrap().take_outbox() {
+                    for out in room.handle(ms, who, m) {
+                        to_b.push((ms + delay, out.clone()));
+                        to_a.push(out);
+                    }
+                }
+            }
+            // A gets everything at once
+            for m in to_a.drain(..) {
+                let t = a.game_tick;
+                a.mp.session.as_mut().unwrap().receive(m, t);
+            }
+            // B gets it `delay` later
+            while to_b.first().is_some_and(|m| m.0 <= ms) {
+                let (_, m) = to_b.remove(0);
+                let t = b.game_tick;
+                b.mp.session.as_mut().unwrap().receive(m, t);
+            }
+            let to = a.mp.session.as_ref().unwrap().may_run_to(ms);
+            while a.game_tick < to {
+                a.lockstep_step();
+            }
+            if ms >= next_burst {
+                next_burst += burst;
+                let to = b.mp.session.as_ref().unwrap().may_run_to(ms);
+                while b.game_tick < to {
+                    b.lockstep_step();
+                }
+            }
+            ms += 10.0;
+        }
+        let to = a.game_tick.max(b.game_tick);
+        while a.game_tick < to {
+            a.lockstep_step();
+        }
+        while b.game_tick < to {
+            b.lockstep_step();
+        }
+        set(false);
+        (a, b, room)
+    }
+
+    #[test]
+    fn two_shared_games_stay_the_same() {
+        let (a, b, room) = play(300.0, 250.0);
+        assert!(a.game_tick > 100, "the clock ran ({} ticks)", a.game_tick);
+        assert_eq!(a.mp.session.as_ref().unwrap().late, None);
+        assert_eq!(b.mp.session.as_ref().unwrap().late, None);
+        assert!(room.log.len() >= 7, "every action went through the server");
+        assert_eq!(a.fingerprint().total(), b.fingerprint().total(), "the same game on both");
+        assert_eq!(a.terrain.ty, b.terrain.ty);
+        assert_eq!(a.terrain.ty[a.terrain.tile_index(20, 21)], 4, "B's paint reached A");
+        assert_eq!(b.terrain.ty[b.terrain.tile_index(30, 30)], 13, "A's reached B");
+    }
+
+    #[test]
+    fn an_action_too_late_is_caught() {
+        // more delay than the lead: B has played past the tick an action was for
+        let (_, b, _) = play(LEAD_MS * 3.0, 10.0);
+        assert!(b.mp.session.as_ref().unwrap().late.is_some());
+    }
 
     #[test]
     fn off_unless_asked_and_then_fixed() {

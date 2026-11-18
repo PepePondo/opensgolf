@@ -84,6 +84,11 @@ impl App {
     /// action's own code returns (whether it did something, where it says). During a replay the player's actions are
     /// refused.
     pub fn act(&mut self, a: Action) -> bool {
+        // a shared game's actions go to the server, which orders them for everyone (mp/lockstep.rs)
+        #[cfg(feature = "multiplayer")]
+        if let Some(r) = self.lockstep_act(&a) {
+            return r;
+        }
         if self.rec.replaying() && self.rec.depth == 0 && !matches!(a, Action::Speed(_)) {
             if !std::mem::replace(&mut self.rec.told, true) {
                 self.show_toast(tr("STR_TOAST_REPLAY_PLAYING"));

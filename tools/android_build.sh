@@ -59,14 +59,12 @@ cargo update -p wasm-bindgen --precise 0.2.93
 # a version 3 lock file says the same for crates.io dependencies
 sed -i 's/^version = 4$/version = 3/' Cargo.lock
 
-# Sound goes through cpal's oboe output, whose C++ (oboe-sys) is compiled with the NDK. Should that fail, the app is built
-# silent rather than not at all (TODO: drop the fallback once a CI build with sound has been tried on a phone).
+# Sound goes through cpal's oboe output, whose C++ (oboe-sys) is compiled with the NDK. A failed build fails: it used to fall
+# back to a build without the default features, which shipped a silent app with no update check for weeks without a word
+# (a 32-bit overflow in autoupdate.rs broke the armeabi-v7a build; issue #191).
 rel=""
 if [ "$profile" = release ]; then rel="--release"; fi
-if ! cargo quad-apk build $rel -p opensgolf; then
-    echo "warning: the build with sound failed; building the app without sound" >&2
-    cargo quad-apk build $rel -p opensgolf --no-default-features
-fi
+cargo quad-apk build $rel -p opensgolf
 mkdir -p "$out"
 apk=$(find "target/android-artifacts/$profile/apk" -name '*.apk' | head -1)
 # the library the activity loads must be the one packed: cargo-quad-apk names the first after the package name's last part,

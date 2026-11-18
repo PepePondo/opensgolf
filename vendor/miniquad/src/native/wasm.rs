@@ -317,8 +317,15 @@ pub extern "C" fn resize(width: i32, height: i32) {
         d.screen_width = width as _;
         d.screen_height = height as _;
     }
-    tl_event_handler(|event_handler| {
-        event_handler.resize_event(width as _, height as _);
+    // OpenSGolf: the page can size the canvas from inside a call into the game (the handler is borrowed then, also while
+    // it is being made); the new size is in the display above and the game reads it each frame, so the event is skipped
+    // rather than panicking (a black screen at start, issue #195)
+    EVENT_HANDLER.with(|globals| {
+        if let Ok(mut globals) = globals.try_borrow_mut() {
+            if let Some(h) = globals.as_mut() {
+                h.resize_event(width as _, height as _);
+            }
+        }
     });
 }
 

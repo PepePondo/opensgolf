@@ -29,4 +29,9 @@ own picker for a .zip, CD .iso or a folder, the pick copied into the app's folde
 `installApk`, `installState` and `onNewIntent` for "Update now" (a downloaded APK handed to Android's PackageInstaller).
 A newer upstream would need these carried over.
 
+In `src/native/wasm.rs`: `resize` skips the game's resize event when the event handler is already borrowed (the page sized
+the canvas from inside a call into the game, such as while the game is being made) instead of panicking with
+`already borrowed`, which left a black screen at start in browsers at 125% scaling (issue #195). The new size is still
+put in the display, which the game reads every frame.
+
 Drop this copy when an upstream release carries the fixes.

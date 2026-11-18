@@ -289,7 +289,8 @@ fn gunzip(d: &[u8]) -> Result<Vec<u8>, Error> {
     if flags & 2 != 0 {
         p += 2;
     }
-    miniz_oxide::inflate::decompress_to_vec_with_limit(d.get(p..).ok_or_else(bad)?, MAX_PACKAGE as usize * 4).map_err(|_| bad())
+    miniz_oxide::inflate::decompress_to_vec_with_limit(d.get(p..).ok_or_else(bad)?, usize::try_from(MAX_PACKAGE * 4).unwrap_or(usize::MAX))
+        .map_err(|_| bad())
 }
 
 /// A NUL-ended field of a tar header.

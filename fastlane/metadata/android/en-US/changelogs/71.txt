@@ -1,0 +1,1 @@
+Sound is back on Android (recent versions were built without it). Fixes a black screen at start in browsers at 125% scaling.

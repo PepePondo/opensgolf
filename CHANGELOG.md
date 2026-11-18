@@ -62,6 +62,8 @@ Enhanced graphics and HD.
   under the pointer (*Design names*); Shift+X hides trees and scenery (*Clear view*); nights are lighter and bluer with
   Time of day (*Brighter nights*, Enhanced graphics); and *Higher staff limits* can go up to 100 staff.
   The 3D golfers' faces are smooth, with no more lumpy cheeks and chin.
+- **0.8.5:** the browser version no longer starts on a black screen when Windows or the browser is scaled to 125%, and
+  the Android app has its sound back (recent Android downloads were built without it, and without the update check).
 
 ## 0.7 (7 November 2026)
 

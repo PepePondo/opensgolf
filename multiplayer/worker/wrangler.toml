@@ -1,5 +1,5 @@
-# The rival-courses leaderboard Worker (README.md). Not deployed yet: create the database, put its id here, then deploy
-# from this folder with npx wrangler@4.152.0 deploy.
+# The multiplayer Worker (README.md): the weekly board and the shared clubs. Deployed 2026-11-18 to
+# https://opensgolf-board.openmcm2-laps.workers.dev; redeploy from this folder with npx wrangler@4.152.0 deploy.
 name = "opensgolf-board"
 main = "src/worker.js"
 compatibility_date = "2026-10-01"
@@ -8,7 +8,7 @@ workers_dev = true
 [[d1_databases]]
 binding = "DB"
 database_name = "opensgolf-board"
-database_id = "00000000-0000-0000-0000-000000000000"
+database_id = "f9841ce7-7018-47cf-9c3a-0bc85ef1cdcc"
 
 [observability]
 enabled = true

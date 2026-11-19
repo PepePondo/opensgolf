@@ -165,6 +165,11 @@ class QuadSurface
     @SuppressWarnings("deprecation")
     @Override
     public boolean onKey(View v, int keyCode, KeyEvent event) {
+        // the volume keys stay the system's, in full screen too (#191: they did nothing while the game had the screen)
+        if (keyCode == KeyEvent.KEYCODE_VOLUME_UP || keyCode == KeyEvent.KEYCODE_VOLUME_DOWN
+                || keyCode == KeyEvent.KEYCODE_VOLUME_MUTE) {
+            return false;
+        }
         // a game controller's face, shoulder and stick buttons go to the game's controller code (gamepad.rs) as the bits
         // of the W3C standard gamepad; the d-pad stays the arrow keys
         int bit = padBit(keyCode);

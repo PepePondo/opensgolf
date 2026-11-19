@@ -9,6 +9,8 @@ name: release
 #   Windows  opensgolf-windows.zip (x64) and opensgolf-windows-arm64.zip (Windows on ARM, e.g. Snapdragon laptops)
 #   Android  opensgolf-android.apk (signed with a debug key, for sideloading)
 #   browser  opensgolf-web.zip
+# No package carries packs/opensgolf-free/art (about 15 MB in 1,900 files): those files are built into the programs (freeset/baked_list.rs)
+# and the game never reads them from the pack folder, so a copy beside the program would only double the download.
 # Each Windows .zip and Linux .tar.gz also comes as NAME-bin.zip / NAME-bin.tar.gz, the same package without packs/ (the
 # programs, lang and the documents, a few MB), with opensgolf-packs.sha256 listing every file in packs/: the game's
 # "Update now" then downloads only the programs and the pack files that changed (GitHub issue #65, autoupdate.rs),
@@ -73,6 +75,7 @@ jobs:
           cp LICENSE README.md docs/PLAYING.md docs/MODDING.md packaging/linux/opensgolf.desktop "$out/"
           cp icons/icon_256.png "$out/opensgolf.png"
           cp -r packs lang "$out/"
+          rm -rf "$out/packs/opensgolf-free/art"
           tar czf "$out.tar.gz" "$out"
           # the same without packs/, for selective updates (autoupdate.rs)
           tar czf "$out-bin.tar.gz" --exclude="$out/packs" "$out"
@@ -83,6 +86,7 @@ jobs:
           mkdir -p "$app/usr/bin" "$app/usr/share/applications" "$app/usr/share/icons/hicolor/256x256/apps"
           cp target/release/opensgolf target/release/sgtool "$app/usr/bin/"
           cp -r packs lang "$app/usr/bin/"
+          rm -rf "$app/usr/bin/packs/opensgolf-free/art"
           cp packaging/linux/opensgolf.desktop "$app/" && cp packaging/linux/opensgolf.desktop "$app/usr/share/applications/"
           cp icons/icon_256.png "$app/opensgolf.png"
           cp icons/icon_256.png "$app/usr/share/icons/hicolor/256x256/apps/opensgolf.png"
@@ -120,6 +124,7 @@ jobs:
           done
           # the game finds its packs and translations next to the program, its saves in ~/Library/Application Support/OpenSGolf
           cp -r packs lang "$app/Contents/MacOS/"
+          rm -rf "$app/Contents/MacOS/packs/opensgolf-free/art"
           sed "s/@VERSION@/${VERSION#v}/g" packaging/macos/Info.plist > "$app/Contents/Info.plist"
           # the icon: every size iconutil wants, drawn by sgtool
           target/aarch64-apple-darwin/release/sgtool icon icons 16 32 64 128 256 512 1024
@@ -164,6 +169,7 @@ jobs:
           cp icons/icon_256.png "$out/opensgolf.png"
           cp LICENSE README.md docs/PLAYING.md docs/MODDING.md "$out/"
           cp -r packs lang "$out/"
+          rm -rf "$out/packs/opensgolf-free/art"
           7z a "$out.zip" "$out" > /dev/null
           # the same without packs/, for selective updates (autoupdate.rs)
           7z a "$out-bin.zip" "$out" '-xr!packs' > /dev/null
@@ -227,7 +233,8 @@ jobs:
       - name: List the packs' files (opensgolf-packs.sha256)
         # a selective update compares these with the player's copy and fetches only the files that differ, from this
         # release's tag in the repository (autoupdate.rs); signed with the packages below
-        run: (cd src && find packs -type f -print0 | LC_ALL=C sort -z | xargs -0 sha256sum) > dist/opensgolf-packs.sha256
+        # (packs/opensgolf-free/art is in no package, see the top of this file, so it is not listed either)
+        run: (cd src && find packs -path packs/opensgolf-free/art -prune -o -type f -print0 | LC_ALL=C sort -z | xargs -0 sha256sum) > dist/opensgolf-packs.sha256
       - name: Sign the packages (SHA256SUMS, SHA256SUMS.sig)
         # "Update now" (crates/simgolf/src/autoupdate.rs) installs only a package whose SHA-256 is in SHA256SUMS, signed
         # with the key in the OPENSGOLF_UPDATE_KEY secret (the private key `sgtool update-keygen` prints: 64 hex digits,

@@ -51,6 +51,10 @@ The set has two parts, both built into the game (nothing is downloaded at run ti
   * **Fonts**: Fredoka SemiBold for the headings (`KLEPTO__.TTF`) and Nunito ExtraBold for the text (`manu3_.TTF`), both
     SIL Open Font License 1.1 (`crates/simgolf/fonts/*-OFL.txt`, made by `tools/freeset_art/fonts.py`, see `CREDITS.md`).
 
+The files in `art/` are the source of the copy built into the programs: the game never reads them from this folder (they are
+not under the `gfx/` or `sfx/` folders a pack replaces files from), so the release packages leave `art/` out
+(.github/workflows/release.yml) and a copy of the game has only this folder's pack.toml, README and CREDITS.
+
 To rebuild the rendered art: `python3 tools/freeset_art/build.py` (numpy and Pillow; `--only REGEX` for some sprites), `python3 tools/freeset_art/ui.py` for the interface sheets, and
 for the sounds `python3 tools/freeset_art/sounds.py` (numpy, scipy, ffmpeg with libvorbis; `--only REGEX` for some). Both rewrite `crates/sg-core/src/freeset/baked_list.rs`, the list of files built into the game.
 

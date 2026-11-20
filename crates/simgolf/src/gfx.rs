@@ -1224,41 +1224,79 @@ pub fn bleed_alpha(img: &Rgba) -> Rgba {
     let (w, h) = (img.w as usize, img.h as usize);
     let mut out = img.clone();
     let mut known: Vec<bool> = img.px.chunks_exact(4).map(|p| p[3] != 0).collect();
-    for _ in 0..4 {
-        let mut next = known.clone();
-        let mut changed = false;
-        for y in 0..h {
-            for x in 0..w {
-                let i = y * w + x;
-                if known[i] {
-                    continue;
+    if known.len() < w * h {
+        return out;
+    }
+    // the pixels round pixel i, inside the picture
+    let around = |i: usize| {
+        let (x, y) = ((i % w) as i32, (i / w) as i32);
+        [(-1i32, 0i32), (1, 0), (0, -1), (0, 1), (-1, -1), (1, -1), (-1, 1), (1, 1)].into_iter().filter_map(move |(dx, dy)| {
+            let (nx, ny) = (x + dx, y + dy);
+            (nx >= 0 && ny >= 0 && nx < w as i32 && ny < h as i32).then(|| ny as usize * w + nx as usize)
+        })
+    };
+    // each step outwards fills the transparent pixels next to a known one with the average of their known neighbours
+    // (known before the step: the order within a step makes no difference). Only the first step looks at every pixel;
+    // the later ones look only round the pixels the step before filled.
+    // (the first step's pixels: the known ones spread a pixel each way, along the rows and then down the columns)
+    let mut near = vec![false; w * h];
+    for y in 0..h {
+        let row = &known[y * w..(y + 1) * w];
+        for x in 0..w {
+            near[y * w + x] = row[x] || (x > 0 && row[x - 1]) || (x + 1 < w && row[x + 1]);
+        }
+    }
+    let mut todo = Vec::new();
+    for y in 0..h {
+        for x in 0..w {
+            let i = y * w + x;
+            if !known[i] && ((y > 0 && near[i - w]) || near[i] || (y + 1 < h && near[i + w])) {
+                todo.push(i);
+            }
+        }
+    }
+    let mut queued = vec![false; w * h];
+    let mut filled = Vec::new();
+    for step in 0..4 {
+        if todo.is_empty() {
+            break;
+        }
+        filled.clear();
+        for &i in &todo {
+            let (mut r, mut g, mut b, mut n) = (0u32, 0u32, 0u32, 0u32);
+            for j in around(i) {
+                if known[j] {
+                    r += out.px[j * 4] as u32;
+                    g += out.px[j * 4 + 1] as u32;
+                    b += out.px[j * 4 + 2] as u32;
+                    n += 1;
                 }
-                let (mut r, mut g, mut b, mut n) = (0u32, 0u32, 0u32, 0u32);
-                for (dx, dy) in [(-1i32, 0i32), (1, 0), (0, -1), (0, 1), (-1, -1), (1, -1), (-1, 1), (1, 1)] {
-                    let (nx, ny) = (x as i32 + dx, y as i32 + dy);
-                    if nx < 0 || ny < 0 || nx >= w as i32 || ny >= h as i32 {
-                        continue;
-                    }
-                    let j = ny as usize * w + nx as usize;
-                    if known[j] {
-                        r += out.px[j * 4] as u32;
-                        g += out.px[j * 4 + 1] as u32;
-                        b += out.px[j * 4 + 2] as u32;
-                        n += 1;
-                    }
-                }
-                if n > 0 {
-                    out.px[i * 4] = (r / n) as u8;
-                    out.px[i * 4 + 1] = (g / n) as u8;
-                    out.px[i * 4 + 2] = (b / n) as u8;
-                    next[i] = true;
-                    changed = true;
+            }
+            if n == 0 {
+                continue;
+            }
+            out.px[i * 4] = (r / n) as u8;
+            out.px[i * 4 + 1] = (g / n) as u8;
+            out.px[i * 4 + 2] = (b / n) as u8;
+            filled.push(i);
+        }
+        for &i in &filled {
+            known[i] = true;
+        }
+        if step == 3 {
+            break;
+        }
+        todo.clear();
+        for &i in &filled {
+            for j in around(i) {
+                if !known[j] && !queued[j] {
+                    queued[j] = true;
+                    todo.push(j);
                 }
             }
         }
-        known = next;
-        if !changed {
-            break;
+        for &j in &todo {
+            queued[j] = false;
         }
     }
     // whatever is still far from any opaque pixel goes black, so even the smallest mipmaps carry no key colour
@@ -1281,5 +1319,90 @@ mod bleed_tests {
         let out = super::bleed_alpha(&img);
         assert_eq!(&out.px[0..4], &[10, 20, 30, 0]);
         assert_eq!(&out.px[8..12], &[10, 20, 30, 0]);
+    }
+
+    // the four full passes over the picture that bleed_alpha did up to 0.8.5: the same result, pixel for pixel
+    fn bleed_alpha_reference(img: &sg_core::assets::Rgba) -> sg_core::assets::Rgba {
+        let (w, h) = (img.w as usize, img.h as usize);
+        let mut out = img.clone();
+        let mut known: Vec<bool> = img.px.chunks_exact(4).map(|p| p[3] != 0).collect();
+        for _ in 0..4 {
+            let mut next = known.clone();
+            let mut changed = false;
+            for y in 0..h {
+                for x in 0..w {
+                    let i = y * w + x;
+                    if known[i] {
+                        continue;
+                    }
+                    let (mut r, mut g, mut b, mut n) = (0u32, 0u32, 0u32, 0u32);
+                    for (dx, dy) in [(-1i32, 0i32), (1, 0), (0, -1), (0, 1), (-1, -1), (1, -1), (-1, 1), (1, 1)] {
+                        let (nx, ny) = (x as i32 + dx, y as i32 + dy);
+                        if nx < 0 || ny < 0 || nx >= w as i32 || ny >= h as i32 {
+                            continue;
+                        }
+                        let j = ny as usize * w + nx as usize;
+                        if known[j] {
+                            r += out.px[j * 4] as u32;
+                            g += out.px[j * 4 + 1] as u32;
+                            b += out.px[j * 4 + 2] as u32;
+                            n += 1;
+                        }
+                    }
+                    if n > 0 {
+                        out.px[i * 4] = (r / n) as u8;
+                        out.px[i * 4 + 1] = (g / n) as u8;
+                        out.px[i * 4 + 2] = (b / n) as u8;
+                        next[i] = true;
+                        changed = true;
+                    }
+                }
+            }
+            known = next;
+            if !changed {
+                break;
+            }
+        }
+        // whatever is still far from any opaque pixel goes black, so even the smallest mipmaps carry no key colour
+        for (p, k) in out.px.chunks_exact_mut(4).zip(&known) {
+            if !k {
+                p[0] = 0;
+                p[1] = 0;
+                p[2] = 0;
+            }
+        }
+        out
+    }
+
+    #[test]
+    fn same_as_the_full_passes() {
+        let mut seed = 0x2545_f491_4f6c_dd1du64;
+        let mut next = move || {
+            seed ^= seed << 13;
+            seed ^= seed >> 7;
+            seed ^= seed << 17;
+            seed
+        };
+        for case in 0..200 {
+            let (w, h) = (1 + (next() % 40) as u32, 1 + (next() % 40) as u32);
+            let mut img = sg_core::assets::Rgba::new(w, h);
+            // from nearly all transparent to nearly all opaque, in specks and in blobs
+            let opaque = next() % 100;
+            let blob = case % 2 == 0;
+            for (i, p) in img.px.chunks_exact_mut(4).enumerate() {
+                let v = next();
+                p.copy_from_slice(&[(v >> 8) as u8, (v >> 16) as u8, (v >> 24) as u8, 0]);
+                let on = if blob {
+                    let (x, y) = ((i as u32 % w) as i64, (i as u32 / w) as i64);
+                    (x * x + y * y) % 100 < opaque as i64
+                } else {
+                    v % 100 < opaque
+                };
+                if on {
+                    p[3] = 1 + (v >> 32) as u8 % 255;
+                }
+            }
+            assert_eq!(super::bleed_alpha(&img).px, bleed_alpha_reference(&img).px, "case {case}: {w}x{h}");
+        }
     }
 }

@@ -227,7 +227,7 @@ pub fn picture(e: &Entry, low: &str) -> Option<Vec<u8>> {
         return Some(enc::pcx(&c.to_rgba_keyed(keyed, 0.5), Some(keyed)));
     }
     let img = if *full { c.to_rgba_keyed(keyed, 0.02) } else { c.to_rgba_keyed(keyed, 0.5) };
-    crate::png::encode_png(&img)
+    crate::png::encode_png_quick(&img)
 }
 
 /// The alpha sheet that goes with picture `of` (white where it is drawn).
@@ -236,7 +236,7 @@ pub fn alpha(of: &Entry, _low: &str) -> Option<Vec<u8>> {
     let olow = of.path.to_lowercase();
     let name = olow.rsplit('/').next().unwrap_or(&olow).to_string();
     let c = draw(&olow, &name, *w as usize, *h as usize, comps, *full);
-    crate::png::encode_png(&c.alpha_sheet())
+    crate::png::encode_png_quick(&c.alpha_sheet())
 }
 
 fn draw(low: &str, name: &str, w: usize, h: usize, comps: &[Comp], full: bool) -> Canvas {

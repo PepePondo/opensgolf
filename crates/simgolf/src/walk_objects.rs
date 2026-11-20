@@ -654,6 +654,9 @@ pub struct Objects {
     /// How many things were drawn and left out last frame (for the performance report).
     pub drawn: usize,
     pub culled: usize,
+    /// The triangle lists of the last frame drawn (blobs, solids, shadows, outlines), kept so the next frame fills them
+    /// again without growing them from nothing.
+    lists: [Vec<Vert>; 4],
 }
 
 impl Objects {
@@ -1119,11 +1122,13 @@ impl App {
         // people and small things stand where a tree or a building's picture may stand too (an animal at a cactus): they
         // are drawn a little towards the eye, in front, as the overhead view draws them over it
         let mut front = Lists::default();
-        let (mut blobs, mut solids, mut shadows) = (Vec::new(), Vec::new(), Vec::new());
+        let [mut blobs, mut solids, mut shadows, mut inks] = std::mem::take(&mut o.lists);
+        for l in [&mut blobs, &mut solids, &mut shadows, &mut inks] {
+            l.clear();
+        }
         // the drawn look of the models (walk_toon.rs): flat bands of light, their outlines drawn pushed back
         let toon = std::env::var_os("SG_WALK_NO_TOON").is_none();
         let sun = [sc.u.sun[0], sc.u.sun[1], sc.u.sun[2]];
-        let mut inks: Vec<Vert> = Vec::new();
         let mut proxies: Vec<((f32, f32), Fit)> = Vec::new();
         let mut eased: HashMap<u32, (f32, f32)> = HashMap::new();
         let white = [1.0; 4];
@@ -1680,6 +1685,7 @@ impl App {
         ui.pull = [sc.eye[0], sc.eye[1], sc.eye[2], -0.035];
         gpu.tris(Pipe::Solid, g.white, &ui, &inks);
         gpu.tris(Pipe::Blend, g.white, &sc.u.with_mode(mode::FLAT), &trails);
+        o.lists = [blobs, solids, shadows, inks];
     }
 
     /// A stock head's colours (0..18), read from the game's own portrait of it (the halo page the screens draw from,

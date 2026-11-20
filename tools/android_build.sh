@@ -45,6 +45,17 @@ if [ -n "$ANDROID_TARGETS" ]; then
     list=$(for t in $targets; do printf '"%s", ' "$t"; done)
     sed -i "s/^build_targets = .*/build_targets = [${list%, }]/" crates/simgolf/Cargo.toml
 fi
+# a store's build (OPENSGOLF_NO_SELF_UPDATE=1, the same rule as build.rs: set and neither empty nor "0") has no update
+# check, Update now or play-time count, and asks for no permissions: INTERNET and REQUEST_INSTALL_PACKAGES come out
+case "${OPENSGOLF_NO_SELF_UPDATE:-0}" in
+    0) ;;
+    *) sed -i -e '/^\[\[package.metadata.android.permission\]\]$/{N;/\nname = "android.permission.[A-Z_]*"$/d}' \
+           crates/simgolf/Cargo.toml
+       if grep -q '^\[\[package.metadata.android.permission\]\]$' crates/simgolf/Cargo.toml; then
+           echo "error: a store build must ask for no permissions, crates/simgolf/Cargo.toml still has one" >&2
+           exit 1
+       fi ;;
+esac
 # the desktop's controller library (gamepad.rs) is not built for Android, and its uuid wants a newer js-sys than the old
 # Cargo below can have: left out of the manifest here
 sed -i -e '/^gilrs = /d' -e 's/^gamepad = \["dep:gilrs"\]/gamepad = []/' crates/simgolf/Cargo.toml

@@ -32,7 +32,7 @@ Builds:
       - legacy
     prebuild:
       # F-Droid installs updates itself: the game's own Update now is left out (OPENSGOLF_NO_SELF_UPDATE in build:),
-      # and with it the one permission it needed
+      # and with it both permissions (INTERNET, REQUEST_INSTALL_PACKAGES), which sit together in the manifest
       - sed -i -e '/^\[\[package.metadata.android.permission\]\]$/,/^name = "android.permission.REQUEST_INSTALL_PACKAGES"$/d'
         crates/simgolf/Cargo.toml
     build:

@@ -65,8 +65,16 @@ opengles_version_minor = 0
 res = "android/res"
 icon = "@mipmap/ic_launcher"
 # The app reads and writes only its own folders (its internal data folder and Android/data/org.opensgolf.game/files, which
-# need no permission). Its one permission: "Update now" hands a downloaded, signature-checked APK to Android's installer
-# (src/autoupdate.rs, MainActivity.installApk); Android still asks the player before installing anything.
+# need no permission). Its two permissions:
+# * INTERNET: Check for updates and Update now (src/update.rs, src/autoupdate.rs), Find more's content downloads
+#   (src/content.rs) and the optional play-time count (src/playcount.rs). Without it Android refuses every connection.
+# * REQUEST_INSTALL_PACKAGES: "Update now" hands a downloaded, signature-checked APK to Android's installer
+#   (MainActivity.installApk); Android still asks the player before installing anything.
+# A store's build (OPENSGOLF_NO_SELF_UPDATE=1) asks for neither: tools/android_build.sh leaves both out of its copy of
+# this manifest. Keep the two blocks together and INTERNET first: F-Droid's recipe also deletes the lines from the first
+# block's header down to REQUEST_INSTALL_PACKAGES (packaging/fdroid/org.opensgolf.game.yml, prebuild).
+[[package.metadata.android.permission]]
+name = "android.permission.INTERNET"
 [[package.metadata.android.permission]]
 name = "android.permission.REQUEST_INSTALL_PACKAGES"
 

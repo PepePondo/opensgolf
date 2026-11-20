@@ -447,10 +447,13 @@ fn water_at(th: &Theme, x: f32, y: f32, level: f32, seed: u32) -> Col {
     c
 }
 
-fn paint(kind: Kind, th: &Theme, x: f32, y: f32, seed: u32, set: u32, var: u32) -> (Col, f32) {
+/// `seed` is the same for every set of a surface, so tiles of different sets meet without a seam or a change of tone;
+/// `feat` differs by set and places the scattered things (tufts, stones, leaves) differently on each.
+#[allow(clippy::too_many_arguments)]
+fn paint(kind: Kind, th: &Theme, x: f32, y: f32, seed: u32, feat: u32, set: u32, var: u32) -> (Col, f32) {
     match kind {
-        Kind::Fairway => turf(x, y, shade(th.mown, set as f32 * 0.012), 4, 0.09, seed),
-        Kind::Firm => turf(x, y, mix(th.mown, th.sand, 0.22 + set as f32 * 0.03), 4, 0.05, seed),
+        Kind::Fairway => turf(x, y, th.mown, 4, 0.09, seed),
+        Kind::Firm => turf(x, y, mix(th.mown, th.sand, 0.28), 4, 0.05, seed),
         Kind::Green => {
             let (c, h) = turf(x, y, th.green, 8, 0.045, seed);
             (c, h * 0.3 + 0.35)
@@ -459,7 +462,7 @@ fn paint(kind: Kind, th: &Theme, x: f32, y: f32, seed: u32, set: u32, var: u32) 
             // a diagonal crosscut on the fast greens
             let d1 = ((x + y) / N as f32 * 4.0 * std::f32::consts::PI).sin();
             let d2 = ((x - y) / N as f32 * 4.0 * std::f32::consts::PI).sin();
-            let (c, h) = turf(x, y, shade(th.green, -0.02 - set as f32 * 0.02), 0, 0.0, seed);
+            let (c, h) = turf(x, y, shade(th.green, -0.04), 0, 0.0, seed);
             // and rolls in the putting surface, lit from one side, as the original's TrickyGreen pictures show its
             // undulations (so a tricky green reads as one from a plain green at a glance)
             let roll = |x: f32, y: f32| fbm(x, y, 3, 2, seed ^ 0x7c1);
@@ -473,35 +476,36 @@ fn paint(kind: Kind, th: &Theme, x: f32, y: f32, seed: u32, set: u32, var: u32) 
             let (c, h) = if var.is_multiple_of(2) { turf(y, x, base, 4, 0.05, seed) } else { turf(x, y, base, 4, 0.05, seed) };
             (c, h * 0.4 + 0.3)
         }
-        Kind::Rough => grass(x, y, shade(th.rough, (set as f32 - 2.0) * 0.012), 0.6, seed),
+        Kind::Rough => grass(x, y, th.rough, 0.6, seed),
         Kind::Deep => {
             // long grass in tussocks with sun-bleached tips
             let under = grass(x, y, shade(th.deep, -0.06), 0.6, seed);
             let tips = mix(th.deep, rgb(196, 178, 96), 0.3);
-            let t1 = plants(x, y, under, shade(th.deep, 0.05), 4, 60, 0.36, seed ^ 0x1d);
-            let (c, h) = plants(x, y, t1, tips, 8, 22, 0.3, seed ^ 0x2d);
+            let t1 = plants(x, y, under, shade(th.deep, 0.05), 4, 60, 0.36, feat ^ 0x1d);
+            let (c, h) = plants(x, y, t1, tips, 8, 22, 0.3, feat ^ 0x2d);
             let tall = blades(x, y, seed ^ 0xfe, 32);
             (shade(c, tall * 0.07), h * 0.6 + tall * 0.05)
         }
         Kind::Scrub => {
-            let g = ground(x, y, shade(th.ground, (set as f32 - 2.0) * 0.02), seed);
-            let share = [10, 18, 26, 6, 32][set as usize % 5];
-            let tufts = plants(x, y, g, th.scrub, 8, share, 0.32, seed ^ 0x31);
-            plants(x, y, tufts, shade(th.scrub, -0.15), 16, share / 2, 0.28, seed ^ 0x47)
+            let g = ground(x, y, th.ground, seed);
+            // close shares: the game picks a set per tile, so very different ones read as a patchwork
+            let share = [16, 20, 24, 14, 22][set as usize % 5];
+            let tufts = plants(x, y, g, th.scrub, 8, share, 0.32, feat ^ 0x31);
+            plants(x, y, tufts, shade(th.scrub, -0.15), 16, share / 2, 0.28, feat ^ 0x47)
         }
         Kind::Brush => {
             let under = grass(x, y, th.rough, 0.5, seed);
             // low shrubs among the grass (heather on the links)
             let shrub = if th.heather { mix(th.scrub, th.rough, 0.35) } else { mix(th.scrub, rgb(150, 140, 60), 0.35) };
-            plants(x, y, under, shrub, 8, 50 + set * 6, 0.36, seed ^ 0x5)
+            plants(x, y, under, shrub, 8, 52 + set * 3, 0.36, feat ^ 0x5)
         }
         Kind::Sand => sand(x, y, th.sand, seed),
         Kind::Cracks => {
             let (c, h) = ground(x, y, shade(th.ground, -0.04), seed);
             // branching cracks: where two noise fields cross zero
-            let a = fbm(x, y, 2, 4, seed ^ 0x5a).abs();
-            let b = fbm(x, y, 4, 3, seed ^ 0x77).abs();
-            let line = smooth(0.05, 0.0, a) * (0.6 + set as f32 * 0.1) + smooth(0.035, 0.0, b) * 0.5;
+            let a = fbm(x, y, 2, 4, feat ^ 0x5a).abs();
+            let b = fbm(x, y, 4, 3, feat ^ 0x77).abs();
+            let line = smooth(0.05, 0.0, a) * 0.8 + smooth(0.035, 0.0, b) * 0.5;
             let dark = mix(th.ground, rgb(90, 50, 30), 0.7);
             (mix(c, dark, line.min(1.0) * 0.85), h - line * 0.5)
         }
@@ -519,7 +523,7 @@ fn paint(kind: Kind, th: &Theme, x: f32, y: f32, seed: u32, set: u32, var: u32) 
         }
         Kind::GrassySand => {
             let s = sand(x, y, mix(th.sand, th.ground, 0.15), seed);
-            plants(x, y, s, shade(th.rough, 0.05), 8, 45, 0.35, seed ^ 0x2)
+            plants(x, y, s, shade(th.rough, 0.05), 8, 45, 0.35, feat ^ 0x2)
         }
         Kind::WaterShallow => (water_at(th, x, y, 1.0, seed), 0.0),
         Kind::WaterMiddle => (water_at(th, x, y, 2.0, seed), 0.0),
@@ -535,9 +539,9 @@ fn paint(kind: Kind, th: &Theme, x: f32, y: f32, seed: u32, set: u32, var: u32) 
         Kind::Rock => {
             // grass strewn with stones and boulders (more of them in the later sets)
             let under = grass(x, y, th.rough, 0.4, seed);
-            let share = [16, 8, 22, 12, 30][set as usize % 5];
-            let big = stones(x, y, under, th.rock, 4, share, 0.36, seed ^ 0x3);
-            stones(x, y, big, th.rock, 8, share / 2 + 4, 0.3, seed ^ 0x17)
+            let share = [16, 12, 20, 14, 22][set as usize % 5];
+            let big = stones(x, y, under, th.rock, 4, share, 0.36, feat ^ 0x3);
+            stones(x, y, big, th.rock, 8, share / 2 + 4, 0.3, feat ^ 0x17)
         }
         Kind::Woods => {
             // the forest floor in the trees' shade: moss and low leafy cover, drifts of fallen leaves, dappled light (in the
@@ -548,20 +552,20 @@ fn paint(kind: Kind, th: &Theme, x: f32, y: f32, seed: u32, set: u32, var: u32) 
             } else {
                 grass(x, y, shade(mix(th.deep, th.ground, 0.22), -0.1), 0.8, seed)
             };
-            let drift = smooth(0.0, 0.3, fbm(x, y, 4, 3, seed ^ 0x45));
-            let (d1, _, id) = cells(x, y, 32, seed ^ 0x5c);
+            let drift = smooth(0.0, 0.3, fbm(x, y, 4, 3, feat ^ 0x45));
+            let (d1, _, id) = cells(x, y, 32, feat ^ 0x5c);
             let leaf = smooth(0.5, 0.3, d1);
             let tint = (id % 5) as f32 * 0.05 - 0.1;
             let lc = shade(mix(litter_col, rgb(176, 120, 44), ((id >> 3) % 3) as f32 * 0.25), tint);
             let amount = if th.desert { 0.35 } else { 0.8 };
             c = mix(c, mix(shade(litter_col, -0.12), lc, leaf), drift * amount);
             h += leaf * drift * 0.15;
-            let dapple = fbm(x, y, 2, 2, seed ^ 0x93);
+            let dapple = fbm(x, y, 2, 2, feat ^ 0x93);
             c = shade(c, smooth(0.05, 0.4, dapple) * 0.07 - smooth(-0.05, -0.4, dapple) * 0.08);
             let cover = if th.desert { mix(th.scrub, th.ground, 0.2) } else { shade(th.deep, 0.08) };
             let share = if th.desert { 12 } else { 34 };
-            let ferns = plants(x, y, (c, h), cover, 8, share, 0.3, seed ^ 0x81);
-            plants(x, y, ferns, shade(cover, -0.12), 16, share / 2, 0.26, seed ^ 0x8f)
+            let ferns = plants(x, y, (c, h), cover, 8, share, 0.3, feat ^ 0x81);
+            plants(x, y, ferns, shade(cover, -0.12), 16, share / 2, 0.26, feat ^ 0x8f)
         }
         Kind::Paving => {
             // the grounds of a building: a light, even lawn
@@ -577,16 +581,16 @@ fn paint(kind: Kind, th: &Theme, x: f32, y: f32, seed: u32, set: u32, var: u32) 
         Kind::Flowers => {
             // mulched soil with leafy clumps, each clump in flower in one colour
             let soil = ground(x, y, mix(th.ground, rgb(84, 58, 40), 0.55), seed);
-            let (d1, _, id) = cells(x, y, 4, seed ^ 0x9);
+            let (d1, _, id) = cells(x, y, 4, feat ^ 0x9);
             let r = 0.42 + (id % 7) as f32 * 0.015;
-            let t = smooth(r + 0.05, r - 0.03, d1 + fbm(x, y, 16, 2, seed ^ 0x6d) * 0.1);
+            let t = smooth(r + 0.05, r - 0.03, d1 + fbm(x, y, 16, 2, feat ^ 0x6d) * 0.1);
             if t <= 0.0 {
                 return soil;
             }
             let dome = (1.0 - (d1 / r).powi(2)).max(0.0).sqrt();
-            let leafc = shade(mix(th.rough, th.deep, 0.4), blades(x * 1.7, y * 1.7, seed ^ 0x12, 32) * 0.12 - 0.05);
+            let leafc = shade(mix(th.rough, th.deep, 0.4), blades(x * 1.7, y * 1.7, feat ^ 0x12, 32) * 0.12 - 0.05);
             let f = th.flower[(id % 3) as usize];
-            let (e1, _, fid) = cells(x, y, 16, seed ^ 0x3);
+            let (e1, _, fid) = cells(x, y, 16, feat ^ 0x3);
             let petal = smooth(0.5, 0.26, e1) * smooth(r * 1.0, r * 0.55, d1) * if fid % 5 != 0 { 1.0 } else { 0.0 };
             let c = mix(leafc, shade(f, 0.1 - e1 * 0.5), petal);
             (mix(soil.0, c, t), soil.1.max(0.5 + dome * 0.4 + petal * 0.2))
@@ -699,6 +703,8 @@ pub fn texture(path: &str) -> Vec<u8> {
     let shape = if second && kind == Kind::Paving { 1 } else { shape };
     // the look depends on type, theme and set, not on the shape, so the pieces of one area match
     let look = hash(&format!("{}{}{}", name.to_lowercase(), th_i, set));
+    // the surface underneath is the same in every set (the game picks a set per tile at random)
+    let base = hash(&format!("{}{}", name.to_lowercase(), th_i));
     let relief = match kind {
         Kind::Fairway | Kind::Firm | Kind::Tee => 0.8,
         Kind::Green | Kind::Tricky => 0.5,
@@ -710,7 +716,7 @@ pub fn texture(path: &str) -> Vec<u8> {
         _ => 0.9,
     };
     let mut inner = Surf::new();
-    render(&mut inner, |x, y| paint(kind, &th, x, y, look, set, var), relief);
+    render(&mut inner, |x, y| paint(kind, &th, x, y, base, look, set, var), relief);
     let mut out = Canvas::new(N, N, [0.0, 0.0, 0.0, 1.0]);
     if shape == 1 {
         for (i, c) in inner.col.iter().enumerate() {
@@ -727,9 +733,9 @@ pub fn texture(path: &str) -> Vec<u8> {
     if second && ground_kind {
         // the bare base of the same surface, so the shape fades into it without a seam
         if kind == Kind::Rock {
-            render(&mut outer, |x, y| grass(x, y, th.rough, 0.4, look), relief);
+            render(&mut outer, |x, y| grass(x, y, th.rough, 0.4, base), relief);
         } else {
-            render(&mut outer, |x, y| ground(x, y, shade(th.ground, (set as f32 - 2.0) * 0.02), look), relief);
+            render(&mut outer, |x, y| ground(x, y, th.ground, base), relief);
         }
     } else if second && th_i == 1 {
         // in the desert the second set of pieces stands in the bare sand
@@ -1144,6 +1150,46 @@ mod tests {
                 for k in 0..9 {
                     let set = ["A", "B", "C", "A", "D", "B", "E", "C", "A"][k];
                     put(&format!("{n}{set}0001.bmp"), ti * cw + 5 * 64 + 8 + (k % 3) * 64 - 64 * 2 + 128, y0 + (k / 3) * 64);
+                }
+            }
+        }
+        assert!(crate::png::write_png(&out, &img));
+    }
+
+    /// For artists: `TEX_MIX=out.png cargo test -p sg-core tex_mix -- --ignored` writes each theme's ground surfaces as
+    /// the game lays them, 8 x 8 tiles each picking one of the sets A..E at random, to show any patchwork of sets.
+    #[test]
+    #[ignore]
+    fn tex_mix() {
+        let Ok(out) = std::env::var("TEX_MIX") else { return };
+        let names = ["Rough", "DeepRough", "Fairway", "Woods", "Brush", "Rock"];
+        let themes = ["Parkland", "Desert", "Tropical", "Links"];
+        let g = 8 * 64 + 8;
+        let mut img = crate::assets::Rgba::new((g * names.len()) as u32, (g * themes.len()) as u32);
+        let sets: Vec<_> = themes
+            .iter()
+            .flat_map(|th| names.iter().map(move |n| (th, n)))
+            .flat_map(|(th, n)| {
+                (0..5).map(move |s| {
+                    let set = (b'A' + s) as char;
+                    crate::assets::decode_bmp(&texture(&format!("Data/Textures/{th}/{n}{set}0001.bmp"))).ok()
+                })
+            })
+            .collect();
+        for ti in 0..themes.len() {
+            for ni in 0..names.len() {
+                for ty in 0..8 {
+                    for tx in 0..8 {
+                        let s = (h32(tx, ty, (ti * 31 + ni) as u32) % 5) as usize;
+                        let Some(t) = &sets[(ti * names.len() + ni) * 5 + s] else { continue };
+                        for y in 0..64 {
+                            for x in 0..64 {
+                                let si = (y * 64 + x) * 4;
+                                let d = ((ti * g + ty as usize * 64 + y) * img.w as usize + ni * g + tx as usize * 64 + x) * 4;
+                                img.px[d..d + 4].copy_from_slice(&t.px[si..si + 4]);
+                            }
+                        }
+                    }
                 }
             }
         }

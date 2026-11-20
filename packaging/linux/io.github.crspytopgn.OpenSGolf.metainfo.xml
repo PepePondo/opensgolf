@@ -107,6 +107,11 @@
   <content_rating type="oars-1.1"/>
 
   <releases>
+    <release version="0.8.6" date="2026-11-20">
+      <description>
+        <p>Faster start-up and loading, smaller downloads, internet access for the Android app's updates and downloads, better free graphics for the resort amenities, cacti and ground, and first-person improvements: weather and time of day, yardages to the pin, softer edges, turn, zoom and photo keys, and 3D staff.</p>
+      </description>
+    </release>
     <release version="0.8.5" date="2026-11-18">
       <description>
         <p>Fixes: the browser version starting on a black screen at 125% display scaling, and the Android app having no sound.</p>

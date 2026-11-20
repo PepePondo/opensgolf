@@ -64,6 +64,13 @@ Enhanced graphics and HD.
   The 3D golfers' faces are smooth, with no more lumpy cheeks and chin.
 - **0.8.5:** the browser version no longer starts on a black screen when Windows or the browser is scaled to 125%, and
   the Android app has its sound back (recent Android downloads were built without it, and without the update check).
+- **0.8.6:** the game starts and loads courses faster (about twice as fast with the free graphics) and the desktop
+  downloads are about 12 MB smaller. The Android app can now go online for updates, *Find more* and the play-time count
+  (the F-Droid build still asks for no permissions). The free graphics get real resort amenities (casino, spa, swim club,
+  theme park), livelier cacti and no more patchwork of lighter and darker ground tiles. The first-person view (beta)
+  follows the time of day, rain and snow with Enhanced graphics, shows the yards to the pin and yardage posts, has softer
+  edges between kinds of ground, a lower ball camera, Q/E to turn, zoom, H to hide the help and P to save a picture, and
+  3D staff.
 
 ## 0.7 (7 November 2026)
 

@@ -38,14 +38,65 @@ fn perlin(x: f32, y: f32, cx: i32, cy: i32, seed: u32) -> f32 {
     let (fx, fy) = (x / N as f32 * cx as f32, y / N as f32 * cy as f32);
     let (ix, iy) = (fx.floor() as i32, fy.floor() as i32);
     let (tx, ty) = (fx - ix as f32, fy - iy as f32);
-    let g = |i: i32, j: i32, dx: f32, dy: f32| {
-        let a = rnd(i.rem_euclid(cx), j.rem_euclid(cy), seed) * std::f32::consts::TAU;
-        a.cos() * dx + a.sin() * dy
-    };
-    let (u, v) = (fade(tx), fade(ty));
-    let a = g(ix, iy, tx, ty) + (g(ix + 1, iy, tx - 1.0, ty) - g(ix, iy, tx, ty)) * u;
-    let b = g(ix, iy + 1, tx, ty - 1.0) + (g(ix + 1, iy + 1, tx - 1.0, ty - 1.0) - g(ix, iy + 1, tx, ty - 1.0)) * u;
-    (a + (b - a) * v) * 1.41
+    GRADIENTS.with(|cache| {
+        let mut cache = cache.borrow_mut();
+        if cache.len() > 256 {
+            cache.clear();
+        }
+        let grid = cache.entry((cx, cy, seed)).or_insert_with(|| {
+            (0..cy)
+                .flat_map(|j| (0..cx).map(move |i| (i, j)))
+                .map(|(i, j)| {
+                    let a = rnd(i, j, seed) * std::f32::consts::TAU;
+                    (a.cos(), a.sin())
+                })
+                .collect()
+        });
+        let g = |i: i32, j: i32, dx: f32, dy: f32| {
+            let (c, s) = grid[(j.rem_euclid(cy) * cx + i.rem_euclid(cx)) as usize];
+            c * dx + s * dy
+        };
+        let (u, v) = (fade(tx), fade(ty));
+        let (g00, g01) = (g(ix, iy, tx, ty), g(ix, iy + 1, tx, ty - 1.0));
+        let a = g00 + (g(ix + 1, iy, tx - 1.0, ty) - g00) * u;
+        let b = g01 + (g(ix + 1, iy + 1, tx - 1.0, ty - 1.0) - g01) * u;
+        (a + (b - a) * v) * 1.41
+    })
+}
+
+thread_local! {
+    /// The gradient noise's cells (cx, cy, seed) with each cell's gradient (the cosine and sine of its angle): `perlin` is
+    /// asked for every pixel of a tile with the same few cells, so each cell's angle is worked out once, not at every pixel
+    /// (the same numbers, so the same pictures).
+    static GRADIENTS: std::cell::RefCell<Gradients> = std::cell::RefCell::new(Gradients::default());
+}
+
+type Gradients = std::collections::HashMap<(i32, i32, u32), Vec<(f32, f32)>, CellsHash>;
+
+/// A quick hash for the gradients' keys (a few small numbers, looked up at every pixel; nothing an attacker chooses).
+type CellsHash = std::hash::BuildHasherDefault<CellsHasher>;
+
+#[derive(Default)]
+struct CellsHasher(u64);
+
+impl std::hash::Hasher for CellsHasher {
+    fn finish(&self) -> u64 {
+        self.0
+    }
+    fn write(&mut self, bytes: &[u8]) {
+        for &b in bytes {
+            self.write_u64(b as u64);
+        }
+    }
+    fn write_u32(&mut self, v: u32) {
+        self.write_u64(v as u64);
+    }
+    fn write_i32(&mut self, v: i32) {
+        self.write_u64(v as u32 as u64);
+    }
+    fn write_u64(&mut self, v: u64) {
+        self.0 = (self.0.rotate_left(5) ^ v).wrapping_mul(0x517c_c1b7_2722_0a95);
+    }
 }
 
 /// Fractal noise in about -1..1: `oct` octaves from `c` cells across, each twice as fine and half as strong.
@@ -986,7 +1037,7 @@ pub fn bank_rocks(low: &str, w: u32, h: u32) -> Option<Vec<u8>> {
             }
         }
     }
-    crate::png::encode_png(&c.to_rgba_keyed([255, 0, 255], 0.5))
+    crate::png::encode_png_quick(&c.to_rgba_keyed([255, 0, 255], 0.5))
 }
 
 /// A path overlay (gravel without X in the name, paving with X): Path a crossing, PathCap a small square, PathCurve a disc,

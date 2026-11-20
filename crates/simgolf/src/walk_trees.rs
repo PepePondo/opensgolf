@@ -81,7 +81,11 @@ pub fn solid(img: &Rgba, ax: f32, ay: f32) -> Option<Vec<Vert>> {
         let pos = [c - ax + rr * sx, ay - y, rr * sz];
         // the texel the picture shows there seen from the front: across by the point's offset, a little in from the
         // outline (whose dark edge would otherwise run down the sides)
-        let u = ((c + r * 0.85 * sx) / w).clamp(0.0, 1.0);
+        // (evenly by the angle round the trunk, front and back alike, so the sides don't stretch one column of texels
+        // round into a band)
+        let t = if a <= std::f32::consts::PI { a } else { a - TAU };
+        let f = if t.abs() <= std::f32::consts::FRAC_PI_2 { t } else { t.signum() * (std::f32::consts::PI - t.abs()) };
+        let u = ((c + r * 0.85 * f / std::f32::consts::FRAC_PI_2) / w).clamp(0.0, 1.0);
         let v = ((y + 0.5) / h).clamp(0.0, 1.0);
         (pos, [u, v])
     };

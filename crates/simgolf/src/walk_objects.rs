@@ -602,6 +602,8 @@ pub struct Scene {
     pub far: f32,
     pub time: f32,
     pub quarter: i32,
+    /// Enhanced graphics' light and weather now (walk.rs).
+    pub weather: crate::walk::Weather,
 }
 
 /// What a sprite frame looks like, worked out once: its opaque texels' bounds and its most colourful colour.
@@ -621,6 +623,8 @@ pub struct Objects {
     /// Frames scaled up smoothly (xBRZ) for the things seen large up close: the trees and the pictures of buildings with no
     /// model, whose pixels would otherwise show as jagged steps.
     smooth: HashMap<(usize, usize), TextureId>,
+    /// Trees' pictures softened for their near solids (`soften`), by sprite and frame.
+    leafy: HashMap<(usize, usize), TextureId>,
     people: HashMap<(usize, usize, sg_core::bodies::Outfit), TextureId>,
     fits: HashMap<(usize, [usize; 4], i32), Option<Fit>>,
     info: HashMap<(usize, usize), FrameInfo>,
@@ -635,6 +639,8 @@ pub struct Objects {
     reliefs: HashMap<(usize, usize), Option<Vec<Vert>>>,
     /// Golfers' colours by outfit, for their 3D bodies (walk_golfer.rs).
     looks: HashMap<sg_core::bodies::Outfit, crate::walk_golfer::Look>,
+    /// Staff's and residents' colours, read off their pictures (`sprite_look`), by sprite.
+    sprite_looks: HashMap<usize, Option<crate::walk_golfer::Look>>,
     /// Each golfer body's build (height, girth) from its walking pictures, by the body's number (`app::GOLFER_BODIES`).
     builds: Option<Vec<(f32, f32)>>,
     /// The golfers' heads as their portraits show them (the game's own, Heads/golfballhalopage_*.pcx) by gender and head.
@@ -666,7 +672,14 @@ impl Objects {
                 g.delete_mesh(m);
             }
         }
-        for t in self.tex.drain().map(|e| e.1).chain(self.people.drain().map(|e| e.1)).chain(self.smooth.drain().map(|e| e.1)) {
+        for t in self
+            .tex
+            .drain()
+            .map(|e| e.1)
+            .chain(self.people.drain().map(|e| e.1))
+            .chain(self.smooth.drain().map(|e| e.1))
+            .chain(self.leafy.drain().map(|e| e.1))
+        {
             g.ctx.delete_texture(t);
         }
     }
@@ -846,6 +859,17 @@ impl App {
         let img = self.sprites[si].s.frame(i);
         let t = if img.w * img.h <= 256 * 256 { sprite_texture(g, &sg_core::xbrz::scale(&img, 4)) } else { sprite_texture(g, &img) };
         o.smooth.insert((si, i), t);
+        t
+    }
+
+    /// A tree's picture for its near solid: softened (`soften`), then scaled up as `walk_tex_smooth` does.
+    fn walk_tex_leafy(&self, g: &mut Gfx, o: &mut Objects, si: usize, i: usize) -> TextureId {
+        if let Some(&t) = o.leafy.get(&(si, i)) {
+            return t;
+        }
+        let img = soften(&self.sprites[si].s.frame(i));
+        let t = if img.w * img.h <= 256 * 256 { sprite_texture(g, &sg_core::xbrz::scale(&img, 4)) } else { sprite_texture(g, &img) };
+        o.leafy.insert((si, i), t);
         t
     }
 
@@ -1059,6 +1083,98 @@ fn card(
 }
 
 /// A number from 0 to 1 that stays with a place (a tree's sway).
+/// A person's colours read off their picture (a member of staff's uniform, a resident's clothes): the first frame's
+/// opaque middle, its hat or hair at the top, the shirt over the middle and the trousers below, each the band's middle
+/// third by brightness (neither its highlight nor its shadow); the skin one of a few, by `pick`. None for a picture too
+/// small to read.
+fn sprite_look(sp: &sg_core::sprites::Sprite, pick: f32) -> Option<crate::walk_golfer::Look> {
+    if sp.frames.is_empty() {
+        return None;
+    }
+    let img = sp.frame(0);
+    let (w, h) = (img.w as usize, img.h as usize);
+    let at = |x: usize, y: usize| {
+        let i = (y * w + x) * 4;
+        [img.px[i], img.px[i + 1], img.px[i + 2], img.px[i + 3]]
+    };
+    let rows: Vec<usize> = (0..h).filter(|&y| (0..w).any(|x| at(x, y)[3] > 128)).collect();
+    let (&top, &bottom) = (rows.first()?, rows.last()?);
+    let tall = bottom - top + 1;
+    if tall < 12 {
+        return None;
+    }
+    let band = |a: f32, b: f32| -> Option<[f32; 3]> {
+        let mut c: Vec<[f32; 3]> = Vec::new();
+        for y in top + (tall as f32 * a) as usize..(top + (tall as f32 * b) as usize).min(bottom + 1) {
+            let xs: Vec<usize> = (0..w).filter(|&x| at(x, y)[3] > 128).collect();
+            let (Some(&l), Some(&r)) = (xs.first(), xs.last()) else { continue };
+            // (the middle half of the row, away from the outline's dark edge and the arms)
+            let q = (r - l) / 4;
+            for x in l + q..=r - q {
+                let p = at(x, y);
+                if p[3] > 128 {
+                    c.push([p[0], p[1], p[2]].map(|v| v as f32 / 255.0));
+                }
+            }
+        }
+        if c.len() < 3 {
+            return None;
+        }
+        c.sort_by(|a, b| (a[0] + a[1] + a[2]).partial_cmp(&(b[0] + b[1] + b[2])).unwrap_or(std::cmp::Ordering::Equal));
+        let mid = &c[c.len() / 3..(2 * c.len() / 3).max(c.len() / 3 + 1)];
+        let s = mid.iter().fold([0.0; 3], |a, v| [a[0] + v[0], a[1] + v[1], a[2] + v[2]]);
+        Some(s.map(|v| (v / mid.len() as f32).min(1.0)))
+    };
+    const SKIN: [[f32; 3]; 4] = [[0.93, 0.76, 0.62], [0.8, 0.6, 0.45], [0.6, 0.42, 0.3], [0.42, 0.28, 0.2]];
+    let skin = SKIN[((pick * 4.0) as usize).min(3)];
+    let hat = band(0.0, 0.1)?;
+    Some(crate::walk_golfer::Look { shirt: band(0.25, 0.48)?, pants: band(0.62, 0.85)?, skin, hat, hair: hat, hands: skin, female: false })
+}
+
+/// A tree's picture softened for its near solid. The original art's trees are small pictures dithered texel by texel
+/// (light and dark speckles that read as leaves at the overhead view's size); wrapped round a solid a few metres off,
+/// each speckle becomes a blotch and the crown looks like camouflage. So each opaque texel takes much of the mean of the
+/// opaque texels round it (over a 3 x 3 square), which keeps the crown's painted light and shade and its colours
+/// but not the speckle; the outline (alpha) is kept as it is.
+fn soften(img: &sg_core::assets::Rgba) -> sg_core::assets::Rgba {
+    let (w, h) = (img.w as usize, img.h as usize);
+    let mut cur = img.clone();
+    for _ in 0..1 {
+        let src = cur.clone();
+        for y in 0..h {
+            for x in 0..w {
+                let i = (y * w + x) * 4;
+                if src.px[i + 3] < 128 {
+                    continue;
+                }
+                let mut sum = [0.0f32; 3];
+                let mut n = 0.0;
+                for dy in -1i32..=1 {
+                    for dx in -1i32..=1 {
+                        let (nx, ny) = (x as i32 + dx, y as i32 + dy);
+                        if nx < 0 || ny < 0 || nx >= w as i32 || ny >= h as i32 {
+                            continue;
+                        }
+                        let j = (ny as usize * w + nx as usize) * 4;
+                        if src.px[j + 3] < 128 {
+                            continue;
+                        }
+                        for c in 0..3 {
+                            sum[c] += src.px[j + c] as f32;
+                        }
+                        n += 1.0;
+                    }
+                }
+                for c in 0..3 {
+                    let v = src.px[i + c] as f32 * 0.3 + sum[c] / n * 0.7;
+                    cur.px[i + c] = v.round().clamp(0.0, 255.0) as u8;
+                }
+            }
+        }
+    }
+    cur
+}
+
 fn place_hash(x: f32, z: f32) -> f32 {
     let h = ((x * 12.9898 + z * 78.233).sin() * 43758.547).fract();
     h.abs()
@@ -1440,7 +1556,7 @@ impl App {
                     None
                 };
                 if let Some(i) = solid {
-                    let t = self.walk_tex_smooth(g, o, si, i);
+                    let t = self.walk_tex_leafy(g, o, si, i);
                     let (sn, cs) = (ph * std::f32::consts::TAU).sin_cos();
                     let tall = ay.max(1.0);
                     let l = cut.get(t);
@@ -1458,7 +1574,7 @@ impl App {
                     // and its picture through its middle, turned to the eye: the solid's rings follow the outline's mean,
                     // so the picture's leafy edge stands out round it as the crown's sprigs
                     let i = self.sprites[si].s.frame_index(self.prop_view(&p, si, sc.quarter), p.frame);
-                    let t = self.walk_tex_smooth(g, o, si, i);
+                    let t = self.walk_tex_leafy(g, o, si, i);
                     let rect = (-ax * k, (w - ax) * k, ay * k * v, -(h - ay) * k * v);
                     card(cut.get(t), anchor, right, up, rect, false, sway, white);
                 } else {
@@ -1607,6 +1723,69 @@ impl App {
                     blob(self, x, z, 0.5 * M, 0.38, &mut blobs);
                     continue;
                 }
+                // the staff and the residents near enough: 3D bodies too, dressed in the colours of their pictures (the
+                // uniforms and clothes the art gives them), walking, standing or at work as the game has them
+                let staff = p.employee.and_then(|ei| self.employees.get(ei)).map(|e| self.staff_clip_of(e).1);
+                if (staff.is_some() || p.resident.is_some()) && dist < GOLFER_BODY_NEAR && !flat_people {
+                    let look = *o.sprite_looks.entry(si).or_insert_with(|| sprite_look(&self.sprites[si].s, place_hash(si as f32, 7.0)));
+                    if let Some(look) = look {
+                        let n = self.sprites[si].s.frames_per_view.max(1);
+                        let t = if n > 1 { p.frame.rem_euclid(n) as f32 / (n - 1) as f32 } else { 0.0 };
+                        // (a resident walks when the picture is a walk's, else stands; staff by their state)
+                        let act = match staff {
+                            Some(0) => crate::walk_golfer::Act::Walk { tired: false },
+                            Some(2) => crate::walk_golfer::Act::Fidget,
+                            Some(_) => crate::walk_golfer::Act::Stand,
+                            None if n >= 8 && p.heading > -999.0 => crate::walk_golfer::Act::Walk { tired: false },
+                            None => crate::walk_golfer::Act::Stand,
+                        };
+                        let pixels = 1.5 * GOLFER * M * p.scale.max(0.1) * sc.u.info[2] / dist.max(1.0);
+                        let ph = place_hash(x, z);
+                        let who = crate::walk_golfer::Who {
+                            look,
+                            height: 0.96 + ph * 0.08,
+                            girth: 0.95 + ph * 0.15,
+                            kind: 0,
+                            mood: 3,
+                            beard: crate::walk_golfer::Beard::None,
+                            whiskers: look.hair,
+                            detail: crate::walk_golfer::detail_for(pixels),
+                            star: false,
+                        };
+                        let v = crate::walk_golfer::figure(&who, act, t, sc.time + ph * 10.0, -1);
+                        // facing along the heading, else towards the eye
+                        let fwd = if p.heading > -999.0 {
+                            let (hs, hc) = p.heading.to_radians().sin_cos();
+                            [hc, hs]
+                        } else {
+                            let (dx, dz) = (eye[0] - x, eye[2] - z);
+                            let l = (dx * dx + dz * dz).sqrt().max(1e-3);
+                            [dx / l, dz / l]
+                        };
+                        let rt = [-fwd[1], fwd[0]];
+                        let k = GOLFER * M * p.scale.max(0.1);
+                        let base = [x, ground + lift, z];
+                        let mut gv: Vec<Vert> = v
+                            .into_iter()
+                            .map(|q| {
+                                let (lx, ly, lz) = (q.pos[0], q.pos[1], q.pos[2]);
+                                let mut w = q;
+                                w.pos =
+                                    [base[0] + (rt[0] * lx + fwd[0] * lz) * k, base[1] + ly * k, base[2] + (rt[1] * lx + fwd[1] * lz) * k];
+                                let n = q.normal;
+                                w.normal = [rt[0] * n[0] + fwd[0] * n[2], n[1], rt[1] * n[0] + fwd[1] * n[2]];
+                                w
+                            })
+                            .collect();
+                        if toon {
+                            crate::walk_toon::outline(&gv, crate::walk_toon::width(dist, 0.011 * M), &mut inks);
+                            crate::walk_toon::soft(&mut gv, sun, eye);
+                        }
+                        solids.extend(gv);
+                        blob(self, x, z, 0.5 * M, 0.38, &mut blobs);
+                        continue;
+                    }
+                }
                 let view = match p.view {
                     Some(v) => v.rem_euclid(views.max(1)),
                     None if views >= 8 && p.heading > -999.0 => person_view(p.heading, sc.yaw, p.mirror),
@@ -1665,6 +1844,7 @@ impl App {
             card(front.get(t), a, iq.r, iq.u, rect, p.mirror, 0.0, white);
         }
         o.eased = eased;
+        let mut solids_late = Vec::new();
         let mut trails = Vec::new();
         self.walk_balls(sc, &mut o.trails, &mut solids, &mut blobs, &mut trails);
         let mut u = sc.u;
@@ -1685,6 +1865,11 @@ impl App {
         ui.pull = [sc.eye[0], sc.eye[1], sc.eye[2], -0.035];
         gpu.tris(Pipe::Solid, g.white, &ui, &inks);
         gpu.tris(Pipe::Blend, g.white, &sc.u.with_mode(mode::FLAT), &trails);
+        self.walk_yardage(sc, &mut solids_late);
+        gpu.tris(Pipe::Solid, g.white, &sc.u.with_mode(mode::FLAT), &solids_late);
+        let mut fall = Vec::new();
+        precipitation(sc, &mut fall);
+        gpu.tris(Pipe::Blend, g.white, &sc.u.with_mode(mode::FLAT), &fall);
         o.lists = [blobs, solids, shadows, inks];
     }
 
@@ -1792,6 +1977,49 @@ impl App {
         t
     }
 
+    /// Yardage posts down each hole, as on a real course: at 200, 150 and 100 yards from the pin (blue, white and red),
+    /// standing a little to the left of the line from the back tee to the pin, where the hole is long enough for them.
+    fn walk_yardage(&self, sc: &Scene, out: &mut Vec<Vert>) {
+        const YARD: f32 = TILE_SIZE / 25.0;
+        const POSTS: [(f32, [f32; 4]); 3] =
+            [(200.0, [0.16, 0.30, 0.78, 1.0]), (150.0, [0.95, 0.95, 0.93, 1.0]), (100.0, [0.80, 0.12, 0.10, 1.0])];
+        for h in self.club.holes.iter().filter(|h| h.par > 0) {
+            let tee = if h.back != (0, 0) { h.back } else { h.fwd };
+            if tee == (0, 0) {
+                continue;
+            }
+            let (tx, tz) = self.terrain.tile_centre(tee.0, tee.1);
+            let (px, pz) = self.terrain.tile_centre(h.pin.0, h.pin.1);
+            let (dx, dz) = (tx - px, tz - pz);
+            let len = (dx * dx + dz * dz).sqrt();
+            if len < 1.0 {
+                continue;
+            }
+            let (ux, uz) = (dx / len, dz / len);
+            for (yards, col) in POSTS {
+                let d = yards * YARD;
+                // a post needs room behind it: 40 yards of the hole before it
+                if d + 40.0 * YARD > len {
+                    continue;
+                }
+                // to the left looking down the hole (towards the pin: -u)
+                let side = 9.0 * YARD;
+                let (x, z) = (px + ux * d + uz * side, pz + uz * d - ux * side);
+                let gy = self.terrain.height_at(x, z);
+                let e = ((x - sc.eye[0]).powi(2) + (z - sc.eye[2]).powi(2)).sqrt();
+                if e > 350.0 * M || !sphere_visible(&sc.planes, [x, gy + 0.6 * M, z], 1.0 * M) {
+                    continue;
+                }
+                // (larger far off, as the flags are, so they can be read down the hole)
+                let big = (e / (40.0 * M)).clamp(1.0, 3.0);
+                let (r, tall) = ((0.05 * M).max(e * 0.0011) * big, 0.9 * M * big);
+                pole_tris([x, gy - 0.05 * M, z], tall, r, [0.96, 0.96, 0.94, 1.0], out);
+                ball_tris([x, gy + tall + r * 1.4, z], r * 2.2, col, out);
+                pole_tris([x, gy + tall * 0.6, z], tall * 0.28, r * 1.25, col, out);
+            }
+        }
+    }
+
     /// A flag on a green (its pole, cloth and cup) or a tee's markers, in the colours of the art's own sprite.
     #[allow(clippy::too_many_arguments)]
     fn walk_marker(&self, o: &mut Objects, p: &Prop, si: usize, x: f32, z: f32, dist: f32, solids: &mut Vec<Vert>, blobs: &mut Vec<Vert>) {
@@ -1805,11 +2033,14 @@ impl App {
         let thick = |r: f32| r.max(dist * 0.0011);
         match self.terrain.type_at(tile.0, tile.1) {
             1 | 26 => {
-                let top = 2.3 * M;
+                // far off the flag is drawn larger, as a broadcast's graphics keep the pin in sight: a real flag at 400
+                // yards is a pixel, and it is what the player looks for down the hole
+                let big = (dist / (50.0 * M)).clamp(1.0, 6.0);
+                let top = 2.3 * M * (1.0 + (big - 1.0) * 0.5);
                 pole_tris([x, ground - 0.1 * M, z], top, thick(0.022 * M), [0.95, 0.95, 0.92, 1.0], solids);
                 // the cloth, waving in the wind along +x
                 let t = self.clock as f32;
-                let (fw, fh) = (0.55 * M, 0.38 * M);
+                let (fw, fh) = (0.55 * M * big, 0.38 * M * big);
                 let n = 5;
                 for k in 0..n {
                     let a = |j: usize| {
@@ -1902,16 +2133,113 @@ impl App {
                 tr.remove(0);
             }
             ribbon(tr, sc.eye, bands);
+            let gl = &self.club.g[i];
+            if flying && gl.aim_a > 0 && gl.aim_b > 0 {
+                // where the shot was aimed: a ring on the ground, so the eye knows where to look for it coming down
+                let (ax, az) = self.terrain.tile_centre(gl.aim_a, gl.aim_b);
+                ring(self, [ax, az], 3.2 * M, 0.35 * M, [1.0, 0.92, 0.35, 0.75], bands);
+            }
             let d = ((b[0] - sc.eye[0]).powi(2) + (b[1] - sc.eye[1]).powi(2) + (b[2] - sc.eye[2]).powi(2)).sqrt();
             if d > 300.0 * M {
                 continue;
             }
-            let r = (0.045 * M).max(d * 0.0016);
+            // in the air the ball is kept two or three pixels across, so it can be followed against the sky
+            let r = (0.045 * M).max(d * if flying { 0.0032 } else { 0.0016 });
             if !sphere_visible(&sc.planes, b, r * 2.0) {
                 continue;
             }
             ball_tris([b[0], b[1] + r, b[2]], r, [1.0, 1.0, 1.0, 1.0], solids);
             blob(self, b[0], b[2], r * 1.6, 0.4, blobs);
+        }
+    }
+}
+
+/// Rain or snow falling round the eye (Enhanced graphics' weather, walk.rs `Weather`): streaks or flakes in a box that
+/// moves with the eye, each falling through it again and again from a place of its own (a hash, so nothing flickers from
+/// frame to frame), slanted by the wind. Thin, pale and see-through: weather, not a curtain.
+fn precipitation(sc: &Scene, out: &mut Vec<Vert>) {
+    let w = &sc.weather;
+    let (amount, snow) = if w.snowfall > w.rain { (w.snowfall, true) } else { (w.rain, false) };
+    if amount <= 0.01 {
+        return;
+    }
+    let n = (amount * if snow { 900.0 } else { 1400.0 }) as u32;
+    // the box: 26 m round the eye and 14 m tall, centred a little above it
+    let (half, tall) = (26.0 * M, 14.0 * M);
+    let speed = if snow { 1.1 * M } else { 9.0 * M };
+    let len = if snow { 0.05 * M } else { 0.55 * M };
+    let wid = if snow { 0.05 * M } else { 0.012 * M };
+    let drift = [w.wind[0] * if snow { 2.5 } else { 3.0 } * M, w.wind[1] * if snow { 2.5 } else { 3.0 } * M];
+    let col = if snow { [0.97, 0.98, 1.0, 0.85] } else { [0.78, 0.82, 0.88, 0.30] };
+    let right = [sc.right[0], 0.0, sc.right[1]];
+    let hash = |i: u32, k: u32| {
+        let mut h = i.wrapping_mul(0x9e37_79b9) ^ k.wrapping_mul(0x85eb_ca6b);
+        h ^= h >> 15;
+        h = h.wrapping_mul(0x2c1b_3c6d);
+        h ^= h >> 12;
+        (h & 0xffff) as f32 / 65535.0
+    };
+    for i in 0..n {
+        let fall = (sc.time * speed / tall + hash(i, 3)).fract();
+        let y = sc.eye[1] + tall * 0.6 - fall * tall;
+        // a flake sways as it falls
+        let sway = if snow { (sc.time * 1.3 + hash(i, 4) * std::f32::consts::TAU).sin() * 0.35 * M } else { 0.0 };
+        let t = fall * tall / speed;
+        let wrap = |v: f32| (v.rem_euclid(2.0 * half)) - half;
+        let x = sc.eye[0] + wrap(hash(i, 1) * 2.0 * half + drift[0] * t - sc.eye[0] + sway);
+        let z = sc.eye[2] + wrap(hash(i, 2) * 2.0 * half + drift[1] * t - sc.eye[2]);
+        let d = ((x - sc.eye[0]).powi(2) + (z - sc.eye[2]).powi(2)).sqrt();
+        if d < 1.8 * M {
+            continue;
+        }
+        // further off a streak is drawn a little wider so it does not vanish between pixels, and fainter
+        let k = (d / (8.0 * M)).max(1.0);
+        let a = col[3] * (1.0 - d / half).clamp(0.0, 1.0);
+        let c = [col[0], col[1], col[2], a];
+        let top = [x - drift[0] / speed * len, y + len, z - drift[1] / speed * len];
+        let bot = [x, y, z];
+        let hw = wid * k * 0.5;
+        let p = |q: [f32; 3], s: f32| Vert::new(q[0] + right[0] * hw * s, q[1], q[2] + right[2] * hw * s, 0.0, 0.0).col(c);
+        out.extend([p(bot, -1.0), p(bot, 1.0), p(top, 1.0), p(bot, -1.0), p(top, 1.0), p(top, -1.0)]);
+    }
+}
+
+/// A ring lying on the ground round `c` (radius `r`, band `w` wide), following its rise and fall, in `col`.
+fn ring(app: &App, c: [f32; 2], r: f32, w: f32, col: [f32; 4], out: &mut Vec<Vert>) {
+    const N: usize = 32;
+    let at = |k: usize, rr: f32| {
+        let a = std::f32::consts::TAU * k as f32 / N as f32;
+        let (x, z) = (c[0] + a.cos() * rr, c[1] + a.sin() * rr);
+        Vert::new(x, app.terrain.height_at(x, z) + 0.08 * M, z, 0.0, 0.0).col(col)
+    };
+    for k in 0..N {
+        let (a0, a1, b0, b1) = (at(k, r - w * 0.5), at(k + 1, r - w * 0.5), at(k, r + w * 0.5), at(k + 1, r + w * 0.5));
+        out.extend([a0, b0, b1, a0, b1, a1]);
+    }
+}
+
+/// A far tree's crown: a low, slightly lumpy ellipsoid (radii `rx` across, `ry` up) round `c`, turned `turn` radians, lit
+/// by its normals.
+fn crown(out: &mut Vec<Vert>, c: [f32; 3], rx: f32, ry: f32, turn: f32, col: [f32; 4]) {
+    const SEG: usize = 7;
+    const RINGS: usize = 4;
+    let at = |s: usize, r: usize| {
+        let th = std::f32::consts::PI * r as f32 / RINGS as f32;
+        let ph = turn + std::f32::consts::TAU * s as f32 / SEG as f32;
+        // a little lumpy round its middle, so neighbouring crowns do not look turned on a lathe
+        let lump = 1.0 + 0.12 * ((s * 7 + r * 3) % 5) as f32 / 4.0 * th.sin();
+        let n = [th.sin() * ph.cos(), th.cos(), th.sin() * ph.sin()];
+        ([c[0] + n[0] * rx * lump, c[1] + n[1] * ry, c[2] + n[2] * rx * lump], n)
+    };
+    for r in 0..RINGS {
+        for s in 0..SEG {
+            let q = [at(s, r), at(s + 1, r), at(s + 1, r + 1), at(s, r + 1)];
+            let vt = |(p, n): ([f32; 3], [f32; 3])| {
+                let mut v = Vert::new(p[0], p[1], p[2], 0.0, 0.0).col(col);
+                v.normal = n;
+                v
+            };
+            out.extend([vt(q[0]), vt(q[1]), vt(q[2]), vt(q[0]), vt(q[2]), vt(q[3])]);
         }
     }
 }
@@ -1941,8 +2269,23 @@ impl App {
             .collect();
         kinds.sort_unstable();
         kinds.dedup();
-        let mut by: HashMap<TextureId, Vec<Vert>> = HashMap::new();
+        // Far off a tree's picture is a few pixels: as cards cut out of their pictures the trees sparkle into specks of
+        // their colours (autumn's reds and yellows most of all). So the woods beyond the property are soft solids instead:
+        // each tree a rounded crown in its picture's average colour, eased towards the woods' overall colour, lit by the
+        // sun and hazed, so a stand of them reads as one mass of woodland with a soft, uneven top.
+        let mut v: Vec<Vert> = Vec::new();
+        let mut count = 0;
         if !kinds.is_empty() {
+            let looks: Vec<([f32; 3], f32, f32, f32)> = kinds
+                .iter()
+                .map(|&(si, i)| {
+                    let sp = &self.sprites[si].s;
+                    let img = sp.frame(i);
+                    let c = crate::walk_gl::average_colour(&img).unwrap_or([0.25, 0.4, 0.2]);
+                    (c, sp.w as f32, sp.h as f32, sp.anchor_y as f32)
+                })
+                .collect();
+            let mean = looks.iter().fold([0.0; 3], |a, l| [a[0] + l.0[0], a[1] + l.0[1], a[2] + l.0[2]]).map(|x| x / looks.len() as f32);
             let (hx, hz) = (self.terrain.w as f32 * TILE_SIZE * 0.5, self.terrain.h as f32 * TILE_SIZE * 0.5);
             let step = 14.0 * M;
             let (nx, nz) = (((hx + FAR_TREES) / step) as i32, ((hz + FAR_TREES) / step) as i32);
@@ -1965,55 +2308,32 @@ impl App {
                     if wet > 0.02 {
                         continue;
                     }
-                    let (si, i0) = kinds[((h1 * 7919.0) as usize) % kinds.len()];
-                    let sp = &self.sprites[si].s;
-                    let (w, h, ax, ay) = (sp.w as f32, sp.h as f32, sp.anchor_x as f32, sp.anchor_y as f32);
-                    let t = self.walk_tex(g, o, si, i0);
+                    let (c, w, h, ay) = looks[((h1 * 7919.0) as usize) % looks.len()];
                     let k = SPRITE_UNITS_PER_PIXEL * TREE_SCALE * (0.8 + h2 * 0.5);
-                    let a = h1 * std::f32::consts::PI;
-                    let list = by.entry(t).or_default();
-                    for turn in [0.0, std::f32::consts::FRAC_PI_2] {
-                        let (sn, cs) = (a + turn).sin_cos();
-                        let mut v = Vec::new();
-                        card(
-                            &mut v,
-                            [x, y, z],
-                            [cs, 0.0, sn],
-                            [0.0, 1.0, 0.0],
-                            (-ax * k, (w - ax) * k, ay * k * 1.12, -(h - ay) * k * 1.12),
-                            false,
-                            0.0,
-                            [1.0; 4],
-                        );
-                        for vv in v.iter_mut() {
-                            vv.normal = [0.0; 3];
-                        }
-                        list.extend(v);
-                    }
+                    // the crown: the picture's width and the part of its height above the trunk
+                    let tall = (ay.min(h) * k * 1.12).max(4.0 * M);
+                    let (rx, ry) = (w * k * 0.42, tall * 0.42);
+                    let shade = 0.88 + 0.2 * place_hash(z * 0.71, x * 0.29);
+                    let col = [0, 1, 2].map(|q| (c[q] * 0.45 + mean[q] * 0.55) * shade);
+                    crown(&mut v, [x, y + tall - ry * 1.05, z], rx, ry, h1 * std::f32::consts::TAU, [col[0], col[1], col[2], 1.0]);
+                    count += 1;
                 }
             }
         }
         if std::env::var_os("SG_WALK_DUMP").is_some() {
-            println!("walk far trees: {} kinds, {} trees", kinds.len(), by.values().map(|v| v.len() / 12).sum::<usize>());
+            println!("walk far trees: {} kinds, {} trees", kinds.len(), count);
         }
-        let parts = by.into_iter().map(|(t, v)| (t, g.mesh(&v))).collect();
+        let parts = if v.is_empty() { Vec::new() } else { vec![(g.white, g.mesh(&v))] };
         o.far = Some((ground.key, parts));
     }
 
     /// Draws the trees beyond the property.
     pub(crate) fn walk_draw_far_trees(&self, g: &mut Gfx, gpu: &WalkGpu, o: &Objects, u: &WalkUniforms) {
         let Some((_, parts)) = &o.far else { return };
-        let u = u.with_mode(mode::CUTOUT).with_ref(0.5);
+        let u = u.with_mode(mode::FLAT);
         for (t, m) in parts {
             gpu.draw_mesh(g, Pipe::Solid, m, *t, *t, &u);
         }
-    }
-}
-
-impl WalkUniforms {
-    pub fn with_ref(mut self, r: f32) -> Self {
-        self.zenith[3] = r;
-        self
     }
 }
 

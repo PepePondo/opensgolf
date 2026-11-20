@@ -26,6 +26,8 @@ pub mod mode {
     /// Terrain art laid over the ground or on its walls (paths, cliffs): its texels times the vertex colour, lit, with the
     /// detail of category `WalkUniforms::info[1]`.
     pub const ART: f32 = 7.0;
+    /// A fringe of coarser grass over a finer one's edge: drawn as the ground is, its category in `info.y`, its fade in alpha.
+    pub const FRINGE: f32 = 8.0;
 }
 
 /// The ground's categories, for its detail layer (vertex colour alpha = category / 32, plus a half on and beside water;
@@ -297,10 +299,12 @@ void main() {
     vec3 v = d / max(dist, 1e-3);
     float m = sun.w;
     vec4 o;
-    if (m < 0.5) {
-        // the category in the vertex's alpha (/ 32), and half added on and beside water
-        float shore = step(0.5, color.a);
-        float k = floor((color.a - 0.5 * shore) * 32.0 + 0.5);
+    if (m < 0.5 || m > 7.5) {
+        // the category in the vertex's alpha (/ 32), and half added on and beside water (a fringe's in info.y, its fade in
+        // alpha)
+        bool fringe = m > 7.5;
+        float shore = fringe ? 0.0 : step(0.5, color.a);
+        float k = fringe ? info.y : floor((color.a - 0.5 * shore) * 32.0 + 0.5);
         // fairways and greens keep more of their art (their mowing); a tee's raised bevel and everything else is evened
         bool cut = k > 0.5 && k < 2.5;
         bool tee = k > 5.5 && k < 6.5;
@@ -317,13 +321,24 @@ void main() {
         // (a cut tile's texels of other ground take the rough's grain)
         float gr = cut || tee ? mix(grain(3.0, dist), grain(k, dist), own) : grain(k, dist);
         vec3 g = lit(c.rgb * gr, nrm);
+        if (water.w > 0.0 && k < 8.5) {
+            // Enhanced graphics' snow (and frost) lying: on level ground first, thinner on sand and where the noise says
+            // it drifted away, its own fine sparkle close up
+            float level = smoothstep(0.80, 0.97, normalize(nrm).y);
+            float drift = texture2D(noise, wpos.xz / (16.0 * M)).g * 0.7 + texture2D(noise, wpos.xz / (4.0 * M)).a * 0.3;
+            float thin = (k > 3.5 && k < 5.5) ? 0.6 : 1.0;
+            float cover = clamp((water.w * 1.7 - (1.0 - drift) * 0.9) * 2.2, 0.0, 1.0) * mix(0.35, 1.0, level) * thin;
+            float spark = texture2D(detail, wpos.xz / (0.7 * M)).b;
+            vec3 snow = lit(vec3(0.90, 0.93, 0.97) * (0.95 + 0.1 * spark), nrm) + vec3(0.06, 0.07, 0.09) * amb.rgb;
+            g = mix(g, snow, cover * (1.0 - shore));
+        }
         if (shore > 0.5) {
             // the water drawn into these tiles' art, wherever it is
             vec4 a = art(uv, dist, 0.0, 0.0, vec3(0.0));
             float w = shore_wet(uv);
             if (w > 0.0) g = mix(g, water_at(a.rgb, v), w);
         }
-        o = vec4(g, 1.0);
+        o = vec4(g, fringe ? color.a : 1.0);
     } else if (m < 1.5) {
         vec4 c = unpremul(texture2D(tex, uv));
         if (c.a < zenith.w) discard;
@@ -354,6 +369,8 @@ void main() {
             // a golfer's cloth draws its own surface in place of the grain
             float bare = step(uv.y, 63.5);
             o = vec4(cloth(color.rgb, dist) * tint * (1.0 + gr * near * bare), color.a);
+            // window glass (walk_models.rs GLASS) glows warm with the evening's lights
+            if (info.w > 0.0 && abs(uv.y - 385.0) < 0.5) o.rgb = mix(o.rgb, vec3(1.0, 0.80, 0.45), 0.85 * info.w);
         }
     } else if (m < 5.5) {
         vec4 c = unpremul(texture2D(tex, uv)) * color;

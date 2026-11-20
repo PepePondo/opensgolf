@@ -268,6 +268,20 @@ fn photo_name(course: &str, secs: i64) -> String {
     name.chars().map(|c| if "/\\:*?\"<>|".contains(c) || c.is_control() { '_' } else { c }).collect()
 }
 
+/// Saves a picture taken outside photo mode (the walk camera's P) as photo mode saves its photos: in `photos_dir`, named
+/// by the course and the time. Whether it was written, and where.
+pub(crate) fn save_picture(course: &str, img: &sg_core::assets::Rgba) -> (bool, PathBuf) {
+    let secs = miniquad::date::now() as i64;
+    let dir = photos_dir();
+    let mut path = dir.join(photo_name(course, secs));
+    let mut n = 2;
+    while cfg!(not(target_arch = "wasm32")) && path.exists() && n < 100 {
+        path = dir.join(photo_name(course, secs).replace(".png", &format!(" ({n}).png")));
+        n += 1;
+    }
+    (sg_core::png::write_png(&path, img), path)
+}
+
 /// The largest render target the graphics driver takes (each side), at most 8192.
 fn max_target(g: &mut Gfx) -> u32 {
     if g.ctx.info().backend != Backend::OpenGl {

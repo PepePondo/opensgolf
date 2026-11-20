@@ -1504,11 +1504,19 @@ building has a 3D model of the project's own in each theme (walk_models.rs), and
 standing stones, windmills, towers, statues and the rest, walk_landmarks.rs; the few without one stand as their upright
 picture), the steps in the ground under tees, greens and buildings show their retaining walls on every side, open water
 lies a little below its banks, trees near the eye are solids built from
-their own pictures (walk_trees.rs), golfers within 220 m are jointed cartoon 3D figures coloured from their outfits and
-posed by what they are doing (walk_golfer.rs), and staff and residents are drawn in relief. W A S D or the arrows walk
-(Shift runs), a drag with a mouse button held looks round, G follows the golfers one after another (Shift+G back) and
-their ball's flight and roll, and F12 or Esc goes back to the overhead camera where it was. It only reads the game. The
-`--walk` command-line switch makes F12 work without the tick (and takes scripted stills from the walk camera).
+their own pictures (walk_trees.rs) and the woods far off soft rounded masses, golfers within 220 m are jointed 3D
+figures of ordinary proportions coloured from their outfits and posed by what they are doing (walk_golfer.rs), and staff
+and residents near enough are 3D figures too, dressed in their pictures' colours. Greens, tees and fairways fade softly
+into the coarser grass round them rather than meeting it in a ruled line. A flag marker with the yards to the pin shows
+over the hole being played or the nearest one, the flag itself is drawn bigger far off so it can be seen from the tee,
+and each hole has 200, 150 and 100 yard posts (blue, white, red) beside its line. Following a golfer, the camera stays
+low behind the ball and a ring marks where it is going to land. With Enhanced graphics on, the walk has their time of
+day, sky and light, rain and snow falling, snow lying, and lit windows in the evening. W A S D or the arrows walk
+(Shift runs), Q and E turn, a drag with a mouse button held looks round, the wheel (or + and -) zooms in and out, G
+follows the golfers one after another (Shift+G back) and their ball's flight and roll, H hides the help and labels to
+look at the course alone, P saves a picture of the view (without them) in the save folder's `Photos`, and F12 or Esc
+goes back to the overhead camera where it was. It only reads the game. The `--walk` command-line switch makes F12 work
+without the tick (and takes scripted stills from the walk camera).
 
 **Play upright on phones and tablets** (an interface extra on the Extras box's edges page, off by default; portrait.rs)
 lets a phone or tablet play held upright on the whole tall screen: no card in the browser, and the Android app turns every

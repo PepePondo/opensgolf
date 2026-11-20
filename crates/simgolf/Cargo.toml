@@ -70,9 +70,9 @@ icon = "@mipmap/ic_launcher"
 #   (src/content.rs) and the optional play-time count (src/playcount.rs). Without it Android refuses every connection.
 # * REQUEST_INSTALL_PACKAGES: "Update now" hands a downloaded, signature-checked APK to Android's installer
 #   (MainActivity.installApk); Android still asks the player before installing anything.
-# A store's build (OPENSGOLF_NO_SELF_UPDATE=1) asks for neither: tools/android_build.sh leaves both out of its copy of
-# this manifest. Keep the two blocks together and INTERNET first: F-Droid's recipe also deletes the lines from the first
-# block's header down to REQUEST_INSTALL_PACKAGES (packaging/fdroid/org.opensgolf.game.yml, prebuild).
+# A store's build (OPENSGOLF_NO_SELF_UPDATE=1, as F-Droid's recipe sets) asks for neither: tools/android_build.sh leaves
+# every permission out of its copy of this manifest and fails if the built manifest still asks for one. F-Droid's
+# prebuild step removes only the REQUEST_INSTALL_PACKAGES block itself; the INTERNET one is left to the build script.
 [[package.metadata.android.permission]]
 name = "android.permission.INTERNET"
 [[package.metadata.android.permission]]

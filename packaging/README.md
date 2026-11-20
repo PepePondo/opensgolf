@@ -142,8 +142,9 @@ What F-Droid needs and how the recipe does it:
 * **NDK**: r25 (25.0.8775105), the one in the notfl3/cargo-apk image the workflow uses; minSdk 26, targetSdk 33.
   F-Droid accepts targetSdk 33, Google Play would not.
 * **No self-update, no network**: `OPENSGOLF_NO_SELF_UPDATE=1`. With it `tools/android_build.sh` leaves both of the
-  app's permissions (`INTERNET` and `REQUEST_INSTALL_PACKAGES`) out of the build, and the recipe's prebuild step removes
-  them from the manifest as well, so the F-Droid build asks for no permissions at all and cannot connect anywhere. The
+  app's permissions (`INTERNET` and `REQUEST_INSTALL_PACKAGES`) out of the build and fails if the built manifest still
+  asks for one (the recipe's prebuild step also removes `REQUEST_INSTALL_PACKAGES` itself), so the F-Droid build asks
+  for no permissions at all and cannot connect anywhere. The
   GitHub release APK keeps both (Check for updates, Update now, Find more's downloads, the optional play-time count).
 * **Open questions for the first build** (to settle with the reviewers): `android_build.sh` makes a fresh lock file
   for cargo-quad-apk's old Cargo at every build, so two builds of one tag can pick different crate versions; committing

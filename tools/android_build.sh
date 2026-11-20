@@ -76,6 +76,20 @@ sed -i 's/^version = 4$/version = 3/' Cargo.lock
 rel=""
 if [ "$profile" = release ]; then rel="--release"; fi
 cargo quad-apk build $rel -p opensgolf
+# a store's build must not ask for any permission: checked on the manifest cargo-quad-apk wrote for the APK
+case "${OPENSGOLF_NO_SELF_UPDATE:-0}" in
+    0) ;;
+    *) manifest=$(find "target/android-artifacts/$profile" -name AndroidManifest.xml | head -1)
+       if [ -z "$manifest" ]; then
+           echo "error: no AndroidManifest.xml under target/android-artifacts/$profile to check" >&2
+           exit 1
+       fi
+       if grep -q 'uses-permission' "$manifest"; then
+           echo "error: a store build must ask for no permissions, $manifest has:" >&2
+           grep 'uses-permission' "$manifest" >&2
+           exit 1
+       fi ;;
+esac
 mkdir -p "$out"
 apk=$(find "target/android-artifacts/$profile/apk" -name '*.apk' | head -1)
 # the library the activity loads must be the one packed: cargo-quad-apk names the first after the package name's last part,

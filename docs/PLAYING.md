@@ -1291,7 +1291,8 @@ lost; *Information, Scenario Goals* (the menu's last line, shown when the game h
 *Export as scenario pack* button (or Tab) writes the game as a scenario pack into the save folder's `packs`, under the
 name typed. Scripts of the enabled packs run by themselves (docs/MODDING.md 6); when one fails a toast says so and the
 Content screen shows the error. *Find more...* on the Content screen lists the packs of the content index set in
-`settings.json` (`content_index_url`, docs/CONTENT_INDEX.md) and downloads them. Test hooks: `--scenario ID` starts a
+`settings.json` (`content_index_url`, docs/CONTENT_INDEX.md) and downloads them (not in the F-Droid build, which has no
+network access; packs can still be copied into its `packs` folder). Test hooks: `--scenario ID` starts a
 scenario pack (Moderate when it names no difficulty), `--screen scenarios` (from the title) and `--screen goals` or
 `--screen content-index` (with a game) open those screens, `SG_INDEX_DOWNLOAD=N` downloads offer N of the index at once,
 `SG_EXPORT_SCENARIO=1` exports the game as a scenario pack.

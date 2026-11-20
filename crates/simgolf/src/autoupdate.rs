@@ -289,7 +289,8 @@ fn gunzip(d: &[u8]) -> Result<Vec<u8>, Error> {
     if flags & 2 != 0 {
         p += 2;
     }
-    miniz_oxide::inflate::decompress_to_vec_with_limit(d.get(p..).ok_or_else(bad)?, MAX_PACKAGE as usize * 4).map_err(|_| bad())
+    miniz_oxide::inflate::decompress_to_vec_with_limit(d.get(p..).ok_or_else(bad)?, usize::try_from(MAX_PACKAGE * 4).unwrap_or(usize::MAX))
+        .map_err(|_| bad())
 }
 
 /// A NUL-ended field of a tar header.
@@ -523,8 +524,9 @@ pub fn install(place: &Place, name: &str, data: Vec<u8>) -> Result<Installed, Er
 
 // ---- selective updates (GitHub issue #65) ---------------------------------------------------------------------------------
 //
-// The port's own. A Windows .zip or Linux .tar.gz package is mostly `packs/` (the free set's art, ~19 MB in ~1900 files),
-// which few releases change. Beside each such package the release workflow puts the same package without `packs/`
+// The port's own. A Windows .zip or Linux .tar.gz package used to be mostly `packs/` (the free set's art, ~15 MB in ~1900
+// files, now left out of the packages as the programs have it built in), which few releases change. Beside each such
+// package the release workflow puts the same package without `packs/`
 // (NAME-bin.zip, NAME-bin.tar.gz: the programs, lang and the documents) and `opensgolf-packs.sha256`, the SHA-256 of every
 // file in `packs/` (both listed in the signed SHA256SUMS). Update now in a folder install then downloads the -bin package
 // and only the pack files whose checksum differs from the copy's own (from the release's tag in the repository, each

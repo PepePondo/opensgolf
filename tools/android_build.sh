@@ -45,6 +45,17 @@ if [ -n "$ANDROID_TARGETS" ]; then
     list=$(for t in $targets; do printf '"%s", ' "$t"; done)
     sed -i "s/^build_targets = .*/build_targets = [${list%, }]/" crates/simgolf/Cargo.toml
 fi
+# a store's build (OPENSGOLF_NO_SELF_UPDATE=1, the same rule as build.rs: set and neither empty nor "0") has no update
+# check, Update now or play-time count, and asks for no permissions: INTERNET and REQUEST_INSTALL_PACKAGES come out
+case "${OPENSGOLF_NO_SELF_UPDATE:-0}" in
+    0) ;;
+    *) sed -i -e '/^\[\[package.metadata.android.permission\]\]$/{N;/\nname = "android.permission.[A-Z_]*"$/d}' \
+           crates/simgolf/Cargo.toml
+       if grep -q '^\[\[package.metadata.android.permission\]\]$' crates/simgolf/Cargo.toml; then
+           echo "error: a store build must ask for no permissions, crates/simgolf/Cargo.toml still has one" >&2
+           exit 1
+       fi ;;
+esac
 # the desktop's controller library (gamepad.rs) is not built for Android, and its uuid wants a newer js-sys than the old
 # Cargo below can have: left out of the manifest here
 sed -i -e '/^gilrs = /d' -e 's/^gamepad = \["dep:gilrs"\]/gamepad = []/' crates/simgolf/Cargo.toml
@@ -59,14 +70,26 @@ cargo update -p wasm-bindgen --precise 0.2.93
 # a version 3 lock file says the same for crates.io dependencies
 sed -i 's/^version = 4$/version = 3/' Cargo.lock
 
-# Sound goes through cpal's oboe output, whose C++ (oboe-sys) is compiled with the NDK. Should that fail, the app is built
-# silent rather than not at all (TODO: drop the fallback once a CI build with sound has been tried on a phone).
+# Sound goes through cpal's oboe output, whose C++ (oboe-sys) is compiled with the NDK. A failed build fails: it used to fall
+# back to a build without the default features, which shipped a silent app with no update check for weeks without a word
+# (a 32-bit overflow in autoupdate.rs broke the armeabi-v7a build; issue #191).
 rel=""
 if [ "$profile" = release ]; then rel="--release"; fi
-if ! cargo quad-apk build $rel -p opensgolf; then
-    echo "warning: the build with sound failed; building the app without sound" >&2
-    cargo quad-apk build $rel -p opensgolf --no-default-features
-fi
+cargo quad-apk build $rel -p opensgolf
+# a store's build must not ask for any permission: checked on the manifest cargo-quad-apk wrote for the APK
+case "${OPENSGOLF_NO_SELF_UPDATE:-0}" in
+    0) ;;
+    *) manifest=$(find "target/android-artifacts/$profile" -name AndroidManifest.xml | head -1)
+       if [ -z "$manifest" ]; then
+           echo "error: no AndroidManifest.xml under target/android-artifacts/$profile to check" >&2
+           exit 1
+       fi
+       if grep -q 'uses-permission' "$manifest"; then
+           echo "error: a store build must ask for no permissions, $manifest has:" >&2
+           grep 'uses-permission' "$manifest" >&2
+           exit 1
+       fi ;;
+esac
 mkdir -p "$out"
 apk=$(find "target/android-artifacts/$profile/apk" -name '*.apk' | head -1)
 # the library the activity loads must be the one packed: cargo-quad-apk names the first after the package name's last part,

@@ -4,12 +4,16 @@ members = ["crates/sg-core", "crates/simgolf", "crates/sgtool", "crates/sgplay"]
 exclude = ["vendor"]
 
 [workspace.package]
-version = "0.8.4"
+version = "0.8.5"
 edition = "2021"
 license = "GPL-2.0-or-later"
 
 [profile.release]
 opt-level = 3
+# the whole program optimised as one: a binary about an eighth smaller and a little quicker, for a slower build (the pull
+# requests' checks turn it off, .github/workflows/rust.yml). Unwinding and symbols stay, for the crash reports' backtraces.
+lto = "fat"
+codegen-units = 1
 
 # The course report simulates hundreds of rounds; keep debug builds usable.
 [profile.dev]

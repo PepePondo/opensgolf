@@ -192,7 +192,9 @@ miniquad_add_plugin({
         env.sg_sound_sleep = function (asleep) { sgSoundSleep(asleep !== 0); };
         // the watch over the game's drawing (sgDrawingStopped): a frame was drawn; Enhanced graphics on or off
         // playing upright (portrait.rs): 1 the extra is on, 0 off
-        env.sg_portrait = function (on) { sgSetUpright(on !== 0); };
+        // after this call returns: sizing the canvas tells the game of a resize, which must not reach it while it is
+        // still starting or drawing (the first call comes from the game's start, inside miniquad's event handler)
+        env.sg_portrait = function (on) { setTimeout(() => sgSetUpright(on !== 0), 0); };
         env.sg_frame_drawn = function () { sgDraw.last = performance.now(); };
         env.sg_enhanced = function (on) {
             const was = sgDraw.enhanced;

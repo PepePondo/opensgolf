@@ -107,6 +107,11 @@
   <content_rating type="oars-1.1"/>
 
   <releases>
+    <release version="0.8.5" date="2026-11-18">
+      <description>
+        <p>Fixes: the browser version starting on a black screen at 125% display scaling, and the Android app having no sound.</p>
+      </description>
+    </release>
     <release version="0.8.4" date="2026-11-16">
       <description>
         <p>New optional extras: names for each employee, staff reach that grows with the map, names for benches, flower beds and scenic trees, a key to hide trees and scenery, brighter nights, and up to 100 staff.</p>

@@ -80,7 +80,7 @@ pub fn all() -> Vec<Hit> {
 
 /// Where an option is: the Preferences line that leads to it (prefs_ui.rs: Graphics, Game options, Controls and keys,
 /// More, or Preferences itself for the text size), with the page of the Enhanced graphics or extras box it is on, and how
-/// much it changes the game for a gameplay or sandbox extra ("Game options > Gameplay · Noticeable").
+/// much it changes the game for a gameplay or sandbox extra ("Game options > Gameplay · Medium change").
 pub fn place(h: Hit) -> String {
     use crate::prefs_ui::{place_key, Line};
     let two = |a: &str, b: &str| trf("STR_SEARCH_PLACE_TWO", &[("A", &a), ("B", &b)]);

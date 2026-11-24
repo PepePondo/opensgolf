@@ -394,7 +394,7 @@ Everything OpenSGolf adds is optional, and every option belongs to one of three 
 - **Helpers**: shows you more or saves you effort (the People screen, extra reports, message history, autosave, import
   and export of saved games, the pauses, the mouse helpers). Play is exactly the original's.
 - **Gameplay**: changes how the game plays (weather, visitors, left-handed golfers, more staff, set par, animals to
-  buy, hardcore, the calendar and the sandbox switches). Each carries a tag saying how much: *Light touch*, *Noticeable*, *Big change*, or
+  buy, hardcore, the calendar and the sandbox switches). Each carries a tag saying how much: *Small change*, *Medium change*, *Big change*, or
   *Experimental*.
 
 Select Difficulty (the world map for Sandbox Mode) has a **Game** box next to Course size. A click steps through four **presets**:
@@ -506,16 +506,16 @@ describes the preset in use while the pointer is on it). Below it the options ar
 along its top; a click on a tab, Left and Right or Tab turn them). A banner under the tabs says what the page's ticks do:
 
 - **Gameplay** (gameplay): "Changes how the game plays." (below)
-- **Sandbox** (gameplay): "Bends the rules for relaxed play." (the calendar, the sandbox switches and keep the land offer, below)
+- **Sandbox** (gameplay): "Removes rules and limits so you can build without pressure." (the calendar, the sandbox switches and keep the land offer, below)
 - **Looks** (looks): "Changes how it looks. Play is unchanged." (path styles and lamps, Tab turns buildings, random
   trees, home names only under the pointer, below)
-- **Info** (helpers): "Shows more about your club. Play is unchanged." Five lines, each ticking a group of the helpers
+- **Info** (helpers): "Adds screens and maps about your club. Play is unchanged." Five lines, each ticking a group of the helpers
   described under *OpenSGolf extras* further down: **People screen, name tags and live scorecards**; **Extra reports**
   (landing map, comments by hole, history graphs, the year in numbers, tabs over the reports); **Message history and
   clickable ticker**; **Path help**; **Home-site details**. A grouped line ticks or unticks its members together; if only
   some of them are on (ticks saved by an older version, or Shift+H's tags), it says *(some on)* and a click turns them all
   on. Each member keeps its own tick in settings.json, so older versions read them as before.
-- **Saves** (saves): "Keeps, shows and shares your games. Play is unchanged." (autosave, save pictures, course sharing,
+- **Saves** (saves): "Changes how games are saved, loaded and shared. Play is unchanged." (autosave, save pictures, course sharing,
   import and export saved games)
 - **Controls** (controls): "Changes what the mouse does and when the game pauses. Play is unchanged." (the three ticks
   the Change keys' *Original* and *Modern controls* presets set: drag to place, zoom towards the pointer, right-drag
@@ -529,11 +529,11 @@ along its top; a click on a tab, Left and Right or Tab turn them). A banner unde
 box (see *The title menu* and docs/FIXES.md).
 
 Each line on the Gameplay and Sandbox pages carries a coloured tag at its right end saying how much it changes the game:
-green **Light touch** (buyable animals, left-handed golfers, keep the land offer, multiple tees), amber **Noticeable** (higher staff limits, set par, weather
+green **Small change** (buyable animals, left-handed golfers, keep the land offer, multiple tees), amber **Medium change** (higher staff limits, set par, weather
 that matters, more visitors, the calendar), red **Big change** (hardcore economy, second course, freeze golfer happiness, unlock all) or
 slate **Experimental** (the cut content). The foot of the box describes the line under the pointer in a sentence (on a
 touch screen the line last tapped); with none, it says how to read the box. Preferences > More > Search lists every option with
-its place and tag ("Game options > Gameplay · Noticeable: Weather that matters..."), and typing a tag's words (*big change*) finds the
+its place and tag ("Game options > Gameplay · Medium change: Weather that matters..."), and typing a tag's words (*big change*) finds the
 options so tagged. With every extra off the game plays exactly as the original. What you tick on the Gameplay, Sandbox
 and Looks pages in a game applies to that game only and is saved with it (a save made with everything off is unchanged);
 new games start with what is ticked on the title screens (the box opened from the title menu, or the Game box of Select
@@ -552,18 +552,18 @@ On the **Gameplay** page:
 - **Hardcore economy.** *(Big change)* Tighter money and choosier golfers: by default wages 150%, hole maintenance 200%, land (the
   property and tracts) 150%, debt interest 5% a month, at most $600 per golfer per hole in fees, every bad moment costs a
   golfer one more mood step, and at most 12 employees. The numbers are data/economy.toml's `hardcore_*` fields (docs/MODDING.md).
-- **Higher staff limits: off / up to 40 / up to 100.** *(Noticeable)* A click steps it: the club may have 40 employees
+- **Higher staff limits: off / up to 40 / up to 100.** *(Medium change)* A click steps it: the club may have 40 employees
   instead of the original's 20, or 100 for a very big club (data/economy.toml's `staff_limit_high` and `staff_limit_most`,
   each at most 100; the original keeps its walkers in 64 records, so it never passes 63). A map larger than the
   original's already allows more on its own (in proportion to its area, up to 63). The OpenSGolf preset uses 40.
-- **Buyable animals.** *(Light touch)* The landmark strip gets a page of the theme's animals (elk and cranes in Parkland, snakes, gila
+- **Buyable animals.** *(Small change)* The landmark strip gets a page of the theme's animals (elk and cranes in Parkland, snakes, gila
   monsters and road runners in the Desert, flamingos, crocodiles, snakes and ducks in the Tropics, elk, sheep and ducks on
   the Links). A click on open ground of your course buys a pair (leader and young, $2,000) that drops in as wild animals do
   and then keeps within about three tiles of where it was set down; bought animals never wander off for good. Golfers who
   glance at a tile next to one enjoy the sight (the scenic thought, +1 mood, as a landmark's sight gives), and scaring one
   is the same as scaring a wild one. Up to 32 pairs. The Preferences' "Ambient animals" tick hides and stops them, as it
   does the wild ones.
-- **Set par.** *(Noticeable)* The game gives each hole its par from its length when it opens, and sometimes judges a hole too hard or
+- **Set par.** *(Medium change)* The game gives each hole its par from its length when it opens, and sometimes judges a hole too hard or
   too easy for it. With this on, Hole Stats (click a hole on the Course Report) shows **-** and **+** buttons beside the
   par (or press minus and plus there); after a confirmation the hole's par is one less or one more, from 2 to 6. A par you
   set is shown in blue and counts everywhere par does: golfers' scores and their moods over them, birdies and eagles, the
@@ -587,7 +587,7 @@ On the **Gameplay** page:
   whichever course was played last. Course B is saved with the game only once it has been started, so a game without it
   saves exactly as before; switching the extra off stops new pairs going to Course B and hides the switch, while golfers
   already out there finish their round and its holes stay on the land.
-- **Multiple tees: forward and middle tees.** *(Light touch)* Real courses have several tee boxes so that a hole plays
+- **Multiple tees: forward and middle tees.** *(Small change)* Real courses have several tee boxes so that a hole plays
   shorter for weaker golfers. With this on, a hole may have a **forward tee** and a **middle tee** besides its own tee
   (the back tee). With the Tees tool in hand, **Tab** steps the tool from *the next hole's tee* (the original's tool) to
   *forward tee* and *middle tee* and back (the ticker says which). Pointing at the course then names the tee, and where it
@@ -611,25 +611,25 @@ On the **Gameplay** page:
   before (a drive from the forward tee counts in the hole's driving figures). The tees are saved with the game; a game that
   never places one saves exactly as before, and switching the extra off sends every golfer back to the back tee (the tee
   tiles stay, and come back into play when it is switched on again).
-- **Eyesore demolition.** *(Light touch)* On harder properties the land comes with water towers, radio masts and oil
+- **Eyesore demolition.** *(Small change)* On harder properties the land comes with water towers, radio masts and oil
   pumps that golfers dislike and the original never lets you remove. With this on, right-click one (on a touch screen,
   long press it) and a box asks whether to pull it down for §10,000; Yes takes it away, frees its tiles for building and
   painting, and books the cost to Build course. It works only on land the club owns, and only when the club can pay
   (as with building, the price is not checked before the third hole is open). Switching the extra off leaves anything
   already pulled down gone.
-- **Move the clubhouse.** *(Light touch)* The original leaves the clubhouse wherever the property put it. With this on,
+- **Move the clubhouse.** *(Small change)* The original leaves the clubhouse wherever the property put it. With this on,
   right-click it (on a touch screen, long press it) and a box offers to move it for what a new clubhouse costs
   (§20,000, plus clearing the new spot). Yes puts the clubhouse in the building tool: its see-through picture follows the
   pointer, red where it will not fit, and a click on land the club owns puts it down there, turned as Tab sets it. The old
   spot goes back to rough. Paths are not moved, so buildings joined only through the old spot show as unjoined until a path
   reaches the new one; golfers already out finish their round, and the next pair starts from the new clubhouse. Not
   during a tournament.
-- **Staff reach grows with the map.** *(Light touch; on the Sandbox page)* On a map larger than the original's (see
+- **Staff reach grows with the map.** *(Small change; on the Sandbox page)* On a map larger than the original's (see
   *Course size*), every employee covers more ground: the golfers a Club Pro, Ranger or Soda Vendor walks over to, the
   weeds a Groundskeeper looks for, and the work ring drawn round them (moving one, Shift+A's staff areas) all grow by half
   as much as the map's edge: 124% on Large, 148% on Huge, 178% on Giant. On the original's map nothing changes. In the
   OpenSGolf preset.
-- **Left-handed golfers.** *(Light touch)* About one golfer in ten who arrives from now on is left-handed (decided by the game's own
+- **Left-handed golfers.** *(Small change)* About one golfer in ten who arrives from now on is left-handed (decided by the game's own
   random draws when the golfer is made, and kept with the saved game). A left-hander is drawn as the mirror image of a
   right-hander while addressing the ball, swinging and following through, still facing the shot's target; walking,
   waiting and everything else look as before. His shots bend the other way: his draw curves from left to right and his
@@ -639,7 +639,7 @@ On the **Gameplay** page:
   left-handed, the aim line bending the left-hander's way for a draw or fade (the shot keys keep their names: D is still
   his draw). Switching the extra off puts everyone back to right-handed; switching it on again brings the left-handers
   back.
-- **Weather that matters (rain, snow, heat, storms).** *(Noticeable)* The weather Enhanced graphics draws is played too (it changes the
+- **Weather that matters (rain, snow, heat, storms).** *(Medium change)* The weather Enhanced graphics draws is played too (it changes the
   balance a little; the *OpenSGolf* preset turns it on). Which days rain follows the property's climate
   (often in Ireland, Scotland and Wales, rarely in the desert), the same days whenever the game is loaded, and a day lasts
   three game months (Enhanced graphics' day of light at its normal length; with the extra on its rain, snow and heat
@@ -669,7 +669,7 @@ On the **Gameplay** page:
   `heat_thirst_percent` 75, `heat_percent` 45 (heat-wave days in a hundred desert summer days), `storm_percent` 40
   (thunderstorm days in a hundred heavy-rain days), `storm_ticks` 240 and `storm_spend` 100. A weather mood dip is for
   that round only, and *Freeze golfer happiness* keeps it away too.
-- **More visitors: touring pros and celebrities.** *(Noticeable)* New kinds of visitor, the port's own (every name and line is
+- **More visitors: touring pros and celebrities.** *(Medium change)* New kinds of visitor, the port's own (every name and line is
   invented), turn up with a new pair in the second golfer's place, as the original's VIPs do (never in the same pair as a
   VIP, never during a tournament, one of each kind on the course at a time). **Touring pros** come now and then once nine
   holes are open and the club rating the VIPs go by (fun on Easy and Normal, skill on Hard and Impossible) is 400 or more,
@@ -688,7 +688,7 @@ On the **Gameplay** page:
 
 On the **Sandbox** page:
 
-- **Calendar: normal / half speed / quarter speed / stopped.** *(Noticeable)* A click steps the value (normal is the
+- **Calendar: normal / half speed / quarter speed / stopped.** *(Medium change)* A click steps the value (normal is the
   original). *Half* and *quarter speed* are the slower seasons: the month and year
   move on at half or a quarter of the original's pace while everything that happens by the game's own clock keeps its
   pace: golfers arrive, play and pay as before, staff work, weeds grow, and wages and hole maintenance are charged as
@@ -718,9 +718,9 @@ On the **Sandbox** page:
   fourteen landmarks of the theme are on the panels from the start, as in Sandbox Mode; the unlock announcements are not
   made. Upgrading a building still needs a Country Club course (10 holes), as in Sandbox Mode. Unticking it takes back only
   what the course has not earned; landmarks the club owns stay.
-- **Sandbox: no new dandelions.** *(Noticeable)* Dandelions and other weeds stop spreading over the course and unhappy golfers no longer start them, so it stays
+- **Sandbox: no new dandelions.** *(Medium change)* Dandelions and other weeds stop spreading over the course and unhappy golfers no longer start them, so it stays
   clear without groundskeepers or the landmarks that keep weeds away. The ones already there stay until pulled.
-- **Keep the land offer: buy land when you like.** *(Light touch)* When the County commissioner enjoys his round and
+- **Keep the land offer: buy land when you like.** *(Small change)* When the County commissioner enjoys his round and
   approves an expansion, his approval waits until you buy land. Saying *No, I'm fine* to his question, closing it, or
   leaving TRACTS FOR SALE without buying keeps it (the ticker says so), and the Information menu shows **Buy land
   (approved)**, which opens TRACTS FOR SALE whenever you like. Buying a tract uses the approval; at most one waits, and it

@@ -154,8 +154,8 @@ pub fn route(a: &Action) -> Route {
         // the brush in hand is the player's own (a paint action carries what it paints with), and so is the undo list's
         // bookkeeping around a click
         PickBrush { .. } | UndoPress | UndoRelease => Route::Local,
-        // undo puts back one player's history over everyone's, and cheats would spoil everyone's game
-        Undo | Cheat(_) => Route::Refused,
+        // undo (and redo) puts back one player's history over everyone's, and cheats would spoil everyone's game
+        Undo | Redo | Cheat(_) => Route::Refused,
         _ => Route::Shared,
     }
 }
@@ -364,6 +364,11 @@ mod tests {
     fn routes() {
         assert_eq!(route(&Action::Sync), Route::Local);
         assert_eq!(route(&Action::Undo), Route::Refused);
+        assert_eq!(route(&Action::Redo), Route::Refused);
+        // the 0.8.7 extras that change the course or the pro's play are everyone's
+        assert_eq!(route(&Action::Practice { hole: 1 }), Route::Shared);
+        assert_eq!(route(&Action::Mulligan), Route::Shared);
+        assert_eq!(route(&Action::BoundClear { hole: 1 }), Route::Shared);
         assert_eq!(route(&Action::Speed(2)), Route::Shared);
     }
 }

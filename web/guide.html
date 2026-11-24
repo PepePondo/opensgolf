@@ -337,13 +337,32 @@
       </article>
       <article class="feat" id="pause-aim" data-since="0.8">
         <h3>Pause while you aim</h3>
-        <p class="meta"><span class="pill off">Off</span> <b>Where:</b> Preferences › Game options › Controls › Pause while you aim your pro</p>
+        <p class="meta"><span class="pill off">Off</span> <b>Where:</b> Preferences › Game options › Play › Pause while you aim your pro</p>
         <p>The game stands still while your pro waits for your shot, in tournaments too, and goes on as you swing. <a href="#opt-extras-pause-aim">Reference</a>.</p>
+      </article>
+      <article class="feat" id="redo" data-since="0.8.6">
+        <h3>Redo, and a longer undo</h3>
+        <p class="meta"><span class="pill off">Off</span> (on in the helper presets). <b>Where:</b> Preferences › Game options › Controls › Redo, and a longer undo. <b>Keys:</b> <kbd>Ctrl+Y</kbd> or <kbd>Ctrl+Shift+Z</kbd>, or the touch Redo button</p>
+        <p>Does again what Undo took back, money and all, and Undo keeps your last 100 clicks instead of 30. A new click
+          clears what there was to redo. <a href="#opt-extras-redo">Reference</a>.</p>
+      </article>
+      <article class="feat" id="fine-height" data-since="0.8.6">
+        <h3>Fine elevation on touch screens</h3>
+        <p class="meta"><span class="pill off">Off</span> <b>Where:</b> Preferences › Game options › Controls › Fine elevation on touch screens</p>
+        <p>With an elevation tool in hand, a tap picks a corner of the ground (ringed in gold) instead of raising it, and
+          the Raise and Lower buttons step it up or down one notch a press. With the Elevation panel's square and area
+          tools they step the whole square or area. Each press can be undone. <a href="#opt-extras-fine-height">Reference</a>.</p>
       </article>
       <article class="feat" id="speed8" data-since="0.8">
         <h3>Speed up to x8</h3>
         <p class="meta"><span class="pill act">Always there</span> <b>Key:</b> <kbd>]</kbd> speeds up, <kbd>[</kbd> slows down</p>
         <p>The game speed now goes up to eight times normal, as well as x2 and x4.</p>
+      </article>
+      <article class="feat" id="speed16" data-since="0.8.6">
+        <h3>Faster top speed (x16)</h3>
+        <p class="meta"><span class="pill off">Off</span> (on in the helper presets). <b>Where:</b> Preferences › Game options › Play › Faster top speed</p>
+        <p>One more step after x8, for skipping long quiet stretches. How fast the game really runs at x16 depends on your
+          computer. <a href="#opt-extras-fast-speed">Reference</a>.</p>
       </article>
       <article class="feat" id="portrait" data-since="0.8">
         <h3>Play upright on phones and tablets</h3>
@@ -439,16 +458,40 @@
       </article>
       <article class="feat" id="flyover" data-since="0.7">
         <h3>Hole flyover and showcase</h3>
-        <p class="meta">Flyover <span class="pill off">Off</span> (Preferences › Game options › Looks); showcase <span class="pill act">Always there</span> (<kbd>Shift+O</kbd>)</p>
+        <p class="meta">Flyover <span class="pill off">Off</span> (Preferences › Game options › Play); showcase <span class="pill act">Always there</span> (<kbd>Shift+O</kbd>)</p>
         <p>The flyover adds a Fly over button to Hole Stats that flies the camera from the tee to the green and back. The
           showcase flies over the whole course hole by hole with the interface hidden.</p>
+      </article>
+      <article class="feat" id="show-hole" data-since="0.8.6">
+        <h3>Show a whole hole</h3>
+        <p class="meta"><span class="pill off">Off</span> (on in the helper presets). <b>Where:</b> Preferences › Game options › Play › Show a whole hole</p>
+        <p>Hole Stats gets a <b>Show hole</b> button, and the hole keys (<kbd>1</kbd> to <kbd>9</kbd>, with Shift for 10 to
+          18) frame the whole hole, tees, bends and green, above the build panel, instead of only centring on it. With
+          Classic graphics it picks the closest of the original's zoom levels that fits. <a href="#opt-extras-fit-hole">Reference</a>.</p>
+      </article>
+      <article class="feat" id="practise-hole" data-since="0.8.6">
+        <h3>Practise a hole</h3>
+        <p class="meta"><span class="pill off">Off</span> (on in the helper presets). <b>Where:</b> Preferences › Game options › Play › Practise a hole. <b>Key:</b> <kbd>Backspace</kbd> for a mulligan, or the touch Mulligan button</p>
+        <p>Hole Stats gets a <b>Practise</b> button: your pro and a partner play just that hole, and you aim the shots as
+          in a practice round. While you practise, a mulligan takes your last shot back to hit it again. When the pro
+          holes out, the ticker gives the score against par next to the hole's stroke average. Nothing goes in the round
+          records. <a href="#opt-extras-practice-hole">Reference</a>.</p>
+      </article>
+      <article class="feat" id="bounds" data-since="0.8.6">
+        <h3>Hole boundaries and out of bounds</h3>
+        <p class="meta"><span class="pill off">Off</span> (on in the OpenSGolf preset) <b>Where:</b> Preferences › Game options › Gameplay <span class="tag">Medium change</span></p>
+        <p>Hole Stats gets a <b>Boundary</b> button that frames the hole and hands you a brush: click or drag to paint the
+          hole's playing area (green), <kbd>Shift</kbd> to take tiles out, <kbd>Delete</kbd> to clear it. Golfers playing
+          that hole aim inside the area, and a ball that stops outside it is out of bounds: back to where it was hit, with
+          a stroke added. The hole's tees and the ground round its pin always count as inside. A hole without an area plays
+          as before. <a href="#opt-extras-bounds">Reference</a>.</p>
       </article>
     </div>
 
     <!-- ===================================================================================================== -->
     <h2 class="bar" id="gameplay">New gameplay</h2>
-    <p class="intro">All off for a new player, and all in <b>Preferences › Game options</b>, on the <b>Gameplay</b> and
-      <b>Sandbox</b> pages. Each carries a tag saying how much it changes the game. The full list, with what each preset
+    <p class="intro">All off for a new player, and all in <b>Preferences › Game options</b>, on the <b>Gameplay</b>,
+      <b>Club</b> and <b>Sandbox</b> pages. Each carries a tag saying how much it changes the game. The full list, with what each preset
       sets, is in the <a href="#ref-game-options-gameplay">reference</a>.</p>
     <div class="feats">
       <article class="feat" id="weather">
@@ -463,6 +506,12 @@
         <p>Touring pros and invented celebrities drop in, pay more, draw crowds and say what they thought. Moddable through
           <code>data/visitors.toml</code>.</p>
       </article>
+      <article class="feat" id="walk-ins" data-since="0.8.6">
+        <h3>Walk-ins</h3>
+        <p class="meta"><span class="pill off">Off</span> <span class="tag">Small change</span></p>
+        <p>When the queue at the first tee is short and no member is free to come, now and then a golfer from town who is
+          not a member turns up to play, for the usual green fee. Helps a quiet course. <a href="#opt-extras-walk-ins">Reference</a>.</p>
+      </article>
       <article class="feat" id="lefties">
         <h3>Left-handed golfers</h3>
         <p class="meta"><span class="pill off">Off</span> <span class="tag">Small change</span></p>
@@ -470,13 +519,13 @@
       </article>
       <article class="feat" id="staff-animals">
         <h3>More staff, animals to buy</h3>
-        <p class="meta"><span class="pill off">Off</span> (both on in the OpenSGolf preset)</p>
+        <p class="meta"><span class="pill off">Off</span> (both on in the OpenSGolf preset). <b>Where:</b> the Club page</p>
         <p>Hire up to 40 or up to 100 employees instead of 20, and buy pairs of the theme's animals from the landmark
           strip to cheer golfers up.</p>
       </article>
       <article class="feat" id="staff-reach" data-since="0.8.4">
         <h3>Staff reach grows with the map</h3>
-        <p class="meta"><span class="pill off">Off</span> (on in the OpenSGolf preset). <b>Where:</b> the Sandbox page <span class="tag">Small change</span></p>
+        <p class="meta"><span class="pill off">Off</span> (on in the OpenSGolf preset). <b>Where:</b> the Club page <span class="tag">Small change</span></p>
         <p>On a Large, Huge or Giant map every employee covers more ground (up to three quarters more), so a big course
           does not need several times the staff. The original's map is unchanged. <a href="#opt-extras-staff-reach">Reference</a>.</p>
       </article>
@@ -487,7 +536,7 @@
       </article>
       <article class="feat" id="keep-land">
         <h3>Keep the land offer</h3>
-        <p class="meta"><span class="pill off">Off</span> <b>Where:</b> the Sandbox page <span class="tag">Small change</span></p>
+        <p class="meta"><span class="pill off">Off</span> <b>Where:</b> the Club page <span class="tag">Small change</span></p>
         <p>Saying No to the County commissioner's land offer keeps his approval, so you can buy land later from
           Information › Buy land.</p>
       </article>
@@ -499,17 +548,17 @@
       </article>
       <article class="feat" id="demolish" data-since="0.8">
         <h3>Pull down eyesores</h3>
-        <p class="meta"><span class="pill off">Off</span> <b>Where:</b> the Sandbox page <span class="tag">Small change</span></p>
+        <p class="meta"><span class="pill off">Off</span> <b>Where:</b> the Club page <span class="tag">Small change</span></p>
         <p>Right-click (or long-press) a water tower, radio mast or oil pump on your land and pull it down for §10,000, freeing its tiles. <a href="#opt-extras-demolish">Reference</a>.</p>
       </article>
       <article class="feat" id="move-clubhouse" data-since="0.8">
         <h3>Move the clubhouse</h3>
-        <p class="meta"><span class="pill off">Off</span> <b>Where:</b> the Sandbox page <span class="tag">Small change</span></p>
+        <p class="meta"><span class="pill off">Off</span> <b>Where:</b> the Club page <span class="tag">Small change</span></p>
         <p>Right-click (or long-press) the clubhouse to pick it up and put it down anywhere on your land, for what a new clubhouse costs. Not during a tournament. <a href="#opt-extras-move-clubhouse">Reference</a>.</p>
       </article>
       <article class="feat" id="cut-content">
         <h3>Cut content</h3>
-        <p class="meta"><span class="pill off">Off</span> <span class="tag">Experimental</span> Only with your own SimGolf files</p>
+        <p class="meta"><span class="pill off">Off</span> <span class="tag">Experimental</span> Only with your own SimGolf files. <b>Where:</b> the Club page</p>
         <p>Fourteen landmarks the original shipped but never used join the landmark strip, as decoration only.</p>
       </article>
       <article class="feat" id="cheats">
@@ -575,9 +624,22 @@
         <p>Clicking a building that is still locked says how many holes open it and how many the course has. <a href="#opt-extras-unlock-info">Reference</a>.</p>
       </article>
       <article class="feat" id="challenges" data-since="0.8">
-        <h3>Challenges and the design lab</h3>
-        <p class="meta"><span class="pill off">Off</span> <b>Where:</b> Preferences › Game options › Info › Challenges and before/after hole figures</p>
+        <h3>Challenges and before/after hole figures</h3>
+        <p class="meta"><span class="pill off">Off</span> <b>Where:</b> Preferences › Game options › Play › Challenges and before/after hole figures</p>
         <p>Information › Challenges offers six aims, from a perfect par 3 and a signature par 5 to a balanced eighteen and a cash turnaround, checked every month. Hole Stats' <b>Mark before</b> keeps a hole's figures to compare with play after you change it. <a href="#opt-extras-challenges">Reference</a>.</p>
+      </article>
+      <article class="feat" id="money-split" data-since="0.8.6">
+        <h3>Loan interest on its own line</h3>
+        <p class="meta"><span class="pill off">Off</span> (on in the helper presets). <b>Where:</b> Preferences › Game options › Info</p>
+        <p>The Financial Report shows the interest on your debt on a line of its own, and Maintenance becomes Upkeep, the
+          upkeep alone. The total is the same. Months from before the option was on stay combined. <a href="#opt-extras-money-split">Reference</a>.</p>
+      </article>
+      <article class="feat" id="golfer-lines" data-since="0.8.6">
+        <h3>Edit what golfers say</h3>
+        <p class="meta"><span class="pill off">Off</span> (on in the helper presets). <b>Where:</b> Preferences › Game options › Info. <b>Key:</b> <kbd>S</kbd> on a golfer's profile</p>
+        <p>A golfer's profile gets a <b>Lines</b> button that lists the twenty things the golfer says (their signature
+          saying, a good shot, a tree hit and so on). Click one to write the golfer's own; leave it empty to go back to the
+          usual line. <a href="#opt-extras-golfer-lines">Reference</a>.</p>
       </article>
       <article class="feat" id="club-records" data-since="0.8">
         <h3>Rounds, club records and the course review</h3>
@@ -668,6 +730,11 @@
         <p class="meta"><span class="pill on">On</span> <b>Where:</b> Preferences › Game options › Looks</p>
         <p>On a wide screen the dock, panels and money sit at the screen's edges instead of in a 4:3 box in the middle,
           with Classic graphics too.</p>
+      </article>
+      <article class="feat" id="dark-launcher" data-since="0.8.6">
+        <h3>Dark launcher</h3>
+        <p class="meta"><span class="pill off">Off</span> <b>Where:</b> Preferences › Game options › Looks, or the launcher's Features tab</p>
+        <p>The launcher in the same dark colours this web page uses with a dark theme. The game's own screens are unchanged. <a href="#opt-extras-dark-menus">Reference</a>.</p>
       </article>
       <article class="feat" id="photo-mode">
         <h3>Photo mode</h3>
@@ -795,13 +862,24 @@
 <tbody>
 <tr id="opt-extras-weather"><td><b>Weather that matters (rain, snow, heat, storms)</b> <span class="tag">Medium change</span></td><td>Rain and snow slow the ball and keep some golfers at home; desert heat makes the ball run faster. The effects are small.</td><td><span class="pill off">Off</span></td><td><span class="pill off">Off</span></td><td><span class="pill on">On</span></td></tr>
 <tr id="opt-extras-more-visitors"><td><b>More visitors: touring pros and celebrities</b> <span class="tag">Medium change</span></td><td>Touring pros and celebrities drop in now and then. They pay more, draw crowds and say what they thought of your course.</td><td><span class="pill off">Off</span></td><td><span class="pill off">Off</span></td><td><span class="pill off">Off</span></td></tr>
+<tr id="opt-extras-walk-ins"><td><b>Walk-ins: visitors fill a quiet first tee</b> <span class="tag">Small change</span></td><td>Sometimes sends a visitor to play when the first tee is quiet and no member is free to come. Visitors pay the usual fees.</td><td><span class="pill off">Off</span></td><td><span class="pill off">Off</span></td><td><span class="pill off">Off</span></td></tr>
 <tr id="opt-extras-lefties"><td><b>Left-handed golfers</b> <span class="tag">Small change</span></td><td>About one golfer in ten is left-handed: a mirrored swing, and the ball curves the other way. Your pro can be one too.</td><td><span class="pill off">Off</span></td><td><span class="pill off">Off</span></td><td><span class="pill off">Off</span></td></tr>
-<tr id="opt-extras-more-staff"><td><b>Higher staff limits</b> <span class="tag">Medium change</span></td><td>Raises the employee limit from the original's 20 to 40, or to 100 for a big club. Click to switch. A bigger map allows more anyway.</td><td><span class="pill off">off</span></td><td><span class="pill off">off</span></td><td><span class="pill on">up to 40</span></td></tr>
-<tr id="opt-extras-set-par"><td><b>Set par: change a hole's par on its Hole Stats</b> <span class="tag">Medium change</span></td><td>Minus and plus buttons on Hole Stats change a hole's par (2 to 6), and golfers are scored against your par.</td><td><span class="pill off">Off</span></td><td><span class="pill off">Off</span></td><td><span class="pill off">Off</span></td></tr>
 <tr id="opt-extras-tees"><td><b>Multiple tees: forward and middle tees</b> <span class="tag">Small change</span></td><td>With the Tees tool, press Tab to place a forward or middle tee in front of a hole's tee. Weaker golfers play the shorter tees; par, length and tournaments don't change.</td><td><span class="pill off">Off</span></td><td><span class="pill off">Off</span></td><td><span class="pill on">On</span></td></tr>
-<tr id="opt-extras-animals"><td><b>Animals you can buy</b> <span class="tag">Small change</span></td><td>Adds pairs of the theme's animals to the landmark strip to buy. They stay near where you put them and cheer golfers up.</td><td><span class="pill off">Off</span></td><td><span class="pill off">Off</span></td><td><span class="pill on">On</span></td></tr>
+<tr id="opt-extras-set-par"><td><b>Set par: change a hole's par on its Hole Stats</b> <span class="tag">Medium change</span></td><td>Minus and plus buttons on Hole Stats change a hole's par (2 to 6), and golfers are scored against your par.</td><td><span class="pill off">Off</span></td><td><span class="pill off">Off</span></td><td><span class="pill off">Off</span></td></tr>
+<tr id="opt-extras-bounds"><td><b>Hole boundaries and out of bounds</b> <span class="tag">Medium change</span></td><td>Adds a Boundary brush to Hole Stats to paint a hole's playing area. Golfers aim inside it, and a ball that stops outside is out of bounds (replayed with a penalty stroke).</td><td><span class="pill off">Off</span></td><td><span class="pill off">Off</span></td><td><span class="pill on">On</span></td></tr>
 <tr id="opt-extras-second-course"><td><b>Second course: 18 more holes</b> <span class="tag">Big change</span></td><td>Once your 18 holes are open, build a Course B of 18 more on the same land. The A/B switch above Build Course picks which course you build and see reports for.</td><td><span class="pill off">Off</span></td><td><span class="pill off">Off</span></td><td><span class="pill on">On</span></td></tr>
 <tr id="opt-extras-hardcore"><td><b>Hardcore economy: less money, harder golfers</b> <span class="tag">Big change</span></td><td>Makes money harder: higher wages, upkeep, land prices and interest, lower fees, choosier golfers and at most 12 staff.</td><td><span class="pill off">Off</span></td><td><span class="pill off">Off</span></td><td><span class="pill off">Off</span></td></tr>
+</tbody></table></div>
+<h4 id="ref-game-options-club">Club <span class="banner">Changes how you run the club: staff, land and buildings.</span></h4>
+<div class="tw"><table>
+<thead><tr><th>Option</th><th>What it does</th><th>New player</th><th>Original + helpers</th><th>OpenSGolf</th></tr></thead>
+<tbody>
+<tr id="opt-extras-more-staff"><td><b>Higher staff limits</b> <span class="tag">Medium change</span></td><td>Raises the employee limit from the original's 20 to 40, or to 100 for a big club. Click to switch. A bigger map allows more anyway.</td><td><span class="pill off">off</span></td><td><span class="pill off">off</span></td><td><span class="pill on">up to 40</span></td></tr>
+<tr id="opt-extras-staff-reach"><td><b>Staff reach grows with the map</b> <span class="tag">Small change</span></td><td>On maps bigger than the original's, each employee covers more ground: about 25% more on Large, 50% more on Huge, 75% more on Giant. The original's map is unchanged.</td><td><span class="pill off">Off</span></td><td><span class="pill off">Off</span></td><td><span class="pill on">On</span></td></tr>
+<tr id="opt-extras-animals"><td><b>Animals you can buy</b> <span class="tag">Small change</span></td><td>Adds pairs of the theme's animals to the landmark strip to buy. They stay near where you put them and cheer golfers up.</td><td><span class="pill off">Off</span></td><td><span class="pill off">Off</span></td><td><span class="pill on">On</span></td></tr>
+<tr id="opt-extras-keep-land"><td><b>Keep the land offer: buy land when you like</b> <span class="tag">Small change</span></td><td>Saying No to the County commissioner's land offer no longer loses it: buy a tract later from Information, Buy land.</td><td><span class="pill off">Off</span></td><td><span class="pill off">Off</span></td><td><span class="pill off">Off</span></td></tr>
+<tr id="opt-extras-demolish"><td><b>Eyesore demolition: pull down water towers and oil pumps</b> <span class="tag">Small change</span></td><td>Right-click (or long-press) an eyesore on your land to pull it down for §10,000, charged to Build course.</td><td><span class="pill off">Off</span></td><td><span class="pill off">Off</span></td><td><span class="pill off">Off</span></td></tr>
+<tr id="opt-extras-move-clubhouse"><td><b>Move the clubhouse</b> <span class="tag">Small change</span></td><td>Right-click (or long-press) the clubhouse to move it anywhere on your land, for the price of a new clubhouse.</td><td><span class="pill off">Off</span></td><td><span class="pill off">Off</span></td><td><span class="pill off">Off</span></td></tr>
 <tr id="opt-extras-cut-content"><td><b>Cut content: unused landmarks (decoration only)</b> <span class="tag">Experimental</span></td><td>Experimental: adds 14 landmarks the original never used to the landmark strip. Golfers like the view, but they have no landmark powers. <span class="when">Listed only with your own SimGolf files.</span></td><td><span class="pill off">Off</span></td><td><span class="pill off">Off</span></td><td><span class="pill off">Off</span></td></tr>
 </tbody></table></div>
 <h4 id="ref-game-options-sandbox">Sandbox <span class="banner">Removes rules and limits so you can build without pressure.</span></h4>
@@ -812,10 +890,6 @@
 <tr id="opt-extras-no-weeds"><td><b>Sandbox: no new dandelions</b> <span class="tag">Medium change</span></td><td>Dandelions stop spreading and unhappy golfers stop starting new ones, so the course stays clear without groundskeepers. Old ones stay until pulled.</td><td><span class="pill off">Off</span></td><td><span class="pill off">Off</span></td><td><span class="pill off">Off</span></td></tr>
 <tr id="opt-extras-freeze-moods"><td><b>Sandbox: freeze golfer happiness</b> <span class="tag">Big change</span></td><td>Golfers' moods never go down. Good moments still cheer them up, and nobody leaves unhappy.</td><td><span class="pill off">Off</span></td><td><span class="pill off">Off</span></td><td><span class="pill off">Off</span></td></tr>
 <tr id="opt-extras-calendar"><td><b>Calendar</b> <span class="tag">Medium change</span></td><td>Half or quarter speed: each year has more golf while golfers, staff and bills keep their pace. Stopped: months and years never end.</td><td><span class="pill off">normal</span></td><td><span class="pill off">normal</span></td><td><span class="pill off">normal</span></td></tr>
-<tr id="opt-extras-keep-land"><td><b>Keep the land offer: buy land when you like</b> <span class="tag">Small change</span></td><td>Saying No to the County commissioner's land offer no longer loses it: buy a tract later from Information, Buy land.</td><td><span class="pill off">Off</span></td><td><span class="pill off">Off</span></td><td><span class="pill off">Off</span></td></tr>
-<tr id="opt-extras-demolish"><td><b>Eyesore demolition: pull down water towers and oil pumps</b> <span class="tag">Small change</span></td><td>Right-click (or long-press) an eyesore on your land to pull it down for §10,000, charged to Build course.</td><td><span class="pill off">Off</span></td><td><span class="pill off">Off</span></td><td><span class="pill off">Off</span></td></tr>
-<tr id="opt-extras-move-clubhouse"><td><b>Move the clubhouse</b> <span class="tag">Small change</span></td><td>Right-click (or long-press) the clubhouse to move it anywhere on your land, for the price of a new clubhouse.</td><td><span class="pill off">Off</span></td><td><span class="pill off">Off</span></td><td><span class="pill off">Off</span></td></tr>
-<tr id="opt-extras-staff-reach"><td><b>Staff reach grows with the map</b> <span class="tag">Small change</span></td><td>On maps bigger than the original's, each employee covers more ground: about 25% more on Large, 50% more on Huge, 75% more on Giant. The original's map is unchanged.</td><td><span class="pill off">Off</span></td><td><span class="pill off">Off</span></td><td><span class="pill on">On</span></td></tr>
 </tbody></table></div>
 <h4 id="ref-game-options-looks">Looks <span class="banner">Changes how it looks. Play is unchanged.</span></h4>
 <div class="tw"><table>
@@ -826,10 +900,10 @@
 <tr id="opt-extras-random-trees"><td><b>Random trees: each tree planted gets a random look</b></td><td>Each tree the woods, pine and palm brushes plant gets a random size (pines also a random species), and each scenic tree a random design, for a more natural course.</td><td><span class="pill off">Off</span></td><td><span class="pill on">On</span></td><td><span class="pill on">On</span></td></tr>
 <tr id="opt-extras-rotate"><td><b>Tab turns placed buildings and the clubhouse</b></td><td>Press Tab to turn a placed building or the clubhouse a quarter turn, or to step through the designs of the item in hand. Only the picture turns.</td><td><span class="pill off">Off</span></td><td><span class="pill on">On</span></td><td><span class="pill on">On</span></td></tr>
 <tr id="opt-extras-home-labels-hover"><td><b>Home names only under the pointer</b></td><td>Shows a celebrity's name over a home site only while the pointer is on it, instead of names taking turns over every home.</td><td><span class="pill off">Off</span></td><td><span class="pill kept">Your choice</span></td><td><span class="pill kept">Your choice</span></td></tr>
-<tr id="opt-extras-hole-flyover"><td><b>Hole flyover: fly down a hole from its Hole Stats</b></td><td>Adds a Fly over button to Hole Stats: the camera flies from the tee down the hole to the green, then back. Press a key or click to stop.</td><td><span class="pill off">Off</span></td><td><span class="pill on">On</span></td><td><span class="pill on">On</span></td></tr>
 <tr id="opt-extras-portrait"><td><b>Play upright on phones and tablets</b></td><td>A phone or tablet held upright plays on the whole tall screen, with the dock, panels and money at its edges, instead of asking you to turn it sideways.</td><td><span class="pill off">Off</span></td><td><span class="pill kept">Your choice</span></td><td><span class="pill kept">Your choice</span></td></tr>
 <tr id="opt-extras-first-person"><td><b>First-person view (beta, F12 or `)</b></td><td>On a computer, press F12 (or `, easier on a Mac) on the course to walk it in 3D at eye height: W A S D walk, drag to look, G follows a shot, Esc goes back.</td><td><span class="pill off">Off</span></td><td><span class="pill kept">Your choice</span></td><td><span class="pill kept">Your choice</span></td></tr>
 <tr id="opt-extras-staff-names"><td><b>Staff names: every employee has a name of their own</b></td><td>Each employee you hire gets a first and last name of their own, kept with the game, instead of every groundskeeper sharing one name. A name you give with Rename still wins.</td><td><span class="pill off">Off</span></td><td><span class="pill on">On</span></td><td><span class="pill on">On</span></td></tr>
+<tr id="opt-extras-dark-menus"><td><b>Dark launcher</b></td><td>Shows the launcher in dark colours. The game's own screens are unchanged.</td><td><span class="pill off">Off</span></td><td><span class="pill kept">Your choice</span></td><td><span class="pill kept">Your choice</span></td></tr>
 </tbody></table></div>
 <h4 id="ref-game-options-info">Info <span class="banner">Adds screens and maps about your club. Play is unchanged.</span></h4>
 <div class="tw"><table>
@@ -838,11 +912,23 @@
 <tr id="opt-extras-group-people"><td><b>People screen, name tags and live scorecards</b></td><td>Adds a sortable list of every golfer and employee (Shift+G), a name tag under the pointer (Shift+H hides them) and the round so far on golfer cards.</td><td><span class="pill off">Off</span></td><td><span class="pill on">On</span></td><td><span class="pill on">On</span></td></tr>
 <tr id="opt-extras-group-reports"><td><b>Extra reports: landing map, hole comments, graphs...</b></td><td>Adds the landing map (Shift+D), comments by hole (Shift+I), history graphs (Shift+Y), the year in numbers after End of Year, and tabs over the F1 to F10 reports.</td><td><span class="pill off">Off</span></td><td><span class="pill on">On</span></td><td><span class="pill on">On</span></td></tr>
 <tr id="opt-extras-group-messages"><td><b>Message history and clickable ticker (Shift+M)</b></td><td>Keeps every ticker message to read back (Shift+M), and a click on a ticker message moves the camera to the golfer or place it is about.</td><td><span class="pill off">Off</span></td><td><span class="pill on">On</span></td><td><span class="pill on">On</span></td></tr>
+<tr id="opt-extras-money-split"><td><b>Loan interest on its own line</b></td><td>Shows the interest on your debt on its own line in the Financial Report. Maintenance is then the upkeep only; the total stays the same.</td><td><span class="pill off">Off</span></td><td><span class="pill on">On</span></td><td><span class="pill on">On</span></td></tr>
 <tr id="opt-extras-home-details"><td><b>Home-site details (cost, sale and value under the pointer)</b></td><td>Point at a home site to see who owns it, what it cost, what it sold for and what it is worth now.</td><td><span class="pill off">Off</span></td><td><span class="pill on">On</span></td><td><span class="pill on">On</span></td></tr>
 <tr id="opt-extras-path-help"><td><b>Path help: path view (Shift+V) and Show buttons</b></td><td>Path view (Shift+V) shows which paths reach the clubhouse and which buildings they miss; a Show button finds a closed building.</td><td><span class="pill off">Off</span></td><td><span class="pill on">On</span></td><td><span class="pill on">On</span></td></tr>
 <tr id="opt-extras-unlock-info"><td><b>Show how many holes unlock each building</b></td><td>A locked building says how many holes it needs and how many you have, instead of only asking for more holes.</td><td><span class="pill off">Off</span></td><td><span class="pill on">On</span></td><td><span class="pill on">On</span></td></tr>
-<tr id="opt-extras-challenges"><td><b>Challenges and before/after hole figures</b></td><td>Adds Information, Challenges: design and business goals to take on. Hole Stats' Mark before keeps a hole's figures to compare after you change it.</td><td><span class="pill off">Off</span></td><td><span class="pill on">On</span></td><td><span class="pill on">On</span></td></tr>
 <tr id="opt-extras-design-names"><td><b>Design names for benches, flower beds and scenic trees</b></td><td>Shows the name of each bench, flower bed and scenic tree design under the pointer, on the design strip and on the course.</td><td><span class="pill off">Off</span></td><td><span class="pill on">On</span></td><td><span class="pill on">On</span></td></tr>
+<tr id="opt-extras-golfer-lines"><td><b>Edit what golfers say</b></td><td>Lets you change what a golfer says on their profile page: click a line to type your own.</td><td><span class="pill off">Off</span></td><td><span class="pill on">On</span></td><td><span class="pill on">On</span></td></tr>
+</tbody></table></div>
+<h4 id="ref-game-options-play">Play <span class="banner">Adds tools for your holes, your pro and the game's speed. Play is unchanged.</span></h4>
+<div class="tw"><table>
+<thead><tr><th>Option</th><th>What it does</th><th>New player</th><th>Original + helpers</th><th>OpenSGolf</th></tr></thead>
+<tbody>
+<tr id="opt-extras-fast-speed"><td><b>Faster top speed (x16)</b></td><td>Lets the game speed go up to x16 after x8, for skipping long stretches. How fast it really runs depends on your computer.</td><td><span class="pill off">Off</span></td><td><span class="pill on">On</span></td><td><span class="pill on">On</span></td></tr>
+<tr id="opt-extras-hole-flyover"><td><b>Hole flyover: fly down a hole from its Hole Stats</b></td><td>Adds a Fly over button to Hole Stats: the camera flies from the tee down the hole to the green, then back. Press a key or click to stop.</td><td><span class="pill off">Off</span></td><td><span class="pill on">On</span></td><td><span class="pill on">On</span></td></tr>
+<tr id="opt-extras-fit-hole"><td><b>Show a whole hole</b></td><td>Adds a Show hole button to Hole Stats, and makes the hole keys (1 to 9, Shift for 10 to 18) frame the whole hole from tee to green.</td><td><span class="pill off">Off</span></td><td><span class="pill on">On</span></td><td><span class="pill on">On</span></td></tr>
+<tr id="opt-extras-practice-hole"><td><b>Practise a hole</b></td><td>Adds a Practise button to Hole Stats: your pro plays just that hole, with a Mulligan (Backspace) to retake a shot, and the score is compared with the hole's average.</td><td><span class="pill off">Off</span></td><td><span class="pill on">On</span></td><td><span class="pill on">On</span></td></tr>
+<tr id="opt-extras-challenges"><td><b>Challenges and before/after hole figures</b></td><td>Adds Information, Challenges: design and business goals to take on. Hole Stats' Mark before keeps a hole's figures to compare after you change it.</td><td><span class="pill off">Off</span></td><td><span class="pill on">On</span></td><td><span class="pill on">On</span></td></tr>
+<tr id="opt-extras-pause-aim"><td><b>Pause while you aim your pro</b></td><td>Pauses the game while your pro waits for your shot, in tournaments too. It carries on when you swing.</td><td><span class="pill off">Off</span></td><td><span class="pill kept">Your choice</span></td><td><span class="pill kept">Your choice</span></td></tr>
 </tbody></table></div>
 <h4 id="ref-game-options-saves">Saves <span class="banner">Changes how games are saved, loaded and shared. Play is unchanged.</span></h4>
 <div class="tw"><table>
@@ -854,7 +940,7 @@
 <tr id="opt-extras-sharing"><td><b>Course sharing: course codes and challenges (Ctrl+V pastes one)</b></td><td>Copy a code for your course to send to a friend; paste one (Ctrl+V) to play theirs and try to beat their record.</td><td><span class="pill off">Off</span></td><td><span class="pill on">On</span></td><td><span class="pill on">On</span></td></tr>
 <tr id="opt-extras-save-pictures"><td><b>A map of the course beside each saved game</b></td><td>Shows a small map of each saved game's course in Load Previous Game.</td><td><span class="pill off">Off</span></td><td><span class="pill on">On</span></td><td><span class="pill on">On</span></td></tr>
 </tbody></table></div>
-<h4 id="ref-game-options-controls">Controls <span class="banner">Changes what the mouse does and when the game pauses. Play is unchanged.</span></h4>
+<h4 id="ref-game-options-controls">Controls <span class="banner">Changes what the mouse, touch and keys do, and when the game pauses. Play is unchanged.</span></h4>
 <div class="tw"><table>
 <thead><tr><th>Option</th><th>What it does</th><th>New player</th><th>Original + helpers</th><th>OpenSGolf</th></tr></thead>
 <tbody>
@@ -864,9 +950,10 @@
 <tr id="opt-extras-right-drag"><td><b>Right-drag moves the course</b></td><td>Drag with the right mouse button to move the course. A right click still undoes, as in the original. Part of the Modern controls (Change keys).</td><td><span class="pill off">Off</span></td><td><span class="pill kept">Your choice</span></td><td><span class="pill kept">Your choice</span></td></tr>
 <tr id="opt-extras-edge-scroll"><td><b>Edge scrolling</b></td><td>In full screen, moving the pointer to the screen's edge scrolls the view, as in the original. On by default.</td><td><span class="pill on">On</span></td><td><span class="pill kept">Your choice</span></td><td><span class="pill kept">Your choice</span></td></tr>
 <tr id="opt-extras-mouse-swing"><td><b>Aim and swing with the mouse as by touch</b></td><td>Aim your pro with the mouse as on a touch screen: click to set the target, drag to move it or look round, and press the round Swing button to shoot.</td><td><span class="pill off">Off</span></td><td><span class="pill kept">Your choice</span></td><td><span class="pill kept">Your choice</span></td></tr>
+<tr id="opt-extras-redo"><td><b>Redo, and a longer undo</b></td><td>Adds Redo: Ctrl+Y (or Ctrl+Shift+Z) puts back what Ctrl+Z took away. Undo also keeps your last 100 clicks instead of 30.</td><td><span class="pill off">Off</span></td><td><span class="pill on">On</span></td><td><span class="pill on">On</span></td></tr>
+<tr id="opt-extras-fine-height"><td><b>Fine elevation on touch screens</b></td><td>Lets you tap a corner with an elevation tool and step it up or down with Raise and Lower buttons, instead of a tap raising the ground at once.</td><td><span class="pill off">Off</span></td><td><span class="pill kept">Your choice</span></td><td><span class="pill kept">Your choice</span></td></tr>
 <tr id="opt-extras-pause-background"><td><b>Pause while the game's window is in the background</b></td><td>Pauses the game and its sound while its window is in the background, and carries on when you come back.</td><td><span class="pill off">Off</span></td><td><span class="pill kept">Your choice</span></td><td><span class="pill kept">Your choice</span></td></tr>
 <tr id="opt-extras-pause-events"><td><b>Pause on big news: VIPs, challenges, offers, debt</b></td><td>Pauses the game when a VIP arrives, a famous golfer challenges your pro, the SGA makes an offer or money runs short.</td><td><span class="pill off">Off</span></td><td><span class="pill kept">Your choice</span></td><td><span class="pill kept">Your choice</span></td></tr>
-<tr id="opt-extras-pause-aim"><td><b>Pause while you aim your pro</b></td><td>Pauses the game while your pro waits for your shot, in tournaments too. It carries on when you swing.</td><td><span class="pill off">Off</span></td><td><span class="pill kept">Your choice</span></td><td><span class="pill kept">Your choice</span></td></tr>
 </tbody></table></div>
 <h3 id="ref-enhanced">Enhanced graphics settings</h3>
 <p class="lede"><b>Preferences › Graphics › Enhanced graphics settings</b>. Every page starts with the master switch, <b>Enhanced graphics (off: Classic)</b>, which is <b>off</b> for a new player: with it off you play in Classic and none of these draw, except the three marked as counting with Classic too. The last column is what each option is set to once you switch Enhanced graphics on. Changes only how the game looks, never how it plays.</p>

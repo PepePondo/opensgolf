@@ -1,0 +1,1 @@
+New optional extras, all off by default: show or practise one hole, hole boundaries, walk-ins, redo, fine elevation on touch screens, x16 speed, editable golfer lines, dark launcher. Plainer settings wording.

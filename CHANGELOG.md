@@ -71,6 +71,17 @@ Enhanced graphics and HD.
   follows the time of day, rain and snow with Enhanced graphics, shows the yards to the pin and yardage posts, has softer
   edges between kinds of ground, a lower ball camera, Q/E to turn, zoom, H to hide the help and P to save a picture, and
   3D staff.
+- **0.8.7:** new optional extras, all off by default. Hole Stats can **Show hole** (the whole hole
+  framed; the hole keys do the same), **Practise** (your pro plays just that hole, with a Mulligan to take a shot back,
+  and the ticker compares the score with the hole's average) and paint a hole's **Boundary** (*Hole boundaries*: golfers
+  aim inside it and a ball that stops outside is out of bounds). *Walk-ins* bring the odd non-member to a quiet first
+  tee. *Redo* (Ctrl+Y) puts back what Ctrl+Z took and undo keeps 100 steps. *Fine elevation on touch screens* picks a
+  corner with a tap and steps it with Raise and Lower buttons. The Financial Report can show *Loan interest on its own
+  line*, the speed can go to x16, a golfer's lines can be edited on their profile, and the launcher can be dark. Copy
+  report details adds the game's state and your last few actions. The Game options box gets two new pages, **Club**
+  (staff, land and buildings, moved off the Sandbox page) and **Play** (the hole tools, the pro and the speed), so each
+  page holds one topic. The settings' labels and descriptions are reworded to say plainly what each one does, and the
+  change tags now read *Small change* and *Medium change*.
 
 ## 0.7 (7 November 2026)
 

@@ -3497,6 +3497,9 @@ impl App {
     /// Loads a whole game saved by `save_game` and goes on from where it was.
     pub fn load_game(&mut self, g: &mut Gfx, path: &Path) -> Result<(), String> {
         let s = read_save(path)?;
+        // a game of the player's own loaded while in a shared club leaves the club (mp/club.rs)
+        #[cfg(feature = "multiplayer")]
+        self.club_leave(sg_core::lang::tr("STR_MP_CLUB_LEFT"));
         self.load_save(g, s)?;
         self.fingerprint_note("load");
         Ok(())

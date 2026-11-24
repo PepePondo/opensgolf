@@ -27,6 +27,16 @@ fn chunk(out: &mut Vec<u8>, table: &[u32; 256], ty: &[u8; 4], body: &[u8]) {
 
 /// Encodes an image as PNG bytes.
 pub fn encode_png(img: &Rgba) -> Option<Vec<u8>> {
+    encode_png_level(img, 6)
+}
+
+/// `encode_png` packed less tightly but several times faster: for pictures made only to be read straight back (the free
+/// set's art, drawn at run time), where the bytes' size does not matter. The same pixels.
+pub fn encode_png_quick(img: &Rgba) -> Option<Vec<u8>> {
+    encode_png_level(img, 1)
+}
+
+fn encode_png_level(img: &Rgba, level: u8) -> Option<Vec<u8>> {
     if img.w == 0 || img.h == 0 || img.px.len() < img.w as usize * img.h as usize * 4 {
         return None;
     }
@@ -43,7 +53,7 @@ pub fn encode_png(img: &Rgba) -> Option<Vec<u8>> {
         raw.push(0);
         raw.extend_from_slice(&img.px[y * stride..(y + 1) * stride]);
     }
-    let z = miniz_oxide::deflate::compress_to_vec_zlib(&raw, 6);
+    let z = miniz_oxide::deflate::compress_to_vec_zlib(&raw, level);
     chunk(&mut out, &table, b"IDAT", &z);
     chunk(&mut out, &table, b"IEND", &[]);
     Some(out)
@@ -192,6 +202,30 @@ fn png_raw(d: &[u8]) -> Option<Raw> {
         let line = &raw[y * (stride + 1)..(y + 1) * (stride + 1)];
         let f = line[0];
         let cur = &mut px[y * stride..(y + 1) * stride];
+        // the common filters in a loop of their own (the same bytes as the general one below, sooner)
+        match f {
+            0 => {
+                cur.copy_from_slice(&line[1..]);
+                prev.copy_from_slice(cur);
+                continue;
+            }
+            1 => {
+                cur[..bpp].copy_from_slice(&line[1..=bpp]);
+                for i in bpp..stride {
+                    cur[i] = line[i + 1].wrapping_add(cur[i - bpp]);
+                }
+                prev.copy_from_slice(cur);
+                continue;
+            }
+            2 => {
+                for ((c, &x), &b) in cur.iter_mut().zip(&line[1..]).zip(&prev) {
+                    *c = x.wrapping_add(b);
+                }
+                prev.copy_from_slice(cur);
+                continue;
+            }
+            _ => {}
+        }
         for i in 0..stride {
             let x = line[i + 1];
             let a = if i >= bpp { cur[i - bpp] } else { 0 };
@@ -264,6 +298,62 @@ mod tests {
         assert_eq!(&img.px[0..8], &[10, 20, 30, 255, 15, 25, 35, 255]);
         // Paeth: first pixel predicts from above (b), second from the left/above/upper-left
         assert_eq!(&img.px[8..11], &[11, 22, 33]);
+    }
+
+    #[test]
+    fn every_filter_on_every_kind_of_row() {
+        // rows of random bytes under random filters, RGBA and RGB: the decoder's pixels against the filters worked out
+        // byte by byte from the PNG specification
+        let mut seed = 0x9e37_79b9_7f4a_7c15u64;
+        let mut next = move || {
+            seed ^= seed << 13;
+            seed ^= seed >> 7;
+            seed ^= seed << 17;
+            seed
+        };
+        for (ct, bpp) in [(6u8, 4usize), (2, 3)] {
+            let (w, h) = (7usize, 9usize);
+            let stride = w * bpp;
+            let mut raw = Vec::new();
+            let mut want = vec![0u8; stride * h];
+            for y in 0..h {
+                let f = (next() % 5) as u8;
+                raw.push(f);
+                for i in 0..stride {
+                    let x = next() as u8;
+                    raw.push(x);
+                    let a = if i >= bpp { want[y * stride + i - bpp] } else { 0 };
+                    let b = if y > 0 { want[(y - 1) * stride + i] } else { 0 };
+                    let c = if i >= bpp && y > 0 { want[(y - 1) * stride + i - bpp] } else { 0 };
+                    let p = a as i32 + b as i32 - c as i32;
+                    let (pa, pb, pc) = ((p - a as i32).abs(), (p - b as i32).abs(), (p - c as i32).abs());
+                    let pred = match f {
+                        0 => 0,
+                        1 => a,
+                        2 => b,
+                        3 => ((a as u32 + b as u32) / 2) as u8,
+                        _ if pa <= pb && pa <= pc => a,
+                        _ if pb <= pc => b,
+                        _ => c,
+                    };
+                    want[y * stride + i] = x.wrapping_add(pred);
+                }
+            }
+            let z = miniz_oxide::deflate::compress_to_vec_zlib(&raw, 6);
+            let mut png = vec![0x89, b'P', b'N', b'G', 0x0D, 0x0A, 0x1A, 0x0A];
+            let mut chunk = |ty: &[u8], body: &[u8]| {
+                png.extend_from_slice(&(body.len() as u32).to_be_bytes());
+                png.extend_from_slice(ty);
+                png.extend_from_slice(body);
+                png.extend_from_slice(&[0; 4]);
+            };
+            chunk(b"IHDR", &[0, 0, 0, w as u8, 0, 0, 0, h as u8, 8, ct, 0, 0, 0]);
+            chunk(b"IDAT", &z);
+            chunk(b"IEND", &[]);
+            let img = super::decode_png(&png).unwrap();
+            let got: Vec<u8> = img.px.chunks_exact(4).flat_map(|p| p[..bpp].to_vec()).collect();
+            assert_eq!(got, want, "colour type {ct}");
+        }
     }
 }
 

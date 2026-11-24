@@ -107,6 +107,16 @@
   <content_rating type="oars-1.1"/>
 
   <releases>
+    <release version="0.8.7" date="2026-11-24">
+      <description>
+        <p>New optional extras, all off by default: show or practise a single hole, hole boundaries with out of bounds, walk-in visitors, redo and a longer undo, fine elevation on touch screens, loan interest on its own line, x16 speed, editable golfer lines and a dark launcher. The Game options are regrouped into eight pages, and the settings are reworded to say plainly what each one does.</p>
+      </description>
+    </release>
+    <release version="0.8.6" date="2026-11-20">
+      <description>
+        <p>Faster start-up and loading, smaller downloads, internet access for the Android app's updates and downloads, better free graphics for the resort amenities, cacti and ground, and first-person improvements: weather and time of day, yardages to the pin, softer edges, turn, zoom and photo keys, and 3D staff.</p>
+      </description>
+    </release>
     <release version="0.8.5" date="2026-11-18">
       <description>
         <p>Fixes: the browser version starting on a black screen at 125% display scaling, and the Android app having no sound.</p>

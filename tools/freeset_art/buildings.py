@@ -4,7 +4,7 @@ roofs, Desert adobe with flat roofs and red tiles, Tropical bungalows with thatc
 units: a tile is 100; the building stands centred on the origin, its front (the clubhouse door) towards -x, -z."""
 import numpy as np
 
-from scene import Scene, box, quad, tube
+from scene import Scene, box, ellipsoid, quad, tube
 import trees
 
 
@@ -921,6 +921,524 @@ def distance_sign(style, rng, yards=100):
     return body, base
 
 
+# ---- the resort amenities: casino, spa, swim club, theme park ----------------------------------------------------------------
+
+WATER = c(64, 172, 214)
+GOLD = c(232, 186, 72)
+
+
+def disc(s, cx, cz, r, y, col, n=24, squash=1.0, wob=0.0, ph=0.0):
+    """A flat round (or wobbly, kidney-ish) patch at height y: triangles into scene s."""
+    ang = np.linspace(0, 2 * np.pi, n + 1)
+    rr = r * (1 + wob * np.sin(2 * ang + ph))
+    pts = [np.array([cx + np.cos(a) * q, y, cz + np.sin(a) * q * squash]) for a, q in zip(ang, rr)]
+    s.add_tris(np.array([[np.array([cx, y, cz]), pts[i + 1], pts[i]] for i in range(n)]), col)
+    return pts
+
+
+def pool(s, x0, z0, x1, z1, y=0.8, rim=4.0, rim_col=None, water=WATER):
+    """A rectangular pool: a light stone surround and the water, with a lighter band along the near edges."""
+    rim_col = c(240, 236, 226) if rim_col is None else rim_col
+    s.add_tris(quad([x0 - rim, y, z0 - rim], [x1 + rim, y, z0 - rim], [x1 + rim, y, z1 + rim], [x0 - rim, y, z1 + rim]), rim_col)
+    s.add_tris(quad([x0, y + 0.2, z0], [x1, y + 0.2, z0], [x1, y + 0.2, z1], [x0, y + 0.2, z1]), water * 0.82)
+    s.add_tris(quad([x0 + 2.5, y + 0.3, z0 + 2.5], [x1 - 2.5, y + 0.3, z0 + 2.5], [x1 - 2.5, y + 0.3, z1 - 2.5],
+                    [x0 + 2.5, y + 0.3, z1 - 2.5]), water)
+    # lane ropes or sun glints: a few light streaks across the water
+    for k in range(1, 4):
+        z = z0 + (z1 - z0) * k / 4
+        s.add_tris(quad([x0 + 4, y + 0.4, z - 0.4], [x1 - 4, y + 0.4, z - 0.4], [x1 - 4, y + 0.4, z + 0.4], [x0 + 4, y + 0.4, z + 0.4]),
+                   np.minimum(water * 1.35 + 0.1, 1))
+
+
+def lagoon(s, cx, cz, r, y=0.8, squash=0.8, ph=0.0):
+    """A free-form pool: a sandy rim, deep water and a light shallow ring."""
+    disc(s, cx, cz, r + 5, y, c(244, 232, 200), 28, squash, 0.12, ph)
+    disc(s, cx, cz, r, y + 0.2, WATER * 0.86, 28, squash, 0.12, ph)
+    disc(s, cx, cz, r * 0.72, y + 0.3, np.minimum(WATER * 1.12, 1), 28, squash, 0.12, ph)
+
+
+def lounger(k, x, z, yaw=0.0, col=None):
+    """A sun lounger: a white frame and a striped cushion, its back raised."""
+    col = k.st["aw1"] if col is None else col
+    a = np.radians(yaw)
+    R = np.array([[np.cos(a), 0, np.sin(a)], [0, 1, 0], [-np.sin(a), 0, np.cos(a)]])
+    P = lambda p: np.asarray(p, float) @ R.T + [x, 0, z]
+    k.add(box([0, 0, 0], [8, 2, 16]) @ R.T + P([0, 4, 2]), c(244, 244, 240))
+    k.add(box([0, 0, 0], [7, 1, 14]) @ R.T + P([0, 5.4, 2]), col)
+    k.add(quad(P([-4, 5, -6]), P([4, 5, -6]), P([4, 12, -10]), P([-4, 12, -10])), col * 0.92)
+    for sx in (-3.5, 3.5):
+        for sz in (-4, 8):
+            k.add(tube(P([sx, 0, sz]), P([sx, 4, sz]), 0.5, 0.5, 4), c(220, 220, 220))
+
+
+def lamp(k, x, z, h=24.0):
+    """A street lamp: a dark post and a lit globe."""
+    k.add(tube([x, 0, z], [x, h, z], 0.8, 0.6, 5), c(50, 52, 58))
+    k.s.add_tris(ellipsoid([x, h + 2, z], [2.4, 2.4, 2.4], 8, 5), c(255, 236, 170), emissive=True)
+
+
+def bulbs(k, a, b, n, col=None):
+    """A row of n lit bulbs from a to b (marquee lights)."""
+    col = c(255, 230, 140) if col is None else col
+    a, b = np.asarray(a, float), np.asarray(b, float)
+    for i in range(n):
+        p = a + (b - a) * (i + 0.5) / n
+        k.s.add_tris(ellipsoid(p, [1.1, 1.1, 1.1], 6, 4), col, emissive=True)
+
+
+def dome(k, cx, y, cz, r, col, ribs=12):
+    """A dome (half an ellipsoid) with a little finial."""
+    t = ellipsoid([cx, y, cz], [r, r * 0.9, r], ribs, 8)
+    t = t[np.all(t[:, :, 1] >= y - 0.01, axis=1)]
+    k.add(t, col)
+    k.add(tube([cx, y + r * 0.88, cz], [cx, y + r * 0.88 + r * 0.45, cz], r * 0.08, r * 0.02, 6), GOLD)
+
+
+def palms(k, pts, h=80.0):
+    for x, z in pts:
+        k.tree(x, z, h * k.rng.uniform(0.85, 1.1), "palm")
+
+
+def pylon_sign(k, x, z, h, w, col, globe=False):
+    """A tall roadside sign: a post, a lit panel framed with bulbs, a star (or a globe) on top."""
+    k.add(box([x, h / 2, z], [5, h, 5]), c(70, 72, 80))
+    y0, y1 = h, h + w * 0.7
+    k.add(box([x, (y0 + y1) / 2, z], [w + 4, y1 - y0 + 4, 4]), GOLD)
+    k.s.add_tris(box([x, (y0 + y1) / 2, z], [w, y1 - y0, 4.6]), col, emissive=True)
+    for zz in (z - 2.6, z + 2.6):
+        bulbs(k, [x - w / 2 - 1, y0 - 1, zz], [x + w / 2 + 1, y0 - 1, zz], 9)
+        bulbs(k, [x - w / 2 - 1, y1 + 1, zz], [x + w / 2 + 1, y1 + 1, zz], 9)
+        # light 'letters' on the panel
+        for i in range(5):
+            t = -w / 2 + w * (i + 0.7) / 5.4
+            k.s.add_tris(quad([x + t, y0 + (y1 - y0) * 0.3, zz * 1.0 + (zz - z) * 0.2], [x + t + w / 8, y0 + (y1 - y0) * 0.3, zz + (zz - z) * 0.2],
+                              [x + t + w / 8, y0 + (y1 - y0) * 0.72, zz + (zz - z) * 0.2], [x + t, y0 + (y1 - y0) * 0.72, zz + (zz - z) * 0.2]),
+                         c(255, 246, 210), emissive=True)
+    if globe:
+        k.s.add_tris(ellipsoid([x, y1 + 10, z], [8, 8, 8], 12, 8), c(255, 214, 90), emissive=True)
+    else:
+        k.add(np.array([[[x - 6, y1 + 3, z], [x + 6, y1 + 3, z], [x, y1 + 14, z]]]), GOLD)
+
+
+def lit_windows(k, a, b, y0, y1, normal, cols, rows, warm=0.65):
+    """A grid of windows on a wall face from a to b (x, z), between heights y0 and y1, most of them lit."""
+    a, b = np.asarray(a, float), np.asarray(b, float)
+    n = np.asarray(normal, float)
+    side = (b - a) / np.linalg.norm(b - a)
+    side3 = np.array([side[0], 0, side[1]])
+    for i in range(cols):
+        for j in range(rows):
+            p = a + (b - a) * (i + 0.5) / cols
+            y = y0 + (y1 - y0) * (j + 0.5) / rows
+            hw = np.linalg.norm(b - a) / cols * 0.3
+            hh = (y1 - y0) / rows * 0.32
+            q = np.array([p[0], y, p[1]]) + n * 0.8
+            lit = k.rng.uniform() < warm
+            col = c(255, 214, 130) if lit else c(70, 100, 130)
+            k.s.add_tris(quad(q - side3 * hw - [0, hh, 0], q + side3 * hw - [0, hh, 0], q + side3 * hw + [0, hh, 0],
+                              q - side3 * hw + [0, hh, 0]), col, emissive=lit)
+
+
+def casino(style, rng, level=1):
+    """The desert's casino: a grand adobe hall with a golden dome, wings with lit arcades round a forecourt with a fountain,
+    a canopied entrance lit with bulbs and a tall roadside sign; the upgrade is bigger and adds a hotel tower."""
+    body, base = Scene(), Scene()
+    k = Kit(body, style, rng)
+    st = k.st
+    big = level >= 2
+    m = 1.2 if big else 1.0
+    HW, HD, H = 130 * m, 52 * m, 52       # the hall: x -HW..HW, z 0..2 HD
+    WX, WD, WH = 50 * m, 84 * m, 34       # the wings: x +-(HW - WX)..+-HW, z -WD..0
+    roof = c(206, 150, 112)
+    # the forecourt between the wings: warm paving, a red carpet to the door, flower beds round a big fountain
+    ground_patch(base, st, -HW - 16, -WD - 34, HW + 16, 2 * HD + 12, st["pave"], y=0.6, tiles=18, rng=rng)
+    base.add_tris(quad([-11, 0.8, -WD - 30], [11, 0.8, -WD - 30], [11, 0.8, 0], [-11, 0.8, 0]), c(176, 40, 46))
+    fz = -WD * 0.5
+    for x in (-HW + WX + 22, HW - WX - 22):
+        disc(base, x, fz, 14, 0.8, c(96, 70, 50), 16)
+        for a in np.linspace(0, 2 * np.pi, 8)[:-1]:
+            base.add_tris(ellipsoid([x + np.cos(a) * 8, 1.6, fz + np.sin(a) * 8], [3, 1.8, 3], 6, 4),
+                          [c(232, 70, 90), c(250, 200, 70), c(240, 120, 60)][int(a * 2) % 3])
+    fx = 0
+    disc(base, fx, fz, 30, 0.8, c(226, 214, 192), 28)
+    disc(base, fx, fz, 25, 1.0, WATER, 28)
+    disc(base, fx, fz, 18, 1.1, np.minimum(WATER * 1.15, 1), 28)
+    # the fountain's bowls and its jet
+    k.add(tube([fx, 0, fz], [fx, 12, fz], 3.5, 2.8, 10), c(232, 222, 202))
+    k.add(tube([fx, 12, fz], [fx, 14, fz], 10, 11, 14), c(232, 222, 202))
+    k.add(tube([fx, 14, fz], [fx, 22, fz], 1.6, 1.4, 6), c(232, 222, 202))
+    k.add(tube([fx, 22, fz], [fx, 23.5, fz], 5, 5.5, 12), c(232, 222, 202))
+    k.s.add_tris(ellipsoid([fx, 27, fz], [2.6, 6, 2.6], 8, 5), c(220, 244, 255), emissive=True)
+    if big:
+        # the hotel tower rising from the back of the hall
+        TW, TD, TH = 70, 40, 236
+        tz = HD * 1.15
+        tower = c(244, 238, 226)
+        k.block(-TW, tz - TD, TW, tz + TD, H, TH, tower)
+        for f in range(1, 10):
+            y = H + (TH - H) * f / 10
+            for (x0, z0, x1, z1) in ((-TW, tz - TD, TW, tz - TD), (-TW, tz + TD, TW, tz + TD)):
+                k.add(box([0, y, z0], [TW * 2 + 1.5, 1.6, 1.5]), st["trim"])
+        lit_windows(k, (-TW, tz - TD), (TW, tz - TD), H + 6, TH - 8, (0, 0, -1), 10, 10, 0.4)
+        lit_windows(k, (-TW, tz + TD), (TW, tz + TD), H + 6, TH - 8, (0, 0, 1), 10, 10, 0.4)
+        lit_windows(k, (-TW, tz - TD), (-TW, tz + TD), H + 6, TH - 8, (-1, 0, 0), 6, 10, 0.4)
+        lit_windows(k, (TW, tz - TD), (TW, tz + TD), H + 6, TH - 8, (1, 0, 0), 6, 10, 0.4)
+        k.flat_roof(-TW, tz - TD, TW, tz + TD, TH, 4, tower)
+        for (x0, z0, x1, z1) in ((-TW - 1, tz - TD - 1, TW + 1, tz - TD + 2), (-TW - 1, tz + TD - 2, TW + 1, tz + TD + 1),
+                                 (-TW - 1, tz - TD - 1, -TW + 2, tz + TD + 1), (TW - 2, tz - TD - 1, TW + 1, tz + TD + 1)):
+            k.add(box([(x0 + x1) / 2, TH + 6, (z0 + z1) / 2], [x1 - x0, 5, z1 - z0]), GOLD)
+        k.add(box([TW * 0.4, TH + 8, tz], [18, 12, 14]), c(150, 146, 140))
+    # the hall: adobe with a stone plinth, two rows of lit windows, a flat tiled roof with a parapet and skylights
+    k.block(-HW, 0, HW, 2 * HD, 0, H, st["wall"])
+    k.flat_roof(-HW, 0, HW, 2 * HD, H, 5, roof)
+    k.add(box([0, H - 2, -0.8], [HW * 2 + 2, 3, 1.4]), GOLD)
+    lit_windows(k, (-HW, 0), (-HW + WX, 0), 8, H - 8, (0, 0, -1), 2, 2, 0.8)
+    lit_windows(k, (HW - WX, 0), (HW, 0), 8, H - 8, (0, 0, -1), 2, 2, 0.8)
+    lit_windows(k, (-HW + WX, 0), (-22, 0), 8, H - 8, (0, 0, -1), 4, 2, 0.85)
+    lit_windows(k, (22, 0), (HW - WX, 0), 8, H - 8, (0, 0, -1), 4, 2, 0.85)
+    lit_windows(k, (-HW, 0), (-HW, 2 * HD), 8, H - 8, (-1, 0, 0), 6, 2, 0.6)
+    lit_windows(k, (HW, 0), (HW, 2 * HD), 8, H - 8, (1, 0, 0), 6, 2, 0.6)
+    lit_windows(k, (-HW, 2 * HD), (HW, 2 * HD), 8, H - 8, (0, 0, 1), 14, 2, 0.6)
+    for x in (-HW * 0.55, HW * 0.55):
+        k.add(box([x, H + 2.5, HD * 1.3], [26, 3, 18]), c(150, 196, 214))
+        k.add(box([x, H + 1.5, HD * 1.3], [28, 2, 20]), c(236, 226, 206))
+    # the dome on a drum over the entrance
+    dr = 34 * m
+    k.add(tube([0, H, HD * 0.75], [0, H + 16, HD * 0.75], dr, dr, 22), st["trim"])
+    lit_windows(k, (-dr * 0.7, HD * 0.75 - dr), (dr * 0.7, HD * 0.75 - dr), H + 3, H + 14, (0, 0, -1), 6, 1, 0.9)
+    dome(k, 0, H + 16, HD * 0.75, dr, GOLD, 18)
+    # the wings: lower, with an arcade of columns along the forecourt and lit windows behind it
+    for sx in (-1, 1):
+        x0, x1 = (HW - WX) * sx, HW * sx
+        xa, xb = min(x0, x1), max(x0, x1)
+        k.block(xa, -WD, xb, 0, 0, WH, st["wall"])
+        k.flat_roof(xa, -WD, xb, 0, WH, 4, roof)
+        inner = x0
+        lit_windows(k, (inner, -WD), (inner, 0), 6, WH - 8, (-sx, 0, 0), 5, 1, 0.9)
+        for z in np.linspace(-WD + 6, -6, 6):
+            k.add(tube([inner - sx * 9, 0, z], [inner - sx * 9, WH - 6, z], 1.8, 1.8, 8), st["trim"])
+        k.add(box([inner - sx * 5, WH - 4, -WD / 2], [11, 3, WD]), st["trim"])
+        lit_windows(k, (xa, -WD), (xb, -WD), 6, WH - 8, (0, 0, -1), 3, 1, 0.8)
+        lit_windows(k, (x1, -WD), (x1, 0), 6, WH - 8, (sx, 0, 0), 5, 1, 0.8)
+    # the entrance: tall bright glass doors under a red canopy on columns with bulbs round its edge
+    ew = 34
+    k.s.add_tris(quad([-ew / 2, 0, -1], [ew / 2, 0, -1], [ew / 2, 32, -1], [-ew / 2, 32, -1]), c(255, 222, 150), emissive=True)
+    for x in np.linspace(-ew / 2 + 4, ew / 2 - 4, 4):
+        k.add(quad([x - 0.6, 0, -1.4], [x + 0.6, 0, -1.4], [x + 0.6, 32, -1.4], [x - 0.6, 32, -1.4]), GOLD)
+    k.add(box([0, 35, -15], [ew + 18, 4, 30]), c(176, 40, 46))
+    k.add(box([0, 33.4, -15], [ew + 19, 1.6, 31]), GOLD)
+    for x in (-ew / 2 - 7, ew / 2 + 7):
+        k.add(tube([x, 0, -28], [x, 33, -28], 2, 2, 8), st["trim"])
+    bulbs(k, [-ew / 2 - 9, 33, -30.6], [ew / 2 + 9, 33, -30.6], 14)
+    # the roadside sign, palms and lamps
+    pylon_sign(k, HW - 10, -WD - 26, 62 if big else 48, 34, c(200, 40, 60), globe=big)
+    palms(k, [(-HW + WX + 8, -WD - 10), (HW - WX - 8, -WD - 10), (-HW - 8, -WD + 10), (-HW - 8, HD * 1.6)], 86)
+    for x in (-24, 24):
+        lamp(k, x, -WD - 14)
+    return body, base
+
+
+def spa(style, rng, level=1):
+    """The desert spa: a white adobe bath house with a small dome, a turquoise pool with loungers and umbrellas, palms;
+    the upgrade adds a colonnade, a round hot tub and a vine-covered pergola."""
+    body, base = Scene(), Scene()
+    k = Kit(body, style, rng)
+    st = k.st
+    big = level >= 2
+    # the game draws no base layer under the desert's spa (spaL1_Base is never shown), so the paving and pools are in
+    # the body
+    g = body
+    R = 140 if big else 105
+    ground_patch(g, st, -R, -R, R, R, st["pave"], y=0.6, tiles=12, rng=rng)
+    W, D, H = (R * 0.55, R * 0.35, 26)
+    bz = R - D - 4
+    wall = c(246, 240, 228)
+    # the pool in front of the house
+    pool(g, -R * 0.62, -R * 0.78, R * 0.38, -R * 0.08, 0.8)
+    if big:
+        disc(g, R * 0.66, -R * 0.55, 12, 0.8, c(240, 236, 226))
+        disc(g, R * 0.66, -R * 0.55, 9, 1.0, c(120, 210, 220))
+        k.s.add_tris(ellipsoid([R * 0.66, 3, -R * 0.55], [6, 2, 6], 8, 4), c(236, 248, 250))
+    k.block(-W, bz - D, W, bz + D, 0, H, wall)
+    k.flat_roof(-W, bz - D, W, bz + D, H, 3.5, wall)
+    k.add(tube([W * 0.35, H, bz], [W * 0.35, H + 6, bz], 10, 10, 14), wall)
+    dome(k, W * 0.35, H + 6, bz, 10, c(70, 160, 170))
+    k.door([-W * 0.3, 0, bz - D], (0, 0, -1), 12, 20, c(70, 150, 160))
+    k.awning([-W * 0.3, 0, bz - D], (0, 0, -1), 18, y=24)
+    k.windows_along((0, bz - D), (W, bz - D), 13, (0, 0, -1), 2, w=12, h=12)
+    k.windows_along((-W, bz - D), (-W, bz + D), 13, (-1, 0, 0), 2, w=12, h=12)
+    k.windows_along((W, bz - D), (W, bz + D), 13, (1, 0, 0), 2, w=12, h=12)
+    # a colonnade along the pool side
+    for x in np.linspace(-W, W, 8 if big else 6):
+        k.add(tube([x, 0, bz - D - 10], [x, 22, bz - D - 10], 1.6, 1.6, 8), wall)
+    k.add(box([0, 23, bz - D - 6], [W * 2 + 6, 3, 12]), wall)
+    k.add(box([0, 24.6, bz - D - 6], [W * 2 + 7, 0.8, 13]), c(70, 160, 170))
+    if big:
+        # a pergola with vines
+        px, pz = -R * 0.72, R * 0.1
+        for x in (px - 12, px + 12):
+            for z in (pz - 14, pz + 14):
+                k.add(tube([x, 0, z], [x, 22, z], 1.2, 1.2, 6), c(170, 130, 90))
+        for z in np.linspace(pz - 16, pz + 16, 7):
+            k.add(box([px, 23, z], [30, 1.6, 2]), c(170, 130, 90))
+        for _ in range(9):
+            k.s.add_ball([px + rng.uniform(-14, 14), 24, pz + rng.uniform(-15, 15)], 4.5, c(90, 140, 60))
+    for i, x in enumerate(np.linspace(-R * 0.58, R * 0.32, 7 if big else 5)):
+        lounger(k, x, -R * 0.9 + 2, 0, st["aw1"] if i % 2 == 0 else c(240, 150, 120))
+    for i, (x, z) in enumerate(((R * 0.6, -R * 0.2 if big else -R * 0.45), (-R * 0.8, -R * 0.3), (R * 0.62, -R * 0.82))):
+        k.umbrella(x, z, 9, 18, col=st["aw1"] if i % 2 == 0 else c(240, 150, 120))
+    # a palm-shaded garden with a fountain in the free corner
+    disc(g, -R * 0.62, R * 0.5, R * 0.22, 0.7, c(110, 160, 80), 18)
+    k.add(tube([-R * 0.62, 0, R * 0.5], [-R * 0.62, 6, R * 0.5], 5, 4, 10), c(236, 228, 214))
+    k.s.add_tris(ellipsoid([-R * 0.62, 8, R * 0.5], [2, 3.5, 2], 8, 5), c(214, 240, 255), emissive=True)
+    palms(k, [(-R + 8, bz - 8), (R - 8, -R + 10), (-R * 0.78, R * 0.75), (R - 10, bz + 6), (-R + 10, -R + 10)][: 5 if big else 4], 74)
+    return body, base
+
+
+def slide(k, pts, r=3.4, col=None):
+    """A water slide: a chain of open tube pieces through the points."""
+    col = c(250, 196, 40) if col is None else col
+    for a, b in zip(pts[:-1], pts[1:]):
+        k.add(tube(a, b, r, r, 10, caps=False), col)
+
+
+def swim_club(style, rng, level=1):
+    """The tropical swim club: a lagoon pool with a water slide off a little tower, a thatched cabana bar, loungers and
+    umbrellas under palms; the upgrade is bigger, with a spiral slide and a diving board."""
+    body, base = Scene(), Scene()
+    k = Kit(body, style, rng)
+    st = k.st
+    big = level >= 2
+    R = 115 if big else 87
+    ground_patch(body, st, -R, -R, R, R, c(236, 222, 190), y=0.5, tiles=14, rng=rng)
+    lagoon(body, -R * 0.12, -R * 0.15, R * 0.62, 0.8, 0.85, 0.7)
+    # the cabana bar at the back
+    cx, cz = R * 0.45, R * 0.62
+    k.block(cx - 16, cz - 11, cx + 16, cz + 11, 0, 14, c(150, 104, 64))
+    k.add(box([cx, 15, cz - 12], [36, 2, 6]), c(196, 150, 96))
+    for x in np.linspace(cx - 12, cx + 12, 4):
+        k.add(tube([x, 0, cz - 18], [x, 9, cz - 18], 1.2, 1.2, 6), c(120, 84, 52))
+        k.add(tube([x, 9, cz - 18], [x, 10, cz - 18], 2.6, 2.6, 8), c(220, 80, 60))
+    k.hip_roof(cx - 18, cz - 13, cx + 18, cz + 13, 22, 16, over=6, col=st["roof"])
+    for x in (cx - 16, cx + 16):
+        for z in (cz - 11, cz + 11):
+            k.add(tube([x, 0, z], [x, 22, z], 1.4, 1.4, 6), c(120, 84, 52))
+    # the slide tower and its slide into the pool
+    tx, tz = -R * 0.72, R * 0.55
+    th = 46 if big else 30
+    for x in (tx - 6, tx + 6):
+        for z in (tz - 6, tz + 6):
+            k.add(tube([x, 0, z], [x, th, z], 1.2, 1.2, 6), c(240, 240, 236))
+    k.add(box([tx, th, tz], [16, 2, 16]), c(56, 160, 190))
+    k.add(np.array([[[tx - 9, th + 2, tz - 9], [tx + 9, th + 2, tz - 9], [tx, th + 12, tz]],
+                    [[tx + 9, th + 2, tz - 9], [tx + 9, th + 2, tz + 9], [tx, th + 12, tz]],
+                    [[tx + 9, th + 2, tz + 9], [tx - 9, th + 2, tz + 9], [tx, th + 12, tz]],
+                    [[tx - 9, th + 2, tz + 9], [tx - 9, th + 2, tz - 9], [tx, th + 12, tz]]]), c(236, 90, 70))
+    for y in np.arange(4, th, 6):
+        k.add(box([tx + 6.5, y, tz], [1, 1, 10]), c(240, 240, 236))
+    if big:
+        pts = []
+        for t in np.linspace(0, 1, 22):
+            a = t * 2.6 * np.pi
+            rad = 16
+            pts.append(np.array([tx + 8 + np.cos(a) * rad, th - t * (th - 3), tz - 14 - np.sin(a) * rad * 0.8 - t * 26]))
+        slide(k, pts, 3.6)
+        # a diving board at the deep end
+        k.add(box([R * 0.2, 4, -R * 0.66], [6, 8, 6]), c(240, 240, 236))
+        k.add(box([R * 0.2, 8.5, -R * 0.52], [5, 1, 26]), c(56, 160, 190))
+    else:
+        pts = [np.array([tx, th, tz - 8]) + np.array([np.sin(t * 2.2) * 8, -t * (th - 3), -t * 34]) for t in np.linspace(0, 1, 12)]
+        slide(k, pts, 3.2)
+    cols = [st["aw1"], c(80, 180, 200), c(250, 210, 80)]
+    for i, x in enumerate(np.linspace(-R * 0.78, R * 0.62, 7 if big else 6)):
+        lounger(k, x, -R * 0.9 + 4, 0, cols[i % 3])
+    for i, (x, z) in enumerate([(R * 0.72, -R * 0.2), (-R * 0.84, -R * 0.4), (R * 0.75, R * 0.2)][: 3 if big else 2]):
+        k.umbrella(x, z, 9, 18, col=cols[i % 3])
+    palms(k, [(-R + 4, -R + 6), (R - 4, -R + 8), (R - 2, R * 0.2), (-R * 0.2, R - 4)][: 4 if big else 3], 80)
+    return body, base
+
+
+def carousel(k, x, z, r=18.0):
+    """A merry-go-round: a round platform, a striped cone roof on a pole, horses on poles round the edge."""
+    k.add(tube([x, 0, z], [x, 3, z], r, r, 20), c(240, 232, 214))
+    k.add(tube([x, 3, z], [x, 26, z], 2, 2, 8), GOLD)
+    n = 12
+    for i in range(n):
+        a0, a1 = 2 * np.pi * i / n, 2 * np.pi * (i + 1) / n
+        col = c(220, 60, 60) if i % 2 == 0 else c(250, 246, 236)
+        k.add(np.array([[[x, 36, z], [x + np.cos(a0) * (r + 2), 24, z + np.sin(a0) * (r + 2)],
+                         [x + np.cos(a1) * (r + 2), 24, z + np.sin(a1) * (r + 2)]]]), col)
+        k.add(quad([x + np.cos(a0) * (r + 2), 24, z + np.sin(a0) * (r + 2)], [x + np.cos(a1) * (r + 2), 24, z + np.sin(a1) * (r + 2)],
+                   [x + np.cos(a1) * (r + 2), 21, z + np.sin(a1) * (r + 2)], [x + np.cos(a0) * (r + 2), 21, z + np.sin(a0) * (r + 2)]),
+              GOLD if i % 2 else col)
+    for i in range(8):
+        a = 2 * np.pi * (i + 0.5) / 8
+        px, pz = x + np.cos(a) * (r - 4), z + np.sin(a) * (r - 4)
+        k.add(tube([px, 3, pz], [px, 22, pz], 0.5, 0.5, 4), GOLD)
+        k.s.add_tris(ellipsoid([px, 10 + (i % 2) * 2, pz], [2, 2.4, 4.4], 8, 5), [c(250, 250, 246), c(120, 80, 50)][i % 2])
+    k.add(np.array([[[x, 40, z], [x - 1, 36, z], [x + 1, 36, z]]]), GOLD)
+
+
+def ferris_wheel(k, x, z, r=34.0, axis_z=False):
+    """A big wheel: two rims of spokes on an A-frame, coloured gondolas hanging round it."""
+    cy = r + 8
+    def P(u, v, w):
+        return np.array([x + (w if axis_z else u), cy + v, z + (u if axis_z else w)])
+    n = 16
+    for side in (-3, 3):
+        for i in range(n):
+            a0, a1 = 2 * np.pi * i / n, 2 * np.pi * (i + 1) / n
+            k.add(tube(P(np.cos(a0) * r, np.sin(a0) * r, side), P(np.cos(a1) * r, np.sin(a1) * r, side), 0.8, 0.8, 4), c(246, 246, 240))
+            if i % 2 == 0:
+                k.add(tube(P(0, 0, side), P(np.cos(a0) * r, np.sin(a0) * r, side), 0.4, 0.4, 3), c(246, 246, 240))
+        k.add(tube(P(0, 0, side * 2), P(-r * 0.55, -cy, side * 3), 1.4, 1.6, 5), c(200, 204, 210))
+        k.add(tube(P(0, 0, side * 2), P(r * 0.55, -cy, side * 3), 1.4, 1.6, 5), c(200, 204, 210))
+    cols = [c(220, 60, 60), c(60, 120, 210), c(250, 200, 50), c(70, 170, 90)]
+    for i in range(8):
+        a = 2 * np.pi * i / 8
+        k.add(box([0, 0, 0], [6, 6, 6]) + P(np.cos(a) * r, np.sin(a) * r - 4, 0), cols[i % 4])
+
+
+def coaster(k, pts, col, r=1.2, every=3):
+    """A roller coaster track: twin rails through the points on white supports to the ground (every few points)."""
+    pts = [np.asarray(p, float) for p in pts]
+    for a, b in zip(pts[:-1], pts[1:]):
+        d = b - a
+        side = np.cross(d, [0, 1, 0])
+        side = side / (np.linalg.norm(side) + 1e-9) * 2.4
+        k.add(tube(a + side, b + side, r, r, 5, caps=False), col)
+        k.add(tube(a - side, b - side, r, r, 5, caps=False), col)
+    for p in pts[::every]:
+        if p[1] > 4:
+            k.add(tube([p[0], 0, p[2]], p - [0, 1.5, 0], 0.9, 0.9, 4), c(236, 236, 232))
+
+
+def stall(k, x, z, col):
+    """A little food stall with a striped awning."""
+    k.block(x - 8, z - 6, x + 8, z + 6, 0, 13, c(246, 238, 220))
+    k.add(box([x, 14, z], [18, 1.5, 14]), col)
+    for i in range(4):
+        cc = col if i % 2 == 0 else c(250, 248, 240)
+        k.add(quad([x - 9 + i * 4.5, 14, z - 7], [x - 4.5 + i * 4.5, 14, z - 7], [x - 4.5 + i * 4.5, 10, z - 12], [x - 9 + i * 4.5, 10, z - 12]), cc)
+
+
+def swing_ride(k, x, z, h=46.0, r=16.0):
+    """A chair swing ride: a tall striped pole with a canopy, chairs hanging out on chains."""
+    k.add(tube([x, 0, z], [x, 3, z], r * 0.5, r * 0.5, 14), c(240, 232, 214))
+    k.add(tube([x, 3, z], [x, h, z], 2.2, 1.8, 8), c(240, 240, 236))
+    n = 10
+    for i in range(n):
+        a0, a1 = 2 * np.pi * i / n, 2 * np.pi * (i + 1) / n
+        col = c(60, 140, 210) if i % 2 == 0 else c(250, 220, 80)
+        k.add(np.array([[[x, h + 8, z], [x + np.cos(a0) * r, h, z + np.sin(a0) * r], [x + np.cos(a1) * r, h, z + np.sin(a1) * r]]]), col)
+    for i in range(8):
+        a = 2 * np.pi * (i + 0.5) / 8
+        top = np.array([x + np.cos(a) * r * 0.9, h, z + np.sin(a) * r * 0.9])
+        seat = np.array([x + np.cos(a) * r * 1.35, h - 20, z + np.sin(a) * r * 1.35])
+        k.add(tube(top, seat, 0.3, 0.3, 3), c(200, 200, 200))
+        k.add(box(seat - [0, 1.5, 0], [4, 2, 4]), [c(220, 60, 60), c(60, 170, 90)][i % 2])
+
+
+def pirate_ship(body, x, z, size=1.0, yaw=35.0):
+    """A pirate ship at anchor: a dark hull, a light deck, two masts with white sails and a black flag."""
+    hull = Scene()
+    hull.add_tris(box([0, 6, 0], [14, 8, 46]), c(120, 76, 44))
+    hull.add_tris(box([0, 10.5, 18], [14, 3, 12]), c(100, 62, 36))
+    hull.add_tris(box([0, 10.5, 0], [15, 1, 47]), c(220, 190, 110))
+    for zz, hh in ((-12, 38), (6, 46)):
+        hull.add_tris(tube([0, 10, zz], [0, hh, zz], 0.9, 0.7, 5), c(110, 80, 50))
+        hull.add_tris(quad([-11, hh - 4, zz + 1], [11, hh - 4, zz + 1], [11, hh - 20, zz + 2], [-11, hh - 20, zz + 2]), c(248, 244, 230))
+    hull.add_tris(quad([0, 46, 6], [0, 46, 14], [0, 42, 14], [0, 42, 6]), c(30, 30, 34))
+    a = np.radians(yaw)
+    rot = np.array([[np.cos(a), 0, np.sin(a)], [0, 1, 0], [-np.sin(a), 0, np.cos(a)]])
+    body.extend(hull.transformed(size, rot=rot, move=[x, 0, z]))
+
+
+def theme_park(style, rng, level=1):
+    """The tropical theme park: a thatched entrance gate, paths between lawns, a lagoon with a pirate ship, a carousel, a
+    swing ride, food stalls and palms; the upgrade adds a big wheel and a roller coaster with a loop."""
+    body, base = Scene(), Scene()
+    k = Kit(body, style, rng)
+    st = k.st
+    big = level >= 2
+    R = 190 if big else 141
+    # lawns, with light paths between them
+    ground_patch(body, st, -R, -R, R, R, c(232, 220, 186), y=0.5, tiles=24, rng=rng)
+    for (x0, z0, x1, z1) in ((-R + 8, -R * 0.42, -14, -14), (14, -R * 0.42, R - 8, -14), (-R + 8, 14, -14, R - 8), (14, 14, R - 8, R - 8)):
+        body.add_tris(quad([x0, 0.6, z0], [x1, 0.6, z0], [x1, 0.6, z1], [x0, 0.6, z1]), c(104, 176, 80))
+        body.add_tris(quad([x0 - 1.5, 0.55, z0 - 1.5], [x1 + 1.5, 0.55, z0 - 1.5], [x1 + 1.5, 0.55, z1 + 1.5], [x0 - 1.5, 0.55, z1 + 1.5]),
+                      c(200, 186, 150))
+    # the entrance gate at the front
+    gz = -R + 6
+    for x in (-24, 24):
+        k.add(box([x, 20, gz], [9, 40, 9]), c(40, 140, 140))
+        k.add(box([x, 41, gz], [11, 2, 11]), c(250, 210, 80))
+    k.add(box([0, 44, gz], [60, 8, 11]), c(196, 160, 90))
+    k.hip_roof(-32, gz - 8, 32, gz + 8, 48, 12, over=3, col=st["roof"])
+    k.s.add_tris(quad([-18, 41, gz - 5.8], [18, 41, gz - 5.8], [18, 47, gz - 5.8], [-18, 47, gz - 5.8]), c(250, 220, 120), emissive=True)
+    bulbs(k, [-30, 39, gz - 6], [30, 39, gz - 6], 14)
+    for x in (-40, 40):
+        k.add(box([x, 7, gz - 2], [16, 14, 10]), c(246, 238, 220))
+        k.add(box([x, 15, gz - 2], [18, 2, 12]), c(220, 60, 60))
+    # back left: the lagoon and the pirate ship
+    lx, lz = -R * 0.52, R * 0.52
+    lagoon(body, lx, lz, R * 0.3, 0.7, 0.8)
+    pirate_ship(body, lx, lz, 1.4)
+    # front left: the carousel and food stalls; front right: the swing ride
+    carousel(k, -R * 0.58, -R * 0.66, 24)
+    swing_ride(k, R * 0.6, -R * 0.62, 56, 18)
+    for i, (x, z) in enumerate(((-R * 0.2, -R * 0.62), (-R * 0.86, -R * 0.24), (R * 0.22, -R * 0.74), (R * 0.86, -R * 0.24),
+                                (-R * 0.3, -R * 0.24))):
+        stall(k, x, z, [c(220, 60, 60), c(60, 150, 210), c(240, 170, 40)][i % 3])
+    for i, x in enumerate((-R * 0.5, -R * 0.36, R * 0.36, R * 0.5)):
+        k.umbrella(x, -R * 0.3, 8, 16, col=[c(220, 60, 60), c(60, 150, 210)][i % 2])
+    # flower beds on the lawns
+    for (x, z) in ((-R * 0.25, -R * 0.82), (R * 0.82, -R * 0.82), (-R * 0.86, R * 0.2), (R * 0.2, R * 0.88)):
+        disc(body, x, z, 9, 0.8, c(96, 70, 50), 14)
+        for a in np.linspace(0, 2 * np.pi, 7)[:-1]:
+            body.add_tris(ellipsoid([x + np.cos(a) * 5, 1.8, z + np.sin(a) * 5], [3, 2, 3], 6, 4),
+                          [c(232, 70, 120), c(250, 200, 70), c(240, 120, 60)][int(a * 2) % 3])
+    qx, qz = R * 0.55, R * 0.55
+    if big:
+        # back right: a roller coaster round the lawn, up a lift hill, down a drop and round a loop
+        A = R * 0.36
+        pts = []
+        n = 48
+        for i in range(n + 1):
+            t = i / n
+            ang = 2 * np.pi * t
+            x, z = qx + A * np.cos(ang), qz + A * 0.85 * np.sin(ang)
+            if t < 0.3:
+                y = 6 + t / 0.3 * 60
+            elif t < 0.42:
+                y = 66 - (t - 0.3) / 0.12 * 58
+            else:
+                y = 8 + 10 * np.sin((t - 0.42) / 0.58 * 3 * np.pi) ** 2
+            pts.append(np.array([x, y, z]))
+            if i == 30:
+                # the loop, standing on the track's direction
+                d = np.array([-np.sin(ang), 0, 0.85 * np.cos(ang)])
+                d /= np.linalg.norm(d)
+                side = np.cross(d, [0, 1, 0])
+                lr = 24
+                p0 = pts[-1]
+                for th in np.linspace(0, 2 * np.pi, 20)[1:]:
+                    pts.append(p0 + np.array([0, lr, 0]) + lr * (-np.cos(th) * np.array([0, 1, 0]) + np.sin(th) * d)
+                               + side * th / (2 * np.pi) * 7)
+        coaster(k, pts, c(200, 40, 50), r=1.5, every=2)
+        # the station
+        k.block(qx + A - 10, qz - 14, qx + A + 10, qz + 14, 0, 12, c(246, 238, 220))
+        k.hip_roof(qx + A - 12, qz - 16, qx + A + 12, qz + 16, 14, 8, over=2, col=st["roof"])
+        # front right, by the swing ride: the big wheel
+        ferris_wheel(k, R * 0.3, -R * 0.2, 46)
+    else:
+        ferris_wheel(k, qx, qz, 38)
+        stall(k, qx - R * 0.3, qz + R * 0.2, c(240, 170, 40))
+    palms(k, [(-R + 10, -R + 14), (R - 10, -R + 14), (-R + 8, 0), (R - 8, 0), (-R * 0.7, R - 12), (R * 0.1, R - 10),
+              (-60, gz + 6), (60, gz + 6)], 86)
+    return body, base
+
+
 B = lambda f, *a, **kw: (lambda st, rng: f(st, rng, *a, **kw))
 
 FAMILIES = [
@@ -964,4 +1482,12 @@ FAMILIES = [
     (r"/park/200drl1|/desert/d200drl1|/tropical/tropdrivingr200l1|/links/dr_200sign", B(distance_sign, 200)),
     (r"/park/300drl1|/desert/d300drl1|/tropical/tropdrivingr300l1|/links/dr_300sign", B(distance_sign, 300)),
     (r"/desert/desdrl2400|/tropical/tropdrivingr400l2|/links/dr_400sign", B(distance_sign, 400)),
+    (r"/desert/descasl1(base)?\.", B(casino, 1), 1.75),
+    (r"/desert/descasl2(base)?\.", B(casino, 2), 1.75),
+    (r"/desert/spal1(_base)?\.", B(spa, 1), 1.4),
+    (r"/desert/spal2\.", B(spa, 2), 1.4),
+    (r"/tropical/tropswiml1\.", B(swim_club, 1), 1.4),
+    (r"/tropical/tropswiml2\.", B(swim_club, 2), 1.4),
+    (r"/tropical/tropthemel1\.", B(theme_park, 1), 1.55),
+    (r"/tropical/tropthemel2\.", B(theme_park, 2), 1.55),
 ]

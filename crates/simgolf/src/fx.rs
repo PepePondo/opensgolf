@@ -1054,14 +1054,13 @@ impl App {
         &LOOKS[self.exe_theme().min(3) as usize]
     }
 
-    /// Draws the ground in place of render_world's classic loops: the sky behind, then terrain, walls and paths with the
-    /// effects' light, and the water.
-    pub fn fx_draw_ground(&mut self, g: &mut Gfx, proj: &Mat4, mv: &Mat4, lit: &Uniforms, overlay: &Uniforms) {
-        let s = settings();
+    /// Moves the effects' clock on to this frame and works out its sun, sky and weather (fx_light.rs): the classic midday
+    /// unless the time of day or rain is on. The overhead view's ground calls it once a frame, and so does the walk camera
+    /// (walk.rs), which draws instead of it.
+    pub(crate) fn fx_tick_atmos(&mut self) -> crate::fx_light::Atmos {
         let dt = (self.clock - self.fx.last_clock).clamp(0.0, 0.1) as f32;
         self.fx.last_clock = self.clock;
         self.fx.time += dt;
-        // the sun, sky and weather of this moment (fx_light.rs): the classic midday unless the time of day or rain is on
         let atm = self.fx_atmos();
         self.fx.atmos = atm;
         let period = 1.0 / crate::fx_light::CLOUD_REPEAT;
@@ -1069,6 +1068,14 @@ impl App {
             (self.fx.cloud_acc[0] + atm.cloud_vel[0] * dt).rem_euclid(period),
             (self.fx.cloud_acc[1] + atm.cloud_vel[1] * dt).rem_euclid(period),
         ];
+        atm
+    }
+
+    /// Draws the ground in place of render_world's classic loops: the sky behind, then terrain, walls and paths with the
+    /// effects' light, and the water.
+    pub fn fx_draw_ground(&mut self, g: &mut Gfx, proj: &Mat4, mv: &Mat4, lit: &Uniforms, overlay: &Uniforms) {
+        let s = settings();
+        let atm = self.fx_tick_atmos();
         if s.time_of_day && s.shadows {
             self.fx_lightmap(g, true);
         }

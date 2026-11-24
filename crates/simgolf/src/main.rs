@@ -3794,6 +3794,8 @@ impl EventHandler for Stage {
         if self.app.photo.as_ref().is_some_and(|p| p.pending_shot.is_some()) {
             self.photo_take();
         }
+        // the walk camera's picture (P, walk.rs)
+        self.walk_take_picture();
         if std::env::var_os("SG_PICKTEST").is_some() && self.frames == 2 {
             self.pick_test();
         }
@@ -3940,6 +3942,8 @@ impl EventHandler for Stage {
             return;
         }
         if self.walk_shown() {
+            // the walk camera zooms (walk.rs)
+            self.walk_wheel(y);
             return;
         }
         if self.app.photo.is_some() {

@@ -53,8 +53,8 @@ ndk-context = "0.1"
 [package.metadata.android]
 package_name = "org.opensgolf.game"
 label = "OpenSGolf"
-version_code = 71
-version_name = "0.8.5"
+version_code = 73
+version_name = "0.8.7"
 min_sdk_version = 26
 target_sdk_version = 33
 build_targets = ["aarch64-linux-android", "armv7-linux-androideabi", "x86_64-linux-android"]
@@ -65,8 +65,16 @@ opengles_version_minor = 0
 res = "android/res"
 icon = "@mipmap/ic_launcher"
 # The app reads and writes only its own folders (its internal data folder and Android/data/org.opensgolf.game/files, which
-# need no permission). Its one permission: "Update now" hands a downloaded, signature-checked APK to Android's installer
-# (src/autoupdate.rs, MainActivity.installApk); Android still asks the player before installing anything.
+# need no permission). Its two permissions:
+# * INTERNET: Check for updates and Update now (src/update.rs, src/autoupdate.rs), Find more's content downloads
+#   (src/content.rs) and the optional play-time count (src/playcount.rs). Without it Android refuses every connection.
+# * REQUEST_INSTALL_PACKAGES: "Update now" hands a downloaded, signature-checked APK to Android's installer
+#   (MainActivity.installApk); Android still asks the player before installing anything.
+# A store's build (OPENSGOLF_NO_SELF_UPDATE=1, as F-Droid's recipe sets) asks for neither: tools/android_build.sh leaves
+# every permission out of its copy of this manifest and fails if the built manifest still asks for one. F-Droid's
+# prebuild step removes only the REQUEST_INSTALL_PACKAGES block itself; the INTERNET one is left to the build script.
+[[package.metadata.android.permission]]
+name = "android.permission.INTERNET"
 [[package.metadata.android.permission]]
 name = "android.permission.REQUEST_INSTALL_PACKAGES"
 

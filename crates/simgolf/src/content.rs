@@ -218,6 +218,10 @@ enum Hit {
     Done,
 }
 
+/// Whether the list of installed packs offers Find more. An Android store build (F-Droid: OPENSGOLF_NO_SELF_UPDATE=1) asks
+/// for no INTERNET permission (tools/android_build.sh), so the index could never load there: the button is left out.
+pub const FIND_MORE: bool = !(crate::update::STORE_BUILD && cfg!(target_os = "android"));
+
 /// The Find more... button (and, on the index, the Back to the list button).
 fn find_more_button() -> Rect {
     Rect::new(BOX.x + BOX.w - 200.0, BOX.y + BOX.h - 50.0, 116.0, 22.0)
@@ -259,7 +263,7 @@ impl App {
         if Rect::new(BOX.x + BOX.w - 70.0, BOX.y + BOX.h - 58.0, 50.0, 50.0).has(x, y) {
             return Some(Hit::Done);
         }
-        if find_more_button().has(x, y) {
+        if FIND_MORE && find_more_button().has(x, y) {
             return Some(Hit::FindMore);
         }
         let n = self.content_rows();
@@ -525,9 +529,11 @@ impl App {
         }
         let note = if changed { tr("STR_CONTENT_NOTE_CHANGED") } else { tr("STR_CONTENT_NOTE") };
         s.put(g, F_ARIAL10, BOX.x + 24.0, BOX.y + BOX.h - 26.0, note, if changed { red } else { navy });
-        let b = find_more_button();
-        crate::glass_ui::button_fill(g, &s, b.x, b.y, b.w, b.h, b.has(px, py));
-        s.put_centered(g, F_ARIAL10, b.x + b.w / 2.0, b.y + 5.0, tr("STR_CONTENT_FIND_MORE"), navy);
+        if FIND_MORE {
+            let b = find_more_button();
+            crate::glass_ui::button_fill(g, &s, b.x, b.y, b.w, b.h, b.has(px, py));
+            s.put_centered(g, F_ARIAL10, b.x + b.w / 2.0, b.y + 5.0, tr("STR_CONTENT_FIND_MORE"), navy);
+        }
         // profiles (content_profiles.rs)
         for (b, label) in crate::content_profiles::profile_buttons().into_iter().zip(["STR_PROFILE_SAVE", "STR_PROFILE_LIST"]) {
             crate::glass_ui::button_fill(g, &s, b.x, b.y, b.w, b.h, b.has(px, py));

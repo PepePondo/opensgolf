@@ -3599,6 +3599,9 @@ impl App {
         self.skip_plan = std::mem::take(&mut self.keep_plan_on_load);
         self.sync_course();
         self.skip_plan = false;
+        // the open holes' numbers now (a shared game's sync above waits for the next tick, mp/lockstep.rs), so that sync
+        // doesn't find them new and empty the figures loaded here
+        self.rebuild_hole_routes();
         self.hole_stats = s.hole_stats;
         // the Weather that matters extra's day as the save left it (sg_core::weather; nothing with the extra off)
         self.club.place = self.weather_place();
@@ -4002,8 +4005,19 @@ impl App {
         self.tool = 0;
         self.paint_idx = k;
         self.edit = true;
-        let v = if PAINT[k].ty == 1 { 0 } else { self.exe_rng.below(3) };
+        let v = if PAINT[k].ty == 1 { 0 } else { self.brush_roll() };
         self.paint_variant = Some((k, v));
+    }
+
+    /// The variant a brush picked rolls, 0..2 (the exe's generator). In a shared game the brush is the player's own (only the
+    /// paint action, which carries the variant as its turn, reaches everyone), so the pick must not step the shared generator
+    /// (mp/lockstep.rs). A paint action without a turn still rolls on the shared one, everywhere alike.
+    fn brush_roll(&mut self) -> i32 {
+        #[cfg(feature = "multiplayer")]
+        if crate::mp::lockstep::on() {
+            return crate::mp::lockstep::local_roll(3);
+        }
+        self.exe_rng.below(3)
     }
 
     /// The variant byte a sand trap tile takes from the brush (0x42059d: variant % 12 + 12, written on every tile the brush

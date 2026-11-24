@@ -111,6 +111,10 @@ impl App {
     /// offers them. With only the example, Start New Game goes straight to Choose Difficulty as in the original (the
     /// example still opens in the course editor's Load scenario and starts with `--scenario`).
     pub fn has_scenarios(&self) -> bool {
+        // the multiplayer build always asks: its rows (the weekly challenge and the shared clubs) are on that list
+        if cfg!(feature = "multiplayer") {
+            return true;
+        }
         self.content.found.packs.iter().any(|p| p.manifest.kind == Kind::Scenario && !is_bundled_example(&p.manifest.id))
     }
 

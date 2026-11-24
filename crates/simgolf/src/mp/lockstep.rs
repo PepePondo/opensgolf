@@ -43,6 +43,23 @@ pub fn set(on: bool) {
     ON.with(|c| c.set(on));
 }
 
+thread_local! {
+    static LOCAL: Cell<u32> = Cell::new(
+        std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).map(|d| d.subsec_nanos() | 1).unwrap_or(1),
+    );
+}
+
+/// A random 0..n for the player's own interface in a shared game (the brush's variant): its own generator, so the shared
+/// one (the exe's, which the simulation steps) moves only with what everyone does.
+pub fn local_roll(n: i32) -> i32 {
+    LOCAL.with(|c| {
+        let mut r = sg_core::land::ExeRng { state: c.get() };
+        let v = r.below(n);
+        c.set(r.state);
+        v
+    })
+}
+
 /// The staff's world inputs that come from outside the simulation: the pointer's tile and the weeds' frame count.
 pub fn staff_inputs(weed_frames: i32, clicked: Option<(i32, i32)>) -> (i32, Option<(i32, i32)>) {
     if on() {

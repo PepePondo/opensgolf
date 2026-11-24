@@ -22,7 +22,10 @@ impl App {
         f.add("club", &self.club);
         f.add_hash("club_unsaved", club_unsaved(&self.club));
         f.add("course", &self.course);
-        f.add("terrain", &self.terrain);
+        // the retaining walls are the drawing's (only the sides the view faces: App::build_walls), not the simulation's
+        let mut terrain = self.terrain.clone();
+        terrain.wall_mask.clear();
+        f.add("terrain", &terrain);
         f.add("land", &self.land);
         f.add("econ", &self.econ);
         f.add("econ_unsaved", &(self.econ.extras, self.econ.free));

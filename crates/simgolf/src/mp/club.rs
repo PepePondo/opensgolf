@@ -216,6 +216,7 @@ impl App {
     pub fn club_leave(&mut self, why: &str) {
         let Some(l) = self.mp.live.take() else { return };
         drop(l);
+        println!("club: left ({why})");
         self.mp.session = None;
         super::lockstep::set(false);
         // the game's own clock goes on from here
@@ -540,6 +541,58 @@ mod tests {
             b.lockstep_step();
         }
         assert_eq!(a.fingerprint().total(), b.fingerprint().total());
+        crate::mp::lockstep::set(false);
+    }
+
+    #[test]
+    fn picking_a_brush_leaves_the_shared_dice() {
+        crate::mp::lockstep::set(true);
+        let mut a = shared_game(1);
+        let before = a.exe_rng;
+        a.apply(&Action::PickBrush { ty: 2, vbyte: 0 });
+        assert_eq!(a.exe_rng, before, "the brush is the player's own");
+        crate::mp::lockstep::set(false);
+    }
+
+    #[test]
+    fn the_saver_goes_on_as_it_would_have() {
+        // a save taken while golfers play (the room asks every SAVE_EVERY ticks): the saver loads it and must play on exactly
+        // as a game that never saved
+        crate::mp::lockstep::set(true);
+        let mut a = shared_game(1);
+        let mut b = shared_game(1);
+        for g in [&mut a, &mut b] {
+            g.apply(&Action::Speed(1));
+            g.apply(&Action::OpenHole);
+            // (a test game has never been through a load, which fills in what a new game always has: the stories' slots,
+            // the property bought)
+            let (data, extra) = g.club_snapshot().unwrap();
+            g.club_restore(None, &data, &extra, true).unwrap();
+        }
+        let diff = |a: &App, b: &App, when: &str| {
+            let (fa, fb) = (a.fingerprint(), b.fingerprint());
+            let mut parts: Vec<String> =
+                fa.parts.iter().zip(fb.parts.iter()).filter(|(x, y)| x.1 != y.1).map(|(x, _)| x.0.to_string()).collect();
+            let (la, lb) = (a.fingerprint_field_list(), b.fingerprint_field_list());
+            parts.extend(la.iter().zip(lb.iter()).filter(|(x, y)| x.1 != y.1).map(|(x, _)| x.0.clone()));
+            assert!(parts.iter().all(|p| p == "inputs"), "{when} at tick {}: {parts:?}", a.game_tick);
+        };
+        for k in 0..4 {
+            for _ in 0..1500 {
+                a.lockstep_step();
+                b.lockstep_step();
+            }
+            diff(&a, &b, "before the save");
+            let (data, extra) = a.club_snapshot().unwrap();
+            a.club_restore(None, &data, &extra, true).unwrap();
+            diff(&a, &b, &format!("just after save {k}"));
+            for _ in 0..200 {
+                a.lockstep_step();
+                b.lockstep_step();
+            }
+            diff(&a, &b, &format!("after save {k}"));
+        }
+        assert!(!a.hole_numbers.is_empty(), "the hole is open");
         crate::mp::lockstep::set(false);
     }
 

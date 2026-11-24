@@ -27,6 +27,15 @@ pub struct Stories {
     pub texts: std::collections::HashMap<String, String>,
     /// The tutorial story id: the list index of the OpeningDay file, used as a slot number (the quirk again).
     pub tutorial: i32,
+    /// What the rules read of each slot's text (`Stories::shape_of`), when a game shared by players with different game
+    /// files carries it (the port's own; empty otherwise, and not saved then): the scenes and replies are then the game's,
+    /// whoever's words are shown.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub shape: Vec<u8>,
+    /// The file shown for each slot when it is not the slot's own (a shared game's slots are the other players' files;
+    /// this player's own story with the same code stands in): not saved.
+    #[serde(skip)]
+    pub shown: Vec<String>,
 }
 
 impl Stories {
@@ -41,7 +50,87 @@ impl Stories {
             }
         }
         let tutorial = files.iter().take(100).position(|(n, _)| n.contains("OpeningDay")).map(|i| i as i32).unwrap_or(previous_tutorial);
-        Stories { slots, texts: files.iter().cloned().collect(), tutorial }
+        Stories { slots, texts: files.iter().cloned().collect(), tutorial, ..Default::default() }
+    }
+
+    /// The scenes a slot's text has, as the rules read them: bit 2(k-1) for scene k's opening line, bit 2(k-1)+1 for a
+    /// reply to it (scenes 1 to 4).
+    pub fn shape_of(&self, id: i32) -> u8 {
+        let mut b = 0;
+        for k in 1..=4 {
+            if !self.line(id, k, 0, true).is_empty() {
+                b |= 1 << (2 * (k - 1));
+            }
+            if !self.line(id, k, 0, false).is_empty() {
+                b |= 2 << (2 * (k - 1));
+            }
+        }
+        b
+    }
+
+    /// Fills `shape` from this player's texts (a shared game's first player: its rules then read the shape, not the text).
+    pub fn fill_shape(&mut self) {
+        if self.shape.is_empty() {
+            self.shape = (0..self.slots.len() as i32).map(|i| self.shape_of(i)).collect();
+        }
+    }
+
+    /// Whether scene `scene` has an opening line (or a reply) for the rules: the shared shape when there is one, else the
+    /// text.
+    pub fn says(&self, id: i32, scene: i32, opener: bool) -> bool {
+        match self.shape.get(id as usize) {
+            Some(&b) if (1..=4).contains(&scene) => b & ((if opener { 1 } else { 2 }) << (2 * (scene - 1))) != 0,
+            Some(_) => false,
+            None => !self.line(id, scene, 0, opener).is_empty(),
+        }
+    }
+
+    /// Takes the slots, tutorial and shape of a shared game (`shared`) over this player's own table, showing for each slot
+    /// the player's own file of the same name, else one with the same code (first 8 characters, any case) not shown yet,
+    /// else the next of the player's other files in turn (the tutorial slot shows the player's tutorial).
+    pub fn take_shared(&mut self, mut shared: Stories) {
+        if shared.slots.iter().all(|s| s.is_empty()) {
+            return;
+        }
+        let own: Vec<String> = self.texts.keys().cloned().collect::<std::collections::BTreeSet<_>>().into_iter().collect();
+        let own_tutorial = self.name(self.tutorial).to_string();
+        let code = |n: &str| n.get(..8).unwrap_or(n).to_ascii_lowercase();
+        let mut used = std::collections::HashSet::new();
+        let mut shown = vec![String::new(); shared.slots.len()];
+        // exact names first, so that a player with the same files sees them all as they are
+        for (i, n) in shared.slots.iter().enumerate() {
+            if !n.is_empty() && self.texts.contains_key(n) && used.insert(n.clone()) {
+                shown[i] = n.clone();
+            }
+        }
+        for (i, n) in shared.slots.iter().enumerate() {
+            if n.is_empty() || !shown[i].is_empty() {
+                continue;
+            }
+            if i as i32 == shared.tutorial || n.contains("OpeningDay") {
+                shown[i] = own_tutorial.clone();
+                continue;
+            }
+            if let Some(m) = own.iter().find(|m| code(m) == code(n) && !used.contains(*m) && !m.contains("OpeningDay")) {
+                used.insert(m.clone());
+                shown[i] = m.clone();
+            }
+        }
+        let rest: Vec<&String> = own.iter().filter(|m| !m.contains("OpeningDay")).collect();
+        let mut next = 0;
+        for (i, n) in shared.slots.iter().enumerate() {
+            if n.is_empty() || !shown[i].is_empty() || rest.is_empty() {
+                continue;
+            }
+            // unused ones first, then round again
+            let pick = (0..rest.len()).map(|k| rest[(next + k) % rest.len()]).find(|m| !used.contains(*m)).unwrap_or(rest[next % rest.len()]);
+            next += 1;
+            used.insert(pick.clone());
+            shown[i] = pick.clone();
+        }
+        shared.texts = std::mem::take(&mut self.texts);
+        shared.shown = shown;
+        *self = shared;
     }
 
     pub fn name(&self, id: i32) -> &str {
@@ -49,7 +138,8 @@ impl Stories {
     }
 
     fn text(&self, id: i32) -> Option<&str> {
-        self.texts.get(self.name(id)).map(|s| s.as_str())
+        let file = self.shown.get(id as usize).filter(|s| !s.is_empty()).map(|s| s.as_str()).unwrap_or(self.name(id));
+        self.texts.get(file).map(|s| s.as_str())
     }
 
     /// The story's title (its first non-blank line, leading space kept).
@@ -410,13 +500,13 @@ impl Club {
         self.g[p].flags |= flag::STORY_STARTED;
         self.last_beat = self.tick;
         let ch = self.story_choice(c, step, hole, g);
-        let has_text = !self.stories.line(story, step, ch, true).is_empty();
+        let has_text = self.stories.says(story, step, true);
         if has_text {
             self.event(c, rng, g, 0x32, ch * 16 + step);
             let male = self.male(g);
             self.sound(0x58 + male, Some((self.g[g].x, self.g[g].y)));
         }
-        if !self.stories.line(story, step, ch, false).is_empty() {
+        if self.stories.says(story, step, false) {
             self.event(c, rng, p, 0x32, ch * 16 + step);
             self.g[p].timer = self.g[p].timer.wrapping_add(3);
             let pm = self.male(p);
@@ -543,6 +633,51 @@ mod tests {
         assert_eq!(s.line(0, 2, 0, false), " Bad two");
         // past the last reply: the last one
         assert_eq!(s.line(0, 1, -5, false), " Fine reply");
+    }
+
+    #[test]
+    fn a_shared_table_shows_this_players_own_words() {
+        // the club's files (another player's): two stories of one code, one of another, the tutorial; the second scene of
+        // the first has no reply in their words
+        let short = " Short\n\nOne\n Reply\n\nTwo\n";
+        let theirs = vec![
+            ("AxxxxxxxAlpha.txt".to_string(), TEXT.to_string()),
+            ("GxxxxxxxOpeningDay.txt".to_string(), TEXT.to_string()),
+            ("MxxTxxxxOne.txt".to_string(), short.to_string()),
+            ("MxxTxxxxTwo.txt".to_string(), TEXT.to_string()),
+        ];
+        let mut shared = Stories::build(&theirs, 0);
+        shared.fill_shape();
+        // this player's own: other titles, the same codes but one
+        let mine = vec![
+            ("GxxxxxxxOpeningDay.txt".to_string(), " Mine opening\nHi\n Yo\n".to_string()),
+            ("MxxTxxxxFirst.txt".to_string(), " First\nA\n B\n".to_string()),
+            ("MxxTxxxxSecond.txt".to_string(), " Second\nC\n D\n".to_string()),
+            ("ZxxxxxxxOther.txt".to_string(), " Other\nE\n F\n".to_string()),
+        ];
+        let mut s = Stories::build(&mine, 0);
+        s.take_shared(shared.clone());
+        // the rules' table is the club's
+        assert_eq!((s.slots.clone(), s.tutorial, s.shape.clone()), (shared.slots.clone(), shared.tutorial, shared.shape.clone()));
+        // the words are this player's: the same codes, the tutorial, and the rest in turn
+        assert_eq!(s.title(4), " First");
+        assert_eq!(s.title(6), " Second");
+        assert_eq!(s.title(2), " Mine opening");
+        assert_eq!(s.title(0), " Other");
+        // and the scenes are the club's, whatever these words have
+        for id in [0, 2, 4, 6] {
+            for scene in 1..=4 {
+                for opener in [true, false] {
+                    assert_eq!(s.says(id, scene, opener), shared.says(id, scene, opener), "{id} {scene} {opener}");
+                }
+            }
+        }
+        assert!(s.says(4, 2, true) && !s.says(4, 2, false));
+        // a player with the club's own files sees them as they are
+        let mut same = Stories::build(&theirs, 0);
+        same.take_shared(shared.clone());
+        assert_eq!(same.title(4), " Short");
+        assert_eq!(same.title(6), " The Test");
     }
 
     /// A story pair (owner 0, partner 1) standing side by side on hole 2, ready for a beat at tick 0x400 with the owner

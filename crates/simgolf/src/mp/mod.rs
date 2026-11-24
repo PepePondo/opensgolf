@@ -21,6 +21,7 @@ pub mod clubs_ui;
 pub mod conn;
 pub mod lobby;
 pub mod lockstep;
+pub mod names;
 pub mod result;
 pub mod rival;
 pub mod session;

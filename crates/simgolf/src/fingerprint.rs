@@ -19,7 +19,16 @@ impl App {
     /// The fingerprint of the game as it stands.
     pub fn fingerprint(&self) -> Fingerprint {
         let mut f = Fingerprint::new();
+        #[cfg(not(feature = "multiplayer"))]
         f.add("club", &self.club);
+        // the famous people's names are each player's own in a shared club (mp/club.rs take_shared_tables)
+        #[cfg(feature = "multiplayer")]
+        {
+            let mut c = self.club.clone();
+            c.celebrities.iter_mut().for_each(|x| x.name.clear());
+            c.pros.iter_mut().for_each(|x| x.name.clear());
+            f.add("club", &c);
+        }
         f.add_hash("club_unsaved", club_unsaved(&self.club));
         f.add("course", &self.course);
         // the retaining walls are the drawing's (only the sides the view faces: App::build_walls), not the simulation's

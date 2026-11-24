@@ -3499,7 +3499,7 @@ impl App {
         let s = read_save(path)?;
         // a game of the player's own loaded while in a shared club leaves the club (mp/club.rs)
         #[cfg(feature = "multiplayer")]
-        self.club_leave(sg_core::lang::tr("STR_MP_CLUB_LEFT"));
+        self.club_leave_for_load();
         self.load_save(g, s)?;
         self.fingerprint_note("load");
         Ok(())

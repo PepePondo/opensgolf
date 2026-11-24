@@ -28,6 +28,15 @@ pub const FILES: &[&str] = &[
     "Themes/Standard/XxxxxxxxTimeCapsule.txt",
     "Themes/Standard/CxxxxxxxTheGadget.txt",
     "Themes/Standard/PxxxxxxxThePodcast.txt",
+    "Themes/Standard/CMMxxMxxNightOff.txt",
+    "Themes/Standard/CSxGxxxGSecretRecipe.txt",
+    "Themes/Standard/GxxTxxxMOddCouple.txt",
+    "Themes/Standard/LxSxYxxxOldSchool.txt",
+    "Themes/Standard/PSxOSSxxPicnicPlans.txt",
+    "Themes/Standard/RFxNxFxNBookClub.txt",
+    "Themes/Standard/ROSxSOSxBlindDate.txt",
+    "Themes/Standard/RomxsomxAnniversary.txt",
+    "Themes/Standard/SxxLxxxxStargazer.txt",
     "Themes/Standard/Joe Pro.glf",
     "Themes/Standard/I.M.Picky.glf",
     "Themes/Standard/Ivana Richman.glf",
@@ -39,6 +48,48 @@ pub const FILES: &[&str] = &[
     "Themes/Standard/Elsa Greenway.chr",
     "Themes/Standard/Felix Puttnam.chr",
     "Themes/Championship/Robin Fairway.pro",
+    "Themes/Firaxis/GxxxxxxxOpeningDay.txt",
+    "Themes/Firaxis/CMxLxMxxTheInventors.txt",
+    "Themes/Firaxis/CxxOxxxxTheBigPitch.txt",
+    "Themes/More_Stories/GxxxxxxxOpeningDay.txt",
+    "Themes/More_Stories/CxxxxxxxClubhouseRumours.txt",
+    "Themes/More_Stories/PxxxxxxxRainCheck.txt",
+    "Themes/More_Stories/LxxxxxxxSecondChances.txt",
+    "Themes/More_Stories/MxxxxxxxTheLostBall.txt",
+    "Themes/More_Stories/SxxxxxxxBirdWatchers.txt",
+    "Themes/More_Stories/HxxxxxxxGardenParty.txt",
+    "Themes/More_Stories/AxxxxxxxTheMulligan.txt",
+    "Themes/More_Stories/FxxxYxxxTheApprentice.txt",
+    "Themes/More_Stories/RxxxxOxxFirstDate.txt",
+    "Themes/More_Stories/XxxxxxxxTimeCapsule.txt",
+    "Themes/More_Stories/CxxxxxxxTheGadget.txt",
+    "Themes/More_Stories/PxxxxxxxThePodcast.txt",
+    "Themes/More_Stories/CMMxxMxxNightOff.txt",
+    "Themes/More_Stories/CSxGxxxGSecretRecipe.txt",
+    "Themes/More_Stories/GxxTxxxMOddCouple.txt",
+    "Themes/More_Stories/LxSxYxxxOldSchool.txt",
+    "Themes/More_Stories/PSxOSSxxPicnicPlans.txt",
+    "Themes/More_Stories/RFxNxFxNBookClub.txt",
+    "Themes/More_Stories/ROSxSOSxBlindDate.txt",
+    "Themes/More_Stories/RomxsomxAnniversary.txt",
+    "Themes/More_Stories/SxxLxxxxStargazer.txt",
+    "Themes/More_Stories/AMxASMxxTreasureMap.txt",
+    "Themes/More_Stories/CFNxOFxxFinishingSchool.txt",
+    "Themes/More_Stories/FFMNSFxxSurpriseParty.txt",
+    "Themes/More_Stories/FMMAxxMxSleepless.txt",
+    "Themes/More_Stories/FMMOSMMPSchoolRun.txt",
+    "Themes/More_Stories/FMSPYFMxTheRemote.txt",
+    "Themes/More_Stories/GMxxOMxxOldTimers.txt",
+    "Themes/More_Stories/GxxAxxxxLuckyCharm.txt",
+    "Themes/More_Stories/GxxPxxxPFourball.txt",
+    "Themes/More_Stories/LSxLxxxNPersonalBest.txt",
+    "Themes/More_Stories/LSxMSxsATestDrive.txt",
+    "Themes/More_Stories/LxMxYxMxCornerOffice.txt",
+    "Themes/More_Stories/MxxTxxxxTheMissingTrophy.txt",
+    "Themes/More_Stories/MxxTxxxxTheRival.txt",
+    "Themes/More_Stories/ROMxSOMxSecondHoneymoon.txt",
+    "Themes/More_Stories/HxxGSxxxPerfectWeek.txt",
+    "Themes/More_Stories/CMMxxMxxBarbershop.txt",
 ];
 
 /// The bytes of one of [`FILES`].
@@ -61,7 +112,8 @@ pub fn make(rel: &str) -> Option<Vec<u8>> {
         "top10.sve" => return Some(top10()),
         "progolfers.dta" => PROS.to_string(),
         "celebrities.dta" => CELEBRITIES.to_string(),
-        _ => STORIES.iter().find(|(name, _)| file.contains(name)).map(|(_, t)| t.to_string())?,
+        // the title after the 8 character code
+        _ => STORIES.iter().find(|(name, _)| file.strip_suffix(".txt").and_then(|f| f.get(8..)) == Some(*name)).map(|(_, t)| t.to_string())?,
     };
     Some(text.replace('\n', "\r\n").into_bytes())
 }
@@ -227,6 +279,17 @@ Max Headline, H, 0, 3, 1, 2
 Princess Aurelia, I, 1, 4, 6, 7
 Jett Amplifier, J, 3, 0, 4, 9
 Slam Dunkworth, K, 2, 2, 7, 8
+Dash Ironjaw, A, 0, 3, 0, 7
+Melody Bright, B, 1, 4, 5, 8
+Mayor Ken Gavel, C, 0, 1, 1, 1
+Penny Punchline, D, 2, 4, 3, 3
+Coco Runway, E, 3, 0, 6, 7
+Brock Sweatband, F, 0, 1, 2, 2
+Wally Wisecrack, G, 1, 3, 9, 9
+Tiffany Spotlight, H, 2, 0, 2, 3
+Princess Marigold, I, 0, 4, 0, 0
+Axel Feedback, J, 1, 1, 9, 0
+Stretch Hoopla, K, 3, 4, 4, 6
 ";
 
 /// Stories: a title line starting with a space, then four scenes, each an opening line and replies (indented), best
@@ -504,6 +567,594 @@ We had forty listeners! Forty! Mostly my aunts.
  Forty fans! That's how every legend starts!
  Aunts count, I suppose.
  That's thirty-nine aunts too many.
+",
+    ),
+    (
+        "NightOff",
+        " Night Off
+The kids are at their grandma's tonight, PARTNER.
+ A whole evening! Let's play nine more!
+ We could just sit somewhere quiet.
+ Mine are at home. Being loud.
+My wife says I'm allowed one golf day a month.
+ Then let's make this one count!
+ Mine says one a year. I'm cheating.
+ Must be nice to be allowed anything.
+Fancy a card game at mine on Friday?
+ I'll bring snacks and my lucky deck!
+ If I'm let out, maybe.
+ Last time you cheated at snap.
+Same again next month, PARTNER?
+ It's in the diary. In pen!
+ I'll ask the boss.
+ We'll see who's allowed.
+",
+    ),
+    (
+        "SecretRecipe",
+        " Secret Recipe
+PARTNER, I've entered the clubhouse bake-off.
+ Wonderful! What are you making?
+ Is there a prize? Or just crumbs?
+ I'd rather eat a golf ball.
+It's my gran's lemon cake. Top secret recipe.
+ I promise I won't tell a soul.
+ Lemon. Bold choice.
+ Everyone knows it's just lemon.
+The judges are tasting at the turn today!
+ I'll cross my fingers for you!
+ Hope they're hungry.
+ Hope they've got water handy.
+I won first prize, PARTNER! Have the last slice.
+ A champion baker! It's delicious!
+ Not bad. A bit dry.
+ I'm watching my figure.
+",
+    ),
+    (
+        "OddCouple",
+        " Odd Couple
+You always plan every shot, PARTNER. I just swing.
+ Swinging works! Look at your drive!
+ One of us has to think.
+ And it shows on your scorecard.
+I brought a spare glove. You forgot yours again.
+ You think of everything. Thank you!
+ I didn't forget. I chose freedom.
+ I don't need your glove.
+Let's swap. You plan my hole, I'll free yours.
+ Deal! Something new for us both.
+ Fine. Just this once.
+ Not a chance.
+We make a good team, don't we, PARTNER?
+ The best on the course!
+ We're getting there.
+ We make a loud team.
+",
+    ),
+    (
+        "OldSchool",
+        " Old School
+PARTNER, can you show me how you hit that low shot?
+ Watch my wrists and keep it smooth.
+ It took me thirty years, kid.
+ Find your own shot.
+In my day we played with wooden clubs, you know.
+ Real skill! I'd love to try one.
+ Wood? Like trees?
+ That explains a lot.
+I tried your low shot. It went under the tree!
+ That's my student! Proud of you.
+ Under, or into?
+ Beginner's luck.
+Same lesson next week, PARTNER?
+ I'll bring my old clubs for you.
+ If my knees allow it.
+ I've taught you all I'll teach.
+",
+    ),
+    (
+        "PicnicPlans",
+        " Picnic Plans
+PARTNER, let's have a picnic by the lake after this.
+ Lovely! I'll bring the sandwiches!
+ As long as the ducks behave.
+ And sit on the wet grass? No.
+I've packed a blanket and a flask of tea.
+ You think of everything!
+ Tea. Hot or cold?
+ I only drink coffee.
+The ducks found the sandwiches, PARTNER.
+ Then we'll share our cake with them!
+ Typical ducks.
+ Told you. It's always the ducks.
+Best picnic ever. Same spot next week?
+ Same spot, more sandwiches!
+ Maybe, if it's sunny.
+ Without the ducks.
+",
+    ),
+    (
+        "BookClub",
+        " Book Club
+PARTNER, have you finished this month's book?
+ Twice! I couldn't put it down!
+ I've read the back cover.
+ I never read them. I come for cake.
+The butler did it. I knew from chapter one.
+ You're so clever! I had no idea!
+ Everyone knew that.
+ Don't tell me the ending!
+Shall I pick next month's book?
+ Please! Something with a twist!
+ Not another thick one.
+ Pick a short one. Very short.
+The club voted you our new chair, PARTNER!
+ What an honour! Thank you all!
+ Who else was there to vote for?
+ I wasn't at that meeting.
+",
+    ),
+    (
+        "BlindDate",
+        " Blind Date
+So, PARTNER, our friends set us up. Awkward!
+ Lucky them! I'm having a lovely time.
+ We'll see how it goes.
+ I'm only here for the golf.
+I'm usually much better at this. Golf, I mean.
+ You're doing great at both!
+ I've seen worse.
+ I hope so.
+Do you like dancing? There's a social on Friday.
+ I'd love to! Save me a dance!
+ Maybe a slow one.
+ I have two left feet. And plans.
+Can I see you again, PARTNER?
+ I was hoping you'd ask!
+ Perhaps. Call me.
+ Let's just stay friends.
+",
+    ),
+    (
+        "Anniversary",
+        " Anniversary
+Happy anniversary, PARTNER! Ten years today!
+ And every year better than the last!
+ Ten already? Goodness.
+ You remembered? I didn't.
+Remember our first round? You lost my ball.
+ And then you found my heart instead!
+ It was a very tall tree.
+ You still owe me that ball.
+I've booked a table for dinner tonight.
+ You're the best! I'll wear my blue dress.
+ Somewhere with chips, I hope.
+ I'm too tired for dinner.
+Here's to ten more years on the fairway!
+ Twenty more! Fifty! Love you!
+ Ten more. Then we'll see.
+ If my back lasts.
+",
+    ),
+    (
+        "Stargazer",
+        " Stargazer
+PARTNER, did you see the shooting star last night?
+ I did! I made a wish!
+ I was asleep, like normal people.
+ There's no such thing.
+I've bought a telescope for the clubhouse roof.
+ Can I have a look tonight?
+ Is that allowed?
+ What a waste of money.
+I think I've found a new star over the 9th hole!
+ Name it after the course!
+ Probably a plane.
+ It's the floodlight.
+They're naming it after us, PARTNER!
+ Our very own star! Amazing!
+ A tiny one, I hope.
+ Name it after yourself.
+",
+    ),
+    (
+        "TheInventors",
+        " The Inventors
+PARTNER, I'm inventing a ball that never slices.
+ Genius! Count me in!
+ Does it come in white?
+ Every ball slices with you.
+Version one went in the lake. With my phone.
+ Every great inventor fails first!
+ Version two, then.
+ Was the phone the inventor?
+It works! It flew straight for once!
+ We're going to be famous!
+ Straight into the bunker.
+ Lucky gust of wind.
+The pro shop wants a hundred of them!
+ Partners in business, PARTNER!
+ Fifty-fifty?
+ Make it a thousand. Or none.
+",
+    ),
+    (
+        "TheBigPitch",
+        " The Big Pitch
+PARTNER, I have an idea for a golf video game.
+ I'd play that every day!
+ Is there a story?
+ Who wants golf on a screen?
+You build the course and watch people play it.
+ Brilliant! Can I be a golfer in it?
+ Sounds like work.
+ Sounds like my job.
+I'm pitching it to the investors on the 9th green.
+ You'll win them over! Go get them!
+ Mind the sprinklers.
+ Don't trip on the flag.
+They said yes, PARTNER! We're making a game!
+ Hooray! I want to test it!
+ Will there be ducks?
+ Leave me out of the credits.
+",
+    ),
+    (
+        "TreasureMap",
+        " Treasure Map
+PARTNER, I found an old map in the clubhouse attic!
+ A treasure map? Let's follow it!
+ It's probably the drainage plan.
+ It's a menu. From 1952.
+It says X marks the spot, near the 7th tee.
+ Bring a spade and a torch!
+ There's an X on every tee.
+ X marks my lost ball, more like.
+I dug it up! It's a tin of old golf balls!
+ Real treasure! Look at that one!
+ Old balls. Exciting.
+ Mine are newer.
+I'll put them in a glass case, PARTNER.
+ Our own museum! I'll write the labels!
+ It's a start.
+ Just throw them back.
+",
+    ),
+    (
+        "FinishingSchool",
+        " Finishing School
+PARTNER, I hear you're taking up golf at last.
+ I am! Would you teach me?
+ My doctor said walk more.
+ Only to get away from the house.
+First rule, dear: never step on someone's line.
+ Noted! Anything else?
+ Which line? There are so many.
+ I'll step where I like.
+Lovely swing! Now let's work on your follow-through.
+ Thank you! I'm practising every day!
+ My shoulder disagrees.
+ My follow-through is fine.
+You're a natural, PARTNER. A real lady golfer.
+ I learned from the best!
+ I'm getting there.
+ Spare me the speech.
+",
+    ),
+    (
+        "SurpriseParty",
+        " Surprise Party
+PARTNER, it's my husband's birthday on Saturday.
+ Let's throw him a surprise party!
+ Get him golf socks. They all want socks.
+ Not my problem.
+I've hidden the cake in the golf cart.
+ Clever! He'll never look there!
+ It will melt in the sun.
+ He'll sit on it.
+He nearly saw the banner on the 18th!
+ Phew! We'll hide it in the bunker!
+ Close call.
+ Well, now it's ruined.
+Surprise! He actually cried, PARTNER!
+ Best party ever! Thank you for helping!
+ Cake was nice.
+ He cried because of your singing.
+",
+    ),
+    (
+        "Sleepless",
+        " Sleepless
+The baby was up four times last night, PARTNER.
+ Hang in there! It gets better!
+ Only four? Lucky.
+ Mine slept fine. Twelve hours.
+I just tried to tee off with my car keys.
+ Ha! I'll keep an eye on your clubs.
+ Did the keys go far?
+ Please go home and sleep.
+Is it normal to fall asleep in a bunker?
+ Totally. Lie down, I'll mark your ball.
+ Only if it's soft sand.
+ Not on my round, it's not.
+She said her first word today. \"Ball\"!
+ A golfer already! Congratulations!
+ Could have been worse.
+ Mine said \"bogey\".
+",
+    ),
+    (
+        "SchoolRun",
+        " School Run
+PARTNER, I just did the school run in my golf shoes.
+ Good thinking! Saves time!
+ Did anyone notice?
+ You'll scratch the car.
+My son wants to be a golfer when he grows up.
+ Let's bring him to the junior day!
+ Mine wants to be a dinosaur.
+ Tell him to aim higher.
+I signed both our boys up for lessons.
+ Great! They can play together!
+ Mine will need bribes.
+ Did I ask you to?
+They've beaten us both, PARTNER. Already!
+ The future of the club! So proud!
+ Beginner's luck.
+ I let him win.
+",
+    ),
+    (
+        "TheRemote",
+        " The Remote
+PARTNER, I've lost the TV remote at your house.
+ It's under the cushions. It always is.
+ I'll buy you another one.
+ That's your problem now.
+I can't miss the final round on TV tonight!
+ Come round, I'll make popcorn!
+ Radio still works.
+ It's only golf.
+Found it! It was in the fridge. Don't ask.
+ Ha! Best place for it!
+ I won't ask.
+ Typical.
+Popcorn and golf at mine every Sunday, PARTNER?
+ You're on! I'll bring the snacks!
+ If my husband agrees.
+ No thanks. I'll read.
+",
+    ),
+    (
+        "OldTimers",
+        " Old Timers
+PARTNER, we've played this course for forty years.
+ And I'd play forty more with you!
+ Has it really been forty?
+ Feels like four hundred.
+Remember when the 3rd hole was a cow field?
+ And the cows played better than us!
+ Some of them still do.
+ I remember nothing.
+The young ones keep asking us for tips.
+ Let's teach them a thing or two!
+ Tips cost money.
+ They can watch and learn.
+They've put our names on the clubhouse wall!
+ We're legends, PARTNER! Legends!
+ Near the bottom, I see.
+ Spelled mine wrong.
+",
+    ),
+    (
+        "LuckyCharm",
+        " Lucky Charm
+PARTNER, I found a four-leaf clover on the 2nd!
+ That's a lucky round coming!
+ Is that a clover or a weed?
+ Luck has nothing to do with it.
+Since I picked it, I've holed two long putts.
+ The clover works! Keep it close!
+ Skill, surely.
+ Coincidence.
+Oh no, I dropped it in the water hazard!
+ Let's dive in! I'll hold your shoes!
+ You'll have to play for real now.
+ Good. Now it's fair.
+I birdied without it, PARTNER! I'm the lucky one!
+ You were your own luck all along!
+ Nice birdie.
+ Don't get used to it.
+",
+    ),
+    (
+        "Fourball",
+        " Fourball
+PARTNER, the club fourball is next Sunday.
+ Let's enter! We'll win it!
+ Who else is playing?
+ I'd rather play alone.
+We need a team name. \"Birdies of a Feather\"?
+ Perfect! I'll get shirts made!
+ It'll do.
+ Embarrassing.
+We're tied for the lead after nine!
+ Keep calm and putt straight!
+ Don't jinx it.
+ Not for long, knowing you.
+We won the fourball, PARTNER!
+ The champions! Trophy for the mantelpiece!
+ By one shot. Phew.
+ You can keep the trophy.
+",
+    ),
+    (
+        "PersonalBest",
+        " Personal Best
+PARTNER, I've started training at the gym.
+ Great! Want a training buddy?
+ Gyms are just indoor golf.
+ Don't lift with your back.
+I can do twenty push-ups now. Well, nearly.
+ Twenty! You're getting so strong!
+ Nearly is a strong word.
+ I can do fifty.
+Look how far that drive went, PARTNER!
+ Personal best! The gym's working!
+ Downwind, though.
+ I've hit it further.
+Next goal: the club long drive contest!
+ You'll win it! I'll cheer the loudest!
+ Stretch first.
+ Good luck with that.
+",
+    ),
+    (
+        "TestDrive",
+        " Test Drive
+PARTNER, I'm thinking of buying a new golf cart.
+ Ooh! Can I come for the test drive?
+ Do they come with cup holders?
+ Walking is free.
+This one has a radio and headlights!
+ Night golf! What a machine!
+ Headlights for the bunkers?
+ Too flashy.
+I've taken it round the course. It's so smooth!
+ Let me have a go next!
+ Mind the flowerbeds.
+ Mind the greens.
+I bought it, PARTNER! Hop in!
+ Shotgun! Let's go!
+ Drive slowly, please.
+ I'll walk.
+",
+    ),
+    (
+        "CornerOffice",
+        " Corner Office
+PARTNER, my boss is playing with us next week.
+ We'll show him your best golf!
+ Should I let him win?
+ Sounds like a terrible day.
+If I play well, there might be a promotion in it.
+ You deserve it! Let's practise!
+ Golf for a promotion? Odd.
+ If you play well. Big if.
+He laughed at my joke on the 5th tee!
+ That's a good sign!
+ Or he felt sorry for you.
+ Nobody laughs at your jokes.
+I got the corner office, PARTNER!
+ Congratulations! Lunch is on you!
+ Nice view?
+ Lucky you.
+",
+    ),
+    (
+        "TheMissingTrophy",
+        " The Missing Trophy
+PARTNER, the club trophy has gone missing!
+ Let's solve the case together!
+ Maybe it's being polished.
+ Not my problem.
+The cleaner says she saw a man in a red cap.
+ I'll check every red cap on the course!
+ Half the club wears red caps.
+ I'm wearing a blue one.
+There's a shiny thing in the duck pond!
+ I'll fetch the net! We've got it!
+ That's a can.
+ Not going in there.
+The ducks had it, PARTNER! Case closed!
+ Great detective work, partner!
+ Ducks. Of course.
+ I knew it all along.
+",
+    ),
+    (
+        "TheRival",
+        " The Rival
+PARTNER, that show-off from the other club is here.
+ We'll beat him at his own game!
+ Ignore him.
+ He's better than you.
+He said our greens are slower than his.
+ Then we'll prove him wrong!
+ They are a bit slow.
+ He's right.
+I just beat him on the 9th! He threw his glove!
+ Brilliant! What a hole!
+ Don't gloat.
+ He'll win the next one.
+He wants a rematch next month, PARTNER.
+ We'll be ready! Practice starts now!
+ If we must.
+ Count me out.
+",
+    ),
+    (
+        "SecondHoneymoon",
+        " Second Honeymoon
+PARTNER, let's go somewhere nice for our anniversary.
+ Somewhere with a golf course?
+ Somewhere quiet, maybe.
+ We can't afford it.
+There's a seaside links with a hotel right by it.
+ Book it now! It sounds perfect!
+ Sea wind. My poor slice.
+ Too far.
+I've packed your clubs and my swimsuit.
+ Sunshine, sea and golf! Heaven!
+ Did you pack sun cream?
+ You packed the wrong clubs.
+Just like our first honeymoon, PARTNER.
+ Even better! I love you!
+ Fewer mosquitoes this time.
+ Not quite.
+",
+    ),
+    (
+        "PerfectWeek",
+        " Perfect Week
+PARTNER, three birdies today. I'm on fire!
+ Keep it going! Don't change a thing!
+ Can't last forever.
+ Even a broken clock...
+Same socks all week. Not washing them now.
+ Superstition works! Keep them on!
+ Stand downwind of me.
+ That's disgusting.
+Another birdie! That's ten this week!
+ Ten! You're unstoppable!
+ Nice. Now wash the socks.
+ Lucky streak.
+The streak's over, but what a week, PARTNER!
+ The best week this course has seen!
+ Back to normal, then.
+ Now wash those socks.
+",
+    ),
+    (
+        "Barbershop",
+        " Barbershop
+PARTNER, we need a fourth voice for our quartet.
+ I'll sing! I know all the words!
+ I only sing in the shower.
+ My wife says I can't sing.
+We're singing at the club dinner on Saturday.
+ Let's practise on every tee!
+ Not too loud, please.
+ I'll be at home that night.
+You hit a high note on the 12th green!
+ Pure as a birdie! Let's go again!
+ The birds flew away.
+ That was a sneeze.
+Standing ovation, PARTNER! They want an encore!
+ One more song! Then the bar!
+ One more, then home.
+ Let someone else sing.
 ",
     ),
 ];

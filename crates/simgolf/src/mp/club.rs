@@ -126,7 +126,10 @@ pub struct Extra {
 
 impl App {
     /// The room's save of this game: the save file (base64) and the [`Extra`] (JSON).
-    pub fn club_snapshot(&self) -> Result<(String, String), String> {
+    pub fn club_snapshot(&mut self) -> Result<(String, String), String> {
+        // the stories' scenes as this player's files have them go with the save, so that players with other files (the
+        // free set's, or other theme packs') play the same scenes in their own words (`take_shared_tables`)
+        self.club.stories.fill_shape();
         Ok((crate::share::base64(&self.save_bytes(6)?), self.club_extra()?))
     }
 
@@ -143,6 +146,7 @@ impl App {
         let extra: Extra = serde_json::from_str(extra).map_err(|e| format!("the save's extra: {e}"))?;
         let b = crate::share::unbase64(data).ok_or_else(|| "not base64".to_string())?;
         let s = crate::app::read_save_bytes(&b, "club")?;
+        let shared = (s.club.stories.clone(), s.club.celebrities.clone(), s.club.pros.clone());
         self.keep_plan_on_load = extra.start.planned;
         let r = match g {
             Some(g) if keep_art => {
@@ -158,6 +162,7 @@ impl App {
         };
         self.keep_plan_on_load = false;
         r?;
+        self.take_shared_tables(shared);
         self.apply_start(&extra.start);
         self.sprouts = extra.sprouts.into_iter().collect();
         let now = self.replay_hash();
@@ -169,6 +174,27 @@ impl App {
             return Err(format!("the loaded game differs from the club's in {}", differ.join(" ")));
         }
         Ok(())
+    }
+
+    /// The club's story table and famous people as the save has them (what the rules read: the stories' codes and scenes,
+    /// the celebrities' and pros' looks and skills), shown with this player's own words: the player's own stories with the
+    /// same codes, and the player's own names row by row (made up ones past the end of the player's tables). So a club
+    /// plays the same with the original's files and with the free set, each player seeing their own.
+    pub fn take_shared_tables(&mut self, shared: (sg_core::stories::Stories, Vec<sg_core::vips::Celebrity>, Vec<sg_core::vips::Pro>)) {
+        let (stories, celebrities, pros) = shared;
+        self.club.stories.take_shared(stories);
+        if !celebrities.is_empty() {
+            let own = std::mem::replace(&mut self.club.celebrities, celebrities);
+            for (i, c) in self.club.celebrities.iter_mut().enumerate() {
+                c.name = own.get(i).map(|o| o.name.clone()).unwrap_or_else(|| super::names::celebrity(i));
+            }
+        }
+        if !pros.is_empty() {
+            let own = std::mem::replace(&mut self.club.pros, pros);
+            for (i, p) in self.club.pros.iter_mut().enumerate() {
+                p.name = own.get(i).map(|o| o.name.clone()).unwrap_or_else(|| super::names::pro(i));
+            }
+        }
     }
 
     /// What a club this game plays must match: the version and the rules settings (the course size, the gameplay
@@ -225,6 +251,11 @@ impl App {
         if !why.is_empty() {
             self.show_toast(why);
         }
+    }
+
+    /// Loading another game leaves the club (that game is the player's own).
+    pub fn club_leave_for_load(&mut self) {
+        self.club_leave(tr("STR_MP_CLUB_LEFT"));
     }
 
     /// The pause key in a club: pauses or goes on for everyone. False when not in a club.
@@ -593,6 +624,38 @@ mod tests {
             diff(&a, &b, &format!("after save {k}"));
         }
         assert!(!a.hole_numbers.is_empty(), "the hole is open");
+        crate::mp::lockstep::set(false);
+    }
+
+    #[test]
+    fn players_with_other_game_files_play_the_same_club() {
+        // the club's first player has stories, celebrities and pros of its own; the joiner's files have none of them (a
+        // test game reads no files): it plays the club's scenes and looks with its own words and made-up names
+        crate::mp::lockstep::set(true);
+        let mut a = shared_game(1);
+        let text = " T\nA\n B\n C\nD\n E\nF\n G\nH\n I\n".to_string();
+        a.club.stories = sg_core::stories::Stories::build(
+            &[("GxxxxxxxOpeningDay.txt".into(), text.clone()), ("RxxxxOxxDate.txt".into(), text.clone()), ("MxxTxxxxMyst.txt".into(), text)],
+            0,
+        );
+        a.club.celebrities = vec![sg_core::vips::Celebrity { name: "Star One".into(), kind: 3, skin: 1, hair: 2, shirt: 3, pants: 4 }];
+        a.club.pros = vec![sg_core::vips::Pro { name: "Pro One".into(), body: 2, skin: 1, hat: 0, shirt: 1, pants: 2, skills: [5; 12] }];
+        a.apply(&Action::Speed(1));
+        a.apply(&Action::OpenHole);
+        let (data, extra) = a.club_snapshot().unwrap();
+        a.club_restore(None, &data, &extra, true).unwrap();
+        let (data, extra) = a.club_snapshot().unwrap();
+        let mut b = shared_game(2);
+        b.club_restore(None, &data, &extra, false).expect("the joiner's game is the club's");
+        assert_eq!(b.club.celebrities[0].kind, 3);
+        assert_ne!(b.club.celebrities[0].name, "Star One");
+        assert_ne!(b.club.pros[0].name, "Pro One");
+        assert_eq!(b.club.stories.slots, a.club.stories.slots);
+        for _ in 0..3000 {
+            a.lockstep_step();
+            b.lockstep_step();
+        }
+        assert_eq!(a.replay_hash(), b.replay_hash());
         crate::mp::lockstep::set(false);
     }
 

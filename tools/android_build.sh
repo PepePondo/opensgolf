@@ -63,8 +63,11 @@ rm -f Cargo.lock
 CARGO_RESOLVER_INCOMPATIBLE_RUST_VERSIONS=fallback cargo generate-lockfile
 # the wasm-bindgen family (cpal's browser side, not built here) as of 2024: the newer ones declare features the old Cargo
 # cannot resolve (js-sys's `dep:futures-util`)
-# ahash 0.8.13 (November 2026) moved to getrandom 0.4, which needs a newer js-sys than the pin below: kept at 0.8.12
+# rhai's ahash and its const-random moved to getrandom 0.4 in November 2026 (ahash 0.8.13, const-random 0.1.19,
+# const-random-macro 0.1.17); getrandom 0.4 is a 2024 edition crate and wants a newer js-sys than the pin below
 cargo update -p ahash --precise 0.8.12
+cargo update -p const-random --precise 0.1.18
+cargo update -p const-random-macro --precise 0.1.16
 cargo update -p web-sys --precise 0.3.70
 cargo update -p wasm-bindgen-futures --precise 0.4.43
 cargo update -p js-sys --precise 0.3.70

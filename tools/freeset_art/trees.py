@@ -4,7 +4,7 @@ little (the seed is the file name). Sizes are in world units before the sprite i
 import numpy as np
 
 from mats import ID
-from scene import Scene, ellipsoid, tube, quad
+from scene import Scene, ellipsoid, frame_of, tube, quad
 
 LEAF, BARKT, RED, WOOD, YELLOW, WHITE, PURPLE = (ID[k] for k in ("LEAF", "BARK", "RED", "WOOD", "YELLOW", "WHITE", "PURPLE"))
 
@@ -184,48 +184,137 @@ def palm(rng, height=120.0, fronds=9, frond_len=0.42, curve=0.18, leaf=c255(70, 
     return s
 
 
-def saguaro(rng, height=90.0, arms=2, col=c255(86, 128, 70), leafiness=1.0):
-    """A columnar cactus with arms, ribbed."""
+def ribbed(a, b, ra, rb, ribs=10, groove=0.8):
+    """A ribbed column from a to b: a star-shaped tube (ridges at the radius, grooves at `groove` of it), so the light
+    picks out every rib the way it does on a real cactus."""
+    x, y, z, ln = frame_of(a, b)
+    a = np.asarray(a, float)
+    b = np.asarray(b, float)
+    n = ribs * 2
+    ang = np.linspace(0, 2 * np.pi, n + 1)[:-1]
+    k = np.where(np.arange(n) % 2 == 0, 1.0, groove)
+    ring = np.stack([np.cos(ang) * k, np.sin(ang) * k], 1)
+    pa = a + ra * (ring[:, :1] * x + ring[:, 1:] * y)
+    pb = b + rb * (ring[:, :1] * x + ring[:, 1:] * y)
+    tris = []
+    for i in range(n):
+        j = (i + 1) % n
+        tris.append([pa[i], pa[j], pb[j]])
+        tris.append([pa[i], pb[j], pb[i]])
+    return np.array(tris)
+
+
+def ribbed_dome(c, r, axis, ribs=10, groove=0.8, rows=4):
+    """The rounded, ribbed end of a cactus column at c (radius r) facing along `axis`."""
+    x, y, z, ln = frame_of(c, np.asarray(c, float) + np.asarray(axis, float))
+    c = np.asarray(c, float)
+    n = ribs * 2
+    ang = np.linspace(0, 2 * np.pi, n + 1)[:-1]
+    k = np.where(np.arange(n) % 2 == 0, 1.0, groove)
+    rings = []
+    for t in np.linspace(0, np.pi / 2, rows + 1):
+        rr = np.cos(t)
+        h = np.sin(t) * r * 0.9
+        rings.append(c + z * h + r * rr * ((np.cos(ang) * k)[:, None] * x + (np.sin(ang) * k)[:, None] * y))
+    tris = []
+    for q in range(rows):
+        for i in range(n):
+            j = (i + 1) % n
+            tris.append([rings[q][i], rings[q][j], rings[q + 1][j]])
+            tris.append([rings[q][i], rings[q + 1][j], rings[q + 1][i]])
+    return np.array(tris)
+
+
+SAGUARO_BLOOM = c255(248, 246, 236)
+
+
+def saguaro(rng, height=90.0, arms=2, col=c255(86, 128, 70), leafiness=1.0, bloom=True):
+    """A saguaro: a plump ribbed column with upturned arms, its new growth at the tips a fresher green, and in flower
+    (a ring of white blossoms with yellow hearts) when fully grown."""
     s = Scene()
     s.leafy, s.rag = 0.0, 0.0
-    r = height * 0.075 * (0.6 + 0.4 * leafiness)
+    # cactus skin is waxy and pale: more light from the sky than a tree trunk, so the plant reads green, not black
+    s.ambient, s.diffuse = 0.86, 0.6
+    r = height * 0.1 * (0.6 + 0.4 * leafiness)
+    tip = mix3(col, c255(150, 176, 90), 0.35)
+    tips = []
 
-    def column(a, b, rad):
-        t = tube(a, b, rad, rad, 12, caps=False)
-        cols = np.array([col * (1.08 if (i // 2) % 2 == 0 else 0.86) for i in range(len(t))])
+    def column(a, b, rad, end=True):
+        a, b = np.asarray(a, float), np.asarray(b, float)
+        # each rib a slightly different green, lighter towards the tip
+        t = ribbed(a, b, rad, rad, 10, 0.8)
+        cols = np.array([col * (1.04 if (i // 2) % 2 == 0 else 0.9) for i in range(len(t))])
         s.add_tris(t, cols, LEAF)
-        s.add_ball(b, rad, col * 1.02, LEAF)
+        if end:
+            s.add_tris(ribbed_dome(b, rad, b - a, 10, 0.8), tip, LEAF)
+            tips.append((b + (b - a) / np.linalg.norm(b - a) * rad * 0.85, rad))
 
-    column([0, 0, 0], [0, height * 0.92, 0], r)
+    def joint(p, rad):
+        s.add_tris(ellipsoid(p, [rad, rad, rad], 12, 8), col * 0.97, LEAF)
+
+    top = np.array([0, height * 0.88, 0])
+    column([0, 0, 0], top, r)
+    s.top = (top + [0, r * 0.9, 0], r)
     if leafiness > 0.4:
+        a = rng.uniform(0, 2 * np.pi)
         for k in range(arms):
-            a = rng.uniform(0, 2 * np.pi) if k == 0 else a + np.pi + rng.uniform(-0.6, 0.6)
+            if k:
+                a = a + 2 * np.pi / arms + rng.uniform(-0.5, 0.5)
             d = np.array([np.cos(a), 0, np.sin(a)])
-            y0 = height * rng.uniform(0.32, 0.55)
-            elbow = np.array([0, y0, 0]) + d * height * 0.2
-            column(np.array([0, y0, 0]), elbow, r * 0.75)
-            column(elbow, elbow + np.array([0, height * rng.uniform(0.2, 0.32), 0]), r * 0.75)
+            y0 = height * rng.uniform(0.3, 0.5)
+            ra = r * 0.72
+            root = np.array([0, y0, 0])
+            out = root + d * height * 0.17 + np.array([0, height * 0.04, 0])
+            column(root, out, ra, end=False)
+            joint(out, ra)
+            up = out + np.array([0, height * rng.uniform(0.2, 0.33), 0]) + d * height * 0.02
+            column(out, up, ra)
     s.mass = None
+    if bloom and leafiness >= 0.99:
+        for p, rad in tips:
+            n = int(rng.integers(3, 6))
+            a0 = rng.uniform(0, 2 * np.pi)
+            for k in range(n):
+                a = a0 + 2 * np.pi * k / n
+                q = p + np.array([np.cos(a) * rad * 0.55, -rad * 0.05, np.sin(a) * rad * 0.55])
+                s.add_tris(ellipsoid(q, [rad * 0.34, rad * 0.22, rad * 0.34], 8, 5), SAGUARO_BLOOM, WHITE)
+                s.add_tris(ellipsoid(q + [0, rad * 0.14, 0], [rad * 0.13] * 3, 6, 4), c255(244, 200, 70), YELLOW)
     return s
 
 
+def mix3(a, b, t):
+    return np.asarray(a, float) * (1 - t) + np.asarray(b, float) * t
+
+
 def barrel_cactus(rng, height=40.0, col=c255(92, 134, 74), n=3, leafiness=1.0, flower=c255(236, 200, 70)):
-    """A clump of round ribbed cacti with a flower or two."""
+    """A clump of squat, ribbed barrel cacti, each crowned with a ring of flowers."""
     s = Scene()
-    s.leafy, s.rag = 0.15, 0.05
+    s.leafy, s.rag = 0.0, 0.0
+    s.ambient, s.diffuse = 0.86, 0.6
     for k in range(n):
         a = rng.uniform(0, 2 * np.pi)
-        off = np.array([np.cos(a), 0, np.sin(a)]) * height * (0.0 if k == 0 else 0.45)
-        rad = height * (0.4 if k == 0 else 0.28) * (0.5 + 0.5 * leafiness)
-        s.add_ball(off + [0, rad * 0.9, 0], rad, jitter(col, rng, 0.06), LEAF)
-        if leafiness > 0.8 and k < 2:
-            s.add_ball(off + [0, rad * 1.85, 0], rad * 0.2, flower, YELLOW)
+        off = np.array([np.cos(a), 0, np.sin(a)]) * height * (0.0 if k == 0 else 0.5)
+        rad = height * (0.42 if k == 0 else 0.3) * (0.5 + 0.5 * leafiness)
+        hgt = rad * (1.2 if k == 0 else 0.95)
+        c = jitter(col, rng, 0.06)
+        t = ribbed(off, off + [0, hgt, 0], rad * 0.9, rad, 12, 0.82)
+        s.add_tris(t, np.array([c * (1.05 if (i // 2) % 2 == 0 else 0.88) for i in range(len(t))]), LEAF)
+        top = off + [0, hgt, 0]
+        s.add_tris(ribbed_dome(top, rad, [0, 1, 0], 12, 0.82), mix3(c, c255(150, 176, 90), 0.25), LEAF)
+        if leafiness > 0.8:
+            m = 6 if k == 0 else 4
+            for j in range(m):
+                b = 2 * np.pi * j / m + rng.uniform(-0.2, 0.2)
+                q = top + np.array([np.cos(b) * rad * 0.42, rad * 0.78, np.sin(b) * rad * 0.42])
+                s.add_tris(ellipsoid(q, [rad * 0.2, rad * 0.14, rad * 0.2], 8, 5), flower, YELLOW)
     return s
 
 
 def prickly_pear(rng, height=45.0, col=c255(104, 146, 82), leafiness=1.0):
-    """Flat oval pads growing out of each other."""
+    """Flat oval pads growing out of each other, a few yellow flowers on the rims of the top pads."""
     s = Scene()
+    s.ambient, s.diffuse = 0.86, 0.6
+    tops = []
 
     def pad(c, r, a, tilt):
         d = np.array([np.cos(a), 0, np.sin(a)])
@@ -237,6 +326,7 @@ def prickly_pear(rng, height=45.0, col=c255(104, 146, 82), leafiness=1.0):
         tris = [[c + d * r * 0.08, ring[i], ring[i + 1]] for i in range(n)]
         tris += [[c - d * r * 0.08, ring[i + 1], ring[i]] for i in range(n)]
         s.add_tris(np.array(tris), jitter(col, rng, 0.06), LEAF)
+        tops.append((c, up, side, r))
         return c + up * r * 0.9
 
     sc = 0.5 + 0.5 * leafiness
@@ -244,6 +334,11 @@ def prickly_pear(rng, height=45.0, col=c255(104, 146, 82), leafiness=1.0):
     for k in range(3 if leafiness > 0.5 else 1):
         a = rng.uniform(0, 6.3)
         pad(base + np.array([np.cos(a), 0.2, np.sin(a)]) * height * 0.15 * sc, height * 0.24 * sc, a, rng.uniform(-0.6, 0.6))
+    if leafiness > 0.8:
+        for c, up, side, r in tops[1:]:
+            for t in (1.25, 1.57, 1.9)[: int(rng.integers(1, 4))]:
+                q = c + side * np.cos(t) * r * 0.75 + up * np.sin(t) * r * 1.02
+                s.add_tris(ellipsoid(q, [r * 0.13] * 3, 8, 5), c255(244, 206, 72), YELLOW)
     return s
 
 

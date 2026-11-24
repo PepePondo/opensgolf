@@ -702,13 +702,13 @@ fn grid(
 }
 
 /// How much smaller than life the body is drawn below the head (the club with it).
-const BODY: f32 = 0.88;
+const BODY: f32 = 0.94;
 /// Below the hips, how much shorter still.
-const LEGS: f32 = 0.93;
+const LEGS: f32 = 1.0;
 /// Where the legs end, before they are shortened.
 const HIP_Y: f32 = 0.92;
 /// How much bigger than its modelled size the head is drawn.
-const HEAD: f32 = 1.15;
+const HEAD: f32 = 1.0;
 
 /// A height of the body as drawn: the legs shortened, the rest moved down onto them (the ground stays where it is).
 fn stubby(y: f32) -> f32 {
@@ -803,8 +803,9 @@ pub fn body(look: &Look, act: Act, t: f32, time: f32, club: i32) -> Vec<Vert> {
 
 /// A golfer's figure in metres, standing at the origin: x to their right, y up, z forward (`at_ball` acts: towards the
 /// ball, the target on their left). `t` is how far through the clip, `time` seconds for idle movement, `club` the club
-/// in hand (0..13, 13 the putter). Drawn as a cartoon is: a big head with a face that shows the mood, big hands and
-/// feet, and the build of the golfer's own pictures.
+/// in hand (0..13, 13 the putter). Drawn in ordinary proportions (about five and a half heads tall, full-length legs)
+/// with a soft, rounded face that shows the mood, real clothes (collar, buttons, belt and buckle, leather shoes), and the
+/// build of the golfer's own pictures.
 pub fn figure(who: &Who, act: Act, t: f32, time: f32, club: i32) -> Vec<Vert> {
     DETAIL.with(|d| d.set(who.detail.clamp(0.05, 3.0)));
     let look = &who.look;
@@ -955,7 +956,8 @@ pub fn figure(who: &Who, act: Act, t: f32, time: f32, club: i32) -> Vec<Vert> {
         // the pro's white golf glove on his leading (left) hand
         // (bare hands in the skin's colour: the outfit's arm colour reads as a dark lump on the grip)
         let hand = if who.star && k == 1 { [0.97, 0.97, 0.95] } else { look.skin };
-        ball(o, wrist, [0.084, 0.09, 0.084], hand);
+        // (a hand of a hand's size, a little longer than wide, for the normal proportions)
+        ball(o, add(wrist, mul(norm(sub(wrist, elbow)), 0.025)), [0.05, 0.062, 0.042], hand);
     }
     cloth(Cloth::Plain);
     // the club: grip, shaft and head
@@ -971,7 +973,7 @@ pub fn figure(who: &Who, act: Act, t: f32, time: f32, club: i32) -> Vec<Vert> {
         let c = add(end, mul(toe, -size[0] * 0.8));
         tube(o, add(c, mul(toe, -size[0])), add(c, mul(toe, size[0])), size[1], size[1], head_col, face_dir, size[2] / size[1], 8);
     }
-    // the body drawn smaller than life under the big head
+    // the body drawn a little smaller than life (`BODY`, `LEGS`), the head at its size (`HEAD`)
     for v in out.iter_mut() {
         v.pos = mul([v.pos[0], stubby(v.pos[1]), v.pos[2]], BODY);
     }

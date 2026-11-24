@@ -3,7 +3,8 @@
 //! the course screen, Esc turns it off; W A S D or the arrows walk (Shift faster), a drag with a mouse button held turns
 //! and looks up and down, and the eye follows the ground. G follows the golfers on the course one after another (Shift+G
 //! back): the camera walks behind the one chosen and, when they hit, follows the ball's flight and roll, then goes back to
-//! them; a walk key or Esc leaves the following.
+//! them; a walk key or Esc leaves the following. Q and E turn, the wheel (or + and -) zooms, H hides the help and labels
+//! and P saves a picture of the view without them (photo.rs `save_picture`).
 //!
 //! What it draws (each part in a module of its own):
 //!
@@ -13,7 +14,9 @@
 //!   painted features fade out near the eye, where they would smear; the water with moving ripples, the sky's reflection
 //!   and the sun's glints; and the land beyond the property, out to the theme's hills or down into the sea;
 //! * the sky (walk_gl.rs `sky_fs`): the theme's colours, the sun and drifting clouds, and a haze of the same colours over
-//!   everything with distance;
+//!   everything with distance; with Enhanced graphics, their time of day, weather and season (`Weather`, from
+//!   fx_light.rs's atmosphere): the sun's place and colour, the light, rain and snow falling, snow lying, lit windows;
+//! * the soft fringes where a finer cut of grass meets a coarser one (walk_ground.rs `walk_fringes`);
 //! * what stands on the ground (walk_objects.rs): buildings as modelled solids (walk_models.rs; one without a model as its
 //!   picture, upright), small objects as solids with their own sprites projected onto them, trees and people as cards,
 //!   flags, tee markers and balls as small solids, shadows on the ground.
@@ -25,7 +28,7 @@
 //! (tiles and degrees) places it, `SG_WALK_FOLLOW=N` follows the golfer in slot N (`next`: whoever hits next) and
 //! `SG_WALK_SHOT=S` waits for their ball to have flown S seconds, `SG_WALK_BENCH=1` prints the frame times (with
 //! `SG_FX_BENCH`), `SG_WALK_ISO=Q` draws the scene through the overhead camera of quarter turn Q (there each building's
-//! solid must look exactly as its sprite does), `SG_WALK_CARDS=1` draws every object as its card, `SG_WALK_NO_MODELS=1` draws buildings as though none had a model, `SG_WALK_FLAT_TREES=1` draws every tree as its upright picture, `SG_WALK_FLAT_PEOPLE=1` draws people flat (golfers as pictures, not 3D bodies), `SG_WALK_POSE=CLIP:T[:DEG]` puts every golfer in a clip's pose (turned DEG degrees, to see faces), `SG_WALK_NO_TOON=1` draws the models without the drawn look (outlines and bands of shade), `SG_WALK_NO_PORTRAITS=1` gives golfers their outfit's colours rather than their portrait's hair and skin, and `SG_WALK_DUMP=1`
+//! solid must look exactly as its sprite does), `SG_WALK_CARDS=1` draws every object as its card, `SG_WALK_NO_MODELS=1` draws buildings as though none had a model, `SG_WALK_FLAT_TREES=1` draws every tree as its upright picture, `SG_WALK_FLAT_PEOPLE=1` draws people flat (golfers as pictures, not 3D bodies), `SG_WALK_POSE=CLIP:T[:DEG]` puts every golfer in a clip's pose (turned DEG degrees, to see faces), `SG_WALK_NO_TOON=1` draws the models without the drawn look (outlines and bands of shade), `SG_WALK_ZOOM=N` zooms in N steps, `SG_WALK_NO_HUD=1` hides the help and labels, `SG_WALK_NO_PORTRAITS=1` gives golfers their outfit's colours rather than their portrait's hair and skin, and `SG_WALK_DUMP=1`
 //! prints the fitted solids (`SG_WALK_DUMP_DIR` writes the frames fitted).
 use crate::app::{App, Screen};
 use crate::gfx::{Gfx, Mat4};
@@ -266,6 +269,79 @@ pub fn sun_direction() -> [f32; 3] {
     v.map(|q| q / n)
 }
 
+/// Enhanced graphics' light, sky and weather as the walk camera sees them (fx_light.rs `Atmos`): with Enhanced graphics
+/// off, or its time of day and weather off, the classic midday (`Weather::default`), as before.
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub struct Weather {
+    /// Towards the sun (world space).
+    pub sun: [f32; 3],
+    /// Multipliers of the light's ambient and diffuse colours, the sky's zenith and its horizon (and the haze).
+    pub amb_k: [f32; 3],
+    pub dif_k: [f32; 3],
+    pub sky_k: [f32; 3],
+    pub haze_k: [f32; 3],
+    /// Rain and snow falling (0 none .. 1), snow lying (and frost, fainter), the evening's lights (0 .. 1 full night),
+    /// mist, a lightning flash's brightness.
+    pub rain: f32,
+    pub snowfall: f32,
+    pub snow: f32,
+    pub night: f32,
+    pub mist: f32,
+    pub flash: f32,
+    /// The wind along the ground, scaled by its strength (world x and z).
+    pub wind: [f32; 2],
+}
+
+impl Default for Weather {
+    fn default() -> Weather {
+        Weather {
+            sun: sun_direction(),
+            amb_k: [1.0; 3],
+            dif_k: [1.0; 3],
+            sky_k: [1.0; 3],
+            haze_k: [1.0; 3],
+            rain: 0.0,
+            snowfall: 0.0,
+            snow: 0.0,
+            night: 0.0,
+            mist: 0.0,
+            flash: 0.0,
+            wind: [0.0; 2],
+        }
+    }
+}
+
+impl Weather {
+    /// The walk's version of this moment's atmosphere: the overhead view's sun turned to the walk's own (the overhead's
+    /// light turns with its camera, the walk's is fixed to the art's first quarter turn) and its colours as multipliers
+    /// of the walk's own sky, so at the classic midday nothing changes.
+    pub(crate) fn of(a: &crate::fx_light::Atmos, look: &crate::fx::Look, overhead_sun: [f32; 3]) -> Weather {
+        let mut w = Weather {
+            rain: a.rain,
+            snowfall: a.snowfall,
+            snow: a.snow.max(a.season.frost * 0.45).clamp(0.0, 1.0),
+            night: a.night,
+            mist: a.mist,
+            flash: a.flash,
+            wind: [a.wind.dir[0] * a.wind.k, a.wind.dir[1] * a.wind.k],
+            ..Weather::default()
+        };
+        if a.tinted {
+            let ratio = |x: [f32; 3], y: [f32; 3]| [0, 1, 2].map(|k| (x[k] / y[k].max(0.02)).clamp(0.0, 2.5));
+            w.amb_k = a.amb;
+            w.dif_k = a.sun;
+            w.sky_k = ratio(a.sky_top, look.sky_top);
+            w.haze_k = ratio(a.sky_low, look.sky_low);
+            let base = w.sun;
+            let asin = |v: f32| v.clamp(-1.0, 1.0).asin();
+            let az = base[2].atan2(base[0]) + (a.sun_w[2].atan2(a.sun_w[0]) - overhead_sun[2].atan2(overhead_sun[0]));
+            let el = asin(a.sun_w[1]) + (asin(base[1]) - asin(overhead_sun[1]));
+            w.sun = [el.cos() * az.cos(), el.sin(), el.cos() * az.sin()];
+        }
+        w
+    }
+}
+
 /// Following a golfer (G).
 #[derive(Clone, Copy, Debug)]
 struct Follow {
@@ -301,8 +377,15 @@ pub struct Walking {
     pub cam: Option<Cam>,
     /// The overhead camera's place, zoom and turn when the walk began, given back when it ends.
     saved: (f32, f32, f32, f32),
-    /// Walk keys held: ahead, back, left, right.
-    held: [bool; 4],
+    /// Walk keys held: ahead, back, left, right, turn left, turn right.
+    held: [bool; 6],
+    /// Zoomed in this many steps (the wheel, + and -): each narrows the view by `ZOOM_STEP`.
+    zoom: f32,
+    /// The help, the compass and the labels are hidden (H), to look at the course alone; a picture is to be saved (P)
+    /// after this frame, and what the last one said (until its time).
+    hud_off: bool,
+    shot_due: bool,
+    note: Option<(String, f64)>,
     /// A mouse button is down: moving turns the camera.
     looking: bool,
     /// The clock of the last step.
@@ -325,6 +408,9 @@ pub struct Walking {
     time: f32,
     dt: f32,
     bench: Bench,
+    /// Where the pin of the hole being played or walked is on the screen (drawable pixels) and how far it is (yards), for
+    /// the marker over it.
+    pin_mark: Option<([f32; 2], f32)>,
 }
 
 fn held_index(k: KeyCode) -> Option<usize> {
@@ -333,7 +419,22 @@ fn held_index(k: KeyCode) -> Option<usize> {
         KeyCode::S | KeyCode::Down => Some(1),
         KeyCode::A | KeyCode::Left => Some(2),
         KeyCode::D | KeyCode::Right => Some(3),
+        KeyCode::Q => Some(4),
+        KeyCode::E => Some(5),
         _ => None,
+    }
+}
+
+/// How fast Q and E turn the walk camera (degrees a second).
+const TURN: f32 = 90.0;
+/// Each zoom step narrows the view to this much of the last, down to `MAX_ZOOM` steps (about a quarter of the width).
+const ZOOM_STEP: f32 = 0.88;
+const MAX_ZOOM: f32 = 10.0;
+
+impl Walking {
+    /// The view's height in degrees, zoomed.
+    fn fov(&self) -> f32 {
+        FOV * ZOOM_STEP.powf(self.zoom)
     }
 }
 
@@ -378,7 +479,11 @@ impl Stage {
         let a = &self.app;
         self.walk.saved = (a.cam_x, a.cam_z, a.zoom, a.rot);
         self.walk.cam = Some(start(a));
-        self.walk.held = [false; 4];
+        self.walk.held = [false; 6];
+        // test hooks: SG_WALK_ZOOM=N zoomed in N steps, SG_WALK_NO_HUD=1 the help and labels hidden
+        self.walk.zoom = std::env::var("SG_WALK_ZOOM").ok().and_then(|v| v.parse::<f32>().ok()).unwrap_or(0.0).clamp(0.0, MAX_ZOOM);
+        self.walk.hud_off = std::env::var_os("SG_WALK_NO_HUD").is_some();
+        self.walk.note = None;
         self.walk.looking = false;
         self.walk.last = self.app.clock;
         self.walk.vel = [0.0; 2];
@@ -459,8 +564,16 @@ impl Stage {
                 }
             } else if let Some(i) = held_index(k) {
                 self.walk.held[i] = true;
-                // walking takes the camera back from the golfer it followed, where it is
+                // walking takes the camera back from the golfer it followed, where it is (turning with Q or E too)
                 self.walk.follow = None;
+            } else if k == KeyCode::H {
+                self.walk.hud_off = !self.walk.hud_off;
+            } else if k == KeyCode::P {
+                self.walk.shot_due = true;
+            } else if matches!(k, KeyCode::Equal | KeyCode::KpAdd) {
+                self.walk_wheel(1.0);
+            } else if matches!(k, KeyCode::Minus | KeyCode::KpSubtract) {
+                self.walk_wheel(-1.0);
             }
             return true;
         }
@@ -469,6 +582,30 @@ impl Stage {
             return true;
         }
         false
+    }
+
+    /// The wheel turned `y` notches (up positive): zooms the view in or out.
+    pub(crate) fn walk_wheel(&mut self, y: f32) {
+        self.walk.zoom = (self.walk.zoom + y.clamp(-3.0, 3.0)).clamp(0.0, MAX_ZOOM);
+    }
+
+    /// The picture asked for with P, after a frame is shown: the walk's view without its help and labels, saved as a PNG in
+    /// photo mode's folder (photo.rs `photos_dir`).
+    pub(crate) fn walk_take_picture(&mut self) {
+        if !std::mem::take(&mut self.walk.shot_due) || !self.walk_shown() {
+            return;
+        }
+        let hud = std::mem::replace(&mut self.walk.hud_off, true);
+        let img = self.grab();
+        self.walk.hud_off = hud;
+        let (ok, path) = crate::photo::save_picture(&self.app.course_name, &img);
+        self.walk.note = Some((
+            if ok { format!("Picture saved: {}", path.display()) } else { "The picture could not be saved".to_string() },
+            crate::app::now() + 5.0,
+        ));
+        if ok {
+            self.app.ui_sound(0x95);
+        }
     }
 
     pub(crate) fn walk_key_up(&mut self, k: KeyCode) {
@@ -497,7 +634,8 @@ impl Stage {
             return false;
         }
         if self.walk.looking && self.walk.follow.is_none() {
-            let k = LOOK / self.app.dpi.max(1.0);
+            // (finer when zoomed in, as the view is narrower)
+            let k = LOOK / self.app.dpi.max(1.0) * ZOOM_STEP.powf(self.walk.zoom);
             if let Some(c) = self.walk.cam.as_mut() {
                 c.look(dx * k, dy * k);
             }
@@ -534,6 +672,7 @@ impl Stage {
         }
         let Some(mut c) = self.walk.cam else { return };
         let h = self.walk.held;
+        c.yaw = (c.yaw + (h[5] as i32 - h[4] as i32) as f32 * TURN * dt).rem_euclid(360.0);
         let ahead = (h[0] as i32 - h[1] as i32) as f32;
         let right = (h[3] as i32 - h[2] as i32) as f32;
         let len = (ahead * ahead + right * right).sqrt().max(1.0);
@@ -660,12 +799,18 @@ impl Stage {
         }
         let (want_pos, want_at, rate) = match (f.ball, ball) {
             (Some(_), Some(b)) => {
+                // chasing the ball from behind and below it, so it is seen against the sky as it climbs and the ground
+                // ahead opens up as it comes down (high over it, the ball was a speck on the grass)
                 let d = f.dir;
                 let l = (d[0] * d[0] + d[1] * d[1]).sqrt().max(1e-3);
                 let (dx, dz) = (d[0] / l, d[1] / l);
-                let back = 9.0 * METRE;
-                let p = [b[0] - dx * back, b[1].max(app.terrain.height_at(b[0], b[2])) + 2.5 * METRE, b[2] - dz * back];
-                (p, b, 4.0)
+                let up = (b[1] - app.terrain.height_at(b[0], b[2])).max(0.0);
+                // (further back the higher it flies, so the camera never looks up more than a little)
+                let back = 13.0 * METRE + up * 1.3;
+                let (cx, cz) = (b[0] - dx * back, b[2] - dz * back);
+                let under = app.terrain.height_at(cx, cz);
+                let p = [cx, under + (0.55 * up).max(1.8 * METRE), cz];
+                (p, b, 4.5)
             }
             _ => {
                 // behind the golfer and a little to the side, looking past them down the hole
@@ -821,10 +966,11 @@ impl App {
             }
             wk.ground = Some(gr);
         }
+        let fov = wk.fov();
         let Some(gpu) = wk.gpu.as_mut() else { return };
         let Some(ground) = wk.ground.as_ref() else { return };
         let aspect = self.draw_w / self.draw_h.max(1.0);
-        let proj = Mat4::perspective(FOV, aspect, NEAR, FAR);
+        let proj = Mat4::perspective(fov, aspect, NEAR, FAR);
         let eye = [cam.x, wk.eye_y.unwrap_or_else(|| eye_height(&self.terrain, cam.x, cam.z)), cam.z];
         let view = cam.view_from(eye);
         let mut vp = proj.mul(&view);
@@ -847,13 +993,31 @@ impl App {
             eye = [cam.x - fwd[0] * 6000.0, gy - fwd[1] * 6000.0, cam.z - fwd[2] * 6000.0];
             lk.density = 1e-9;
         }
-        let sun = sun_direction();
+        // Enhanced graphics' time of day and weather (fx_light.rs), as the overhead view has them now
+        let wx = if crate::fx::active() && iso_q.is_none() {
+            let a = self.fx_tick_atmos();
+            let over = crate::fx::to_world(&crate::fx::view_rotation(self), sg_core::terrain::light_direction());
+            Weather::of(&a, self.look(), over)
+        } else {
+            Weather::default()
+        };
+        let mul = |a: [f32; 3], k: [f32; 3]| [a[0] * k[0], a[1] * k[1], a[2] * k[2]];
+        lk.zenith = mul(lk.zenith, wx.sky_k);
+        lk.haze = mul(lk.haze, wx.haze_k);
+        // the clouds take the light of the hour, and close in and thicken with rain or snow
+        let cl = wx.haze_k.map(|v| 0.35 + 0.65 * v);
+        lk.cloud = mul(lk.cloud, cl).map(|v| v * (1.0 - 0.3 * wx.rain.max(wx.snowfall)));
+        lk.cover = (lk.cover + 0.5 * wx.rain + 0.45 * wx.snowfall).min(0.97);
+        if iso_q.is_none() {
+            lk.density *= 1.0 + 0.7 * wx.rain + 1.2 * wx.snowfall + 0.4 * wx.mist;
+        }
+        let sun = wx.sun;
         let far = haze_end(lk.density);
         let f = cam.forward();
         let (_, [rx, rz]) = cam.axes();
         let r = [rx, 0.0, rz];
         let up = [r[1] * f[2] - r[2] * f[1], r[2] * f[0] - r[0] * f[2], r[0] * f[1] - r[1] * f[0]];
-        let ty = (FOV.to_radians() * 0.5).tan();
+        let ty = (fov.to_radians() * 0.5).tan();
         let tx = ty * aspect;
         let time = wk.time;
         let v4 = |a: [f32; 3], w: f32| [a[0], a[1], a[2], w];
@@ -866,12 +1030,31 @@ impl App {
             sun: v4(sun, mode::GROUND),
             haze: v4(lk.haze, lk.density),
             zenith: v4(lk.zenith, 0.5),
-            amb: v4(self.light.ambient.map(|v| v * b), 0.55),
-            dif: v4(self.light.diffuse.map(|v| v * b), 1.0),
-            info: [64.0, 0.0, focal, 0.0],
-            water: v4(ground.water_colour, 0.0),
+            amb: v4(mul(self.light.ambient, wx.amb_k).map(|v| v * b + wx.flash * 0.5), 0.55 * wx.dif_k[1].min(1.0)),
+            dif: v4(mul(self.light.diffuse, wx.dif_k).map(|v| v * b), (wx.amb_k[1] * 0.5 + wx.dif_k[1] * 0.5).clamp(0.25, 1.0)),
+            info: [64.0, 0.0, focal, wx.night],
+            water: v4(ground.water_colour, wx.snow),
         };
         let planes = frustum(&vp);
+        // the marker over the pin: the followed golfer's hole, else the hole nearest
+        wk.pin_mark = None;
+        if iso_q.is_none() {
+            let hole = match wk.follow {
+                Some(f) => Some(self.club.g[f.slot].hole as usize),
+                None => nearest_hole(self, cam.x, cam.z).map(|h| h.0),
+            };
+            if let Some(h) = hole.and_then(|n| self.club.holes.get(n)).filter(|h| h.par > 0 && h.pin != (0, 0)) {
+                let (px, pz) = tile_centre(&self.terrain, h.pin.0, h.pin.1);
+                let yards = ((px - cam.x).powi(2) + (pz - cam.z).powi(2)).sqrt() / TILE_SIZE * 25.0;
+                let c = vp.apply([px, self.terrain.height_at(px, pz) + 2.6 * METRE, pz]);
+                if c[3] > 0.0 && yards > 35.0 {
+                    let (nx, ny) = (c[0] / c[3], c[1] / c[3]);
+                    if nx.abs() < 1.05 && ny.abs() < 1.05 {
+                        wk.pin_mark = Some(([(nx * 0.5 + 0.5) * self.draw_w, (0.5 - ny * 0.5) * self.draw_h], yards));
+                    }
+                }
+            }
+        }
         let with_size = |u: WalkUniforms, size: f32| WalkUniforms { info: [size, u.info[1], u.info[2], u.info[3]], ..u };
         if let Some(p) = &ground.skirt {
             gpu.draw_mesh(g, Pipe::Solid, &p.mesh, p.tex, p.clean, &with_size(base, p.size));
@@ -898,6 +1081,13 @@ impl App {
         for w in &ground.walls {
             gpu.draw_mesh(g, Pipe::Solid, &w.mesh, w.tex, w.clean, &art(cat::ROCK, 0.04));
         }
+        // the soft fringes where finer grass meets coarser (walk_ground.rs `walk_fringes`), blended over the ground
+        for (p, c) in &ground.fringes {
+            let mut fr = with_size(base.with_mode(mode::FRINGE), p.size);
+            fr.info[1] = *c as f32;
+            fr.pull[3] = 0.0006;
+            gpu.draw_mesh(g, Pipe::Blend, &p.mesh, p.tex, p.clean, &fr);
+        }
         let water = base.with_mode(mode::WATER);
         for c in &ground.water {
             if !box_visible(&planes, c.lo, c.hi) || !near_far(c.lo, c.hi) {
@@ -916,7 +1106,7 @@ impl App {
             Some(q) => ([crate::walk_objects::iso(q).r[0], crate::walk_objects::iso(q).r[2]], q.rem_euclid(4)),
             None => ([rx, rz], cam.quarter()),
         };
-        let sc = Scene { eye, yaw: cam.yaw, right, planes, u: base, far, time, quarter };
+        let sc = Scene { eye, yaw: cam.yaw, right, planes, u: base, far, time, quarter, weather: wx };
         let t0 = std::time::Instant::now();
         self.walk_props(g, gpu, &mut wk.objs, &sc, wk.dt);
         if wk.bench.on {
@@ -945,7 +1135,9 @@ impl App {
             gpu.draw_mesh(g, Pipe::Blend, &bt.mesh, bt.tex, bt.tex, &paths);
         }
         gpu.submit_late(g);
-        self.walk_hud(g, wk, &cam);
+        if !wk.hud_off || self.great_shot.is_some() {
+            self.walk_hud(g, wk, &cam);
+        }
     }
 
     /// The walk's help line, its compass and the hole nearest.
@@ -1003,8 +1195,24 @@ impl App {
             g.flush();
             return;
         }
-        let help =
-            "Walk camera (beta): W A S D or arrows walk, Shift run, drag to look, G follow a golfer (Shift+G back), F12, ` or Esc back";
+        if let Some(([px, py], yards)) = wk.pin_mark {
+            // a small flag over the pin and its distance, as golf games mark the hole far off
+            let k = (rt - l) / self.draw_w.max(1.0);
+            let (x, y) = (l + px * k, tp + py * k);
+            let label = format!("{yards:.0} yd");
+            let w = F_ARIAL10.width(&label) + 10.0;
+            s.fill(g, x - w * 0.5, y - 30.0, w, 14.0, shade);
+            s.put_centered(g, F_ARIAL10, x, y - 28.0, &label, white);
+            s.line(g, x, y - 16.0, x, y - 4.0, 1.5, rgba(1.0, 1.0, 1.0, 0.9));
+            s.fill(g, x, y - 16.0, 7.0, 5.0, rgba(0.95, 0.2, 0.15, 0.95));
+        }
+        if let Some((note, _)) = wk.note.as_ref().filter(|n| crate::app::now() < n.1) {
+            let w = F_ARIAL10.width(note) + 12.0;
+            s.fill(g, l + 6.0, bt - 38.0, w, 14.0, shade);
+            s.put(g, F_ARIAL10, l + 12.0, bt - 36.0, note, white);
+        }
+        let help = "Walk camera (beta): W A S D or arrows walk, Shift run, Q E turn, drag to look, wheel or + - zoom, G follow a \
+                    golfer (Shift+G back), H hide this, P save a picture, F12, ` or Esc back";
         let w = F_ARIAL10.width(help) + 12.0;
         s.fill(g, l + 6.0, bt - 20.0, w, 14.0, shade);
         s.put(g, F_ARIAL10, l + 12.0, bt - 18.0, help, rgba(1.0, 1.0, 1.0, 0.85));

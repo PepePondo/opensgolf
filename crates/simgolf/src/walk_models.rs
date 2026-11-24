@@ -101,7 +101,13 @@ fn clubhouse_palette(theme: usize) -> Palette {
 #[derive(Default)]
 struct Build {
     v: Vec<Vert>,
+    /// The parts being built are window glass: marked (texture coordinate y = `GLASS`) so the walk's shader lights them
+    /// at night when Enhanced graphics' evening lights are on (walk_gl.rs).
+    glass: bool,
 }
+
+/// The texture coordinate y that marks window glass (the walk shader's material 6, between a golfer's cloths and hair).
+pub const GLASS: f32 = 6.0 * 64.0 + 1.0;
 
 fn sub(a: [f32; 3], b: [f32; 3]) -> [f32; 3] {
     [a[0] - b[0], a[1] - b[1], a[2] - b[2]]
@@ -169,7 +175,7 @@ impl Build {
             n = n.map(|q| -q);
         }
         let vert = |q: [f32; 3]| {
-            let mut v = Vert::new(q[0], q[1], q[2], 0.0, 0.0).col([col[0], col[1], col[2], 1.0]);
+            let mut v = Vert::new(q[0], q[1], q[2], 0.0, if self.glass { GLASS } else { 0.0 }).col([col[0], col[1], col[2], 1.0]);
             v.normal = n;
             v
         };
@@ -315,11 +321,19 @@ impl Build {
         self.poly(&p, [cx, (y0 + y1) * 0.5, cz], col);
     }
 
+    /// A pane of glass on a wall (`panel`), marked as glass.
+    #[allow(clippy::too_many_arguments)]
+    fn glass_panel(&mut self, corners: &[(f32, f32)], i: usize, along: f32, w: f32, y0: f32, y1: f32, out: f32, col: Rgb) {
+        self.glass = true;
+        self.panel(corners, i, along, w, y0, y1, out, col);
+        self.glass = false;
+    }
+
     /// A window: a frame and its glass.
     #[allow(clippy::too_many_arguments)]
     fn window(&mut self, corners: &[(f32, f32)], i: usize, along: f32, w: f32, y0: f32, y1: f32, pal: &Palette) {
         self.panel(corners, i, along, w + 0.3, y0 - 0.15, y1 + 0.15, 0.04, pal.frame);
-        self.panel(corners, i, along, w, y0, y1, 0.07, pal.glass);
+        self.glass_panel(corners, i, along, w, y0, y1, 0.07, pal.glass);
         // its mullion
         self.panel(corners, i, along, 0.1, y0, y1, 0.09, pal.frame);
     }
@@ -1226,7 +1240,7 @@ fn tv_booth(theme: usize) -> Build {
     let c = rect(-2.2, -1.7, 2.2, 1.7);
     b.walls(&c, y + 0.3, y + 2.8, pal.wall);
     for i in 0..4 {
-        b.panel(&c, i, 0.5, if i % 2 == 0 { 3.8 } else { 2.8 }, y + 1.2, y + 2.5, 0.05, pal.glass);
+        b.glass_panel(&c, i, 0.5, if i % 2 == 0 { 3.8 } else { 2.8 }, y + 1.2, y + 2.5, 0.05, pal.glass);
     }
     b.rect_roof(-2.2, -1.7, 2.2, 1.7, y + 2.8, 0.2, 0.4, Roof::Flat, &pal);
     b.cuboid([-0.05, y + 3.1, -0.05], [0.05, y + 5.0, 0.05], [0.6, 0.6, 0.6]);
@@ -1607,7 +1621,7 @@ fn casino(theme: usize) -> Build {
     let mut y = 10.0;
     while y < top - 2.0 {
         for (i, len) in [(0usize, 28.0), (1, 12.0), (2, 28.0), (3, 12.0)] {
-            b.panel(&t, i, 0.5, len - 1.0, y, y + 1.4, 0.04, pal.glass);
+            b.glass_panel(&t, i, 0.5, len - 1.0, y, y + 1.4, 0.04, pal.glass);
         }
         y += 3.0;
     }

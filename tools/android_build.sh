@@ -45,6 +45,17 @@ if [ -n "$ANDROID_TARGETS" ]; then
     list=$(for t in $targets; do printf '"%s", ' "$t"; done)
     sed -i "s/^build_targets = .*/build_targets = [${list%, }]/" crates/simgolf/Cargo.toml
 fi
+# a store's build (OPENSGOLF_NO_SELF_UPDATE=1, the same rule as build.rs: set and neither empty nor "0") has no update
+# check, Update now or play-time count, and asks for no permissions: INTERNET and REQUEST_INSTALL_PACKAGES come out
+case "${OPENSGOLF_NO_SELF_UPDATE:-0}" in
+    0) ;;
+    *) sed -i -e '/^\[\[package.metadata.android.permission\]\]$/{N;/\nname = "android.permission.[A-Z_]*"$/d}' \
+           crates/simgolf/Cargo.toml
+       if grep -q '^\[\[package.metadata.android.permission\]\]$' crates/simgolf/Cargo.toml; then
+           echo "error: a store build must ask for no permissions, crates/simgolf/Cargo.toml still has one" >&2
+           exit 1
+       fi ;;
+esac
 # the desktop's controller library (gamepad.rs) is not built for Android, and its uuid wants a newer js-sys than the old
 # Cargo below can have: left out of the manifest here
 sed -i -e '/^gilrs = /d' -e 's/^gamepad = \["dep:gilrs"\]/gamepad = []/' crates/simgolf/Cargo.toml
@@ -52,6 +63,11 @@ rm -f Cargo.lock
 CARGO_RESOLVER_INCOMPATIBLE_RUST_VERSIONS=fallback cargo generate-lockfile
 # the wasm-bindgen family (cpal's browser side, not built here) as of 2024: the newer ones declare features the old Cargo
 # cannot resolve (js-sys's `dep:futures-util`)
+# rhai's ahash and its const-random moved to getrandom 0.4 in November 2026 (ahash 0.8.13, const-random 0.1.19,
+# const-random-macro 0.1.17); getrandom 0.4 is a 2024 edition crate and wants a newer js-sys than the pin below
+cargo update -p ahash --precise 0.8.12
+cargo update -p const-random --precise 0.1.18
+cargo update -p const-random-macro --precise 0.1.16
 cargo update -p web-sys --precise 0.3.70
 cargo update -p wasm-bindgen-futures --precise 0.4.43
 cargo update -p js-sys --precise 0.3.70
@@ -65,6 +81,20 @@ sed -i 's/^version = 4$/version = 3/' Cargo.lock
 rel=""
 if [ "$profile" = release ]; then rel="--release"; fi
 cargo quad-apk build $rel -p opensgolf
+# a store's build must not ask for any permission: checked on the manifest cargo-quad-apk wrote for the APK
+case "${OPENSGOLF_NO_SELF_UPDATE:-0}" in
+    0) ;;
+    *) manifest=$(find "target/android-artifacts/$profile" -name AndroidManifest.xml | head -1)
+       if [ -z "$manifest" ]; then
+           echo "error: no AndroidManifest.xml under target/android-artifacts/$profile to check" >&2
+           exit 1
+       fi
+       if grep -q 'uses-permission' "$manifest"; then
+           echo "error: a store build must ask for no permissions, $manifest has:" >&2
+           grep 'uses-permission' "$manifest" >&2
+           exit 1
+       fi ;;
+esac
 mkdir -p "$out"
 apk=$(find "target/android-artifacts/$profile/apk" -name '*.apk' | head -1)
 # the library the activity loads must be the one packed: cargo-quad-apk names the first after the package name's last part,

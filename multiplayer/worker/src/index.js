@@ -71,6 +71,10 @@ export function readResult(body, now, minVersion = "") {
     && int(f.skill, -1e6, 1e6) && int(f.members, 0, 1e5) && int(f.rank, 0, 3))) return "bad facts";
   const ch = challenge(c);
   if (f.year <= ch.endYear) return "the challenge's year is not over";
+  // the game sends its numbers as the year ends, never from a game played on for more years
+  if (f.year !== ch.endYear + 1) return "not the challenge's year end";
+  // one course of at most 18 holes (the Second course extra is off in multiplayer games)
+  if (f.holes > 18) return "more than 18 holes";
   const broke = breaks(ch, f);
   if (broke) return broke;
   const n = cleanNick(nick);

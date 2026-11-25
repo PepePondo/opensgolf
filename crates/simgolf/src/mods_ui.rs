@@ -82,9 +82,9 @@ impl App {
         !self.mods.catalog.is_empty() || !self.mods.world.objects.is_empty()
     }
 
-    /// The enabled mods that add objects or scripts, which keep the multiplayer modes closed (a shared game, a league or
-    /// the weekly challenge must play the same for everyone, so their games run no pack's scripts or objects). None when
-    /// there are none.
+    /// The enabled packs that add objects or scripts or change the game's data (prices, wages, starting money: any
+    /// data/*.toml), which keep the multiplayer modes closed (a shared game, a league or the weekly challenge must play the
+    /// same for everyone, so their games run no pack's scripts, objects or data). None when there are none.
     #[cfg_attr(not(feature = "multiplayer"), allow(dead_code))]
     pub fn mods_block_multiplayer(&self) -> Option<String> {
         let ids: Vec<String> = self
@@ -94,10 +94,10 @@ impl App {
             .filter(|id| {
                 self.content.found.packs.iter().any(|p| {
                     p.manifest.id == **id
-                        && p.manifest.kind == sg_core::packs::Kind::Mod
+                        && matches!(p.manifest.kind, sg_core::packs::Kind::Mod | sg_core::packs::Kind::Base)
                         && p.source.files().iter().any(|f| {
                             let f = f.to_lowercase();
-                            f == "data/objects.toml" || (f.starts_with("scripts/") && f.ends_with(".rhai"))
+                            (f.starts_with("data/") && f.ends_with(".toml")) || (f.starts_with("scripts/") && f.ends_with(".rhai"))
                         })
                 })
             })

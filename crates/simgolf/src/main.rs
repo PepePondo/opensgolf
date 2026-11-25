@@ -3700,6 +3700,8 @@ impl EventHandler for Stage {
         #[cfg(feature = "multiplayer")]
         {
             self.app.rival_poll();
+            // the multiplayer reminder's board or table (mp/hud.rs)
+            self.app.mp_hud_poll();
             // a shared club's network and ticks (mp/club.rs)
             self.app.club_frame(Some(&mut self.g));
         }
@@ -4279,6 +4281,11 @@ impl EventHandler for Stage {
             return;
         }
         let (vx, vy) = self.app.view.to_virtual(x, y);
+        // "Challenge complete" takes every click while it is up (mp/done.rs)
+        #[cfg(feature = "multiplayer")]
+        if self.app.challenge_done_click(vx, vy) {
+            return;
+        }
         // the interface hidden (u): a click goes to the course
         let ui_ok = self.app.ui_ok && !self.app.hud_hidden();
         // a right click lets go of a golfer held by the card's Move/Eject (the main loop's right click clears 0x4c2e10)
@@ -4291,6 +4298,11 @@ impl EventHandler for Stage {
         }
         // OpenSGolf extras: the ticker's Show button and the message history (extras.rs)
         if ui_ok && button == MouseButton::Left && self.app.ticker_click(vx, vy) {
+            return;
+        }
+        // the multiplayer reminder under the name plate opens out or folds (mp/hud.rs)
+        #[cfg(feature = "multiplayer")]
+        if ui_ok && button == MouseButton::Left && self.app.mp_hud_click(vx, vy) {
             return;
         }
         // the landing map's legend: what it shows and for which holes (insight.rs)
@@ -4726,6 +4738,11 @@ impl Stage {
                 }
                 app.hover = -1;
             }
+            return;
+        }
+        // "Challenge complete" takes the keys while it is up (mp/done.rs)
+        #[cfg(feature = "multiplayer")]
+        if self.app.challenge_done_key(k) {
             return;
         }
         self.play_key(k);

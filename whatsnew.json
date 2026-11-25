@@ -3,6 +3,12 @@
     {
       "date": "25 November 2026",
       "iso": "2026-11-25",
+      "title": "OpenSGolf 0.9.5: clearer, fairer challenges",
+      "text": "A reminder of the challenge on the course while you play, a Challenge complete box when the week's game ends, and the same rules for everyone in the weekly challenge and neighbours leagues."
+    },
+    {
+      "date": "25 November 2026",
+      "iso": "2026-11-25",
       "title": "OpenSGolf 0.9.4: bigger mods",
       "text": "Mods can now add their own buildings and objects, tools, panels and map views. And there's a Join us on Discord button on the title screen."
     },

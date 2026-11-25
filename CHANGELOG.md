@@ -8,6 +8,20 @@ Almost everything OpenSGolf adds to the original game is **off until you switch 
 unless you choose otherwise. Most of it is in Preferences: *Game options* holds the extras and presets, *Graphics* holds
 Enhanced graphics and HD.
 
+## 0.9.5 (25 November 2026)
+
+- **A reminder while you play multiplayer:** a small box under the club's name shows the weekly challenge's goal, its
+  twist, the months left and where your score would place on the board (Neighbours: the league's goal and your place;
+  shared clubs: the club's name and who is on). Click it for the board's top rows or the league table.
+- **Challenge complete:** when the weekly challenge's year ends, even in the middle of a tournament, a box shows your
+  score, whether it went on the board and your place, with *View board*, *Return to menu* and *Keep playing* (nothing
+  more is sent). If the board can't be reached, *Send again* tries once more.
+- **Fair play:** the weekly challenge and Neighbours start with only the looks extras, and the extras that change how the
+  game plays can't be turned on during them. Content packs that change the game's data (`data/*.toml`) now close
+  multiplayer too, as packs with objects or scripts already did. The board also refuses results from after the
+  challenge's year end and from courses of more than 18 holes.
+- The README's table now says shared clubs work in the browser (since 0.9.2).
+
 ## 0.9.4 (25 November 2026)
 
 - **Bigger mods:** packs can add their own buildings and objects with art, tools, panels and map views, with a much

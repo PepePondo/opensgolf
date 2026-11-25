@@ -107,6 +107,11 @@
   <content_rating type="oars-1.1"/>
 
   <releases>
+    <release version="0.9.5" date="2026-11-25">
+      <description>
+        <p>Multiplayer games show a small reminder of the challenge while you play, and a Challenge complete box when the weekly challenge ends, even mid-tournament. The weekly challenge and neighbours leagues now play by the original rules for everyone.</p>
+      </description>
+    </release>
     <release version="0.9.4" date="2026-11-25">
       <description>
         <p>Mods can now add their own buildings and objects with art, tools, panels and map views, with a much bigger script API. The title screen has a Join us on Discord button.</p>

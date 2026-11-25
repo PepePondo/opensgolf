@@ -824,8 +824,9 @@ to update it.
 
 Building, taking back, tool clicks and panel buttons are player actions like the game's own: they go through the action
 log, so a replay or a loaded game goes on the same way, and every pack has its own random numbers. Multiplayer (rivals,
-leagues, shared clubs) is not offered while a mod with objects or scripts is on; it says so and points at Preferences >
-Content.
+leagues, shared clubs) is not offered while a pack with objects, scripts or data files (`data/*.toml`: prices, wages,
+starting money and the rest change the game for one player only) is on; it says so and points at Preferences > Content.
+Packs that only change art, sound, music or text are fine.
 
 ### Making a pack in private, then publishing it
 

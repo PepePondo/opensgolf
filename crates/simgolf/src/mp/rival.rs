@@ -15,15 +15,9 @@ use crate::scenario_ui::ScenarioEntry;
 use sg_core::land::{ExeRng, Noise};
 use sg_core::lang::{tr, trf};
 use sg_core::scenario::{GoalDef, Scenario, ScenarioDef};
-use std::cell::RefCell;
 
 /// The scenario id of a rival-courses game is this and the week id.
 pub const ID_PREFIX: &str = "*rival/";
-
-thread_local! {
-    /// A result being sent.
-    static SENDING: RefCell<Option<crate::net::Request>> = const { RefCell::new(None) };
-}
 
 /// The board's address: OPENSGOLF_BOARD_URL when set (a local Worker, for tests), else the real one.
 pub fn board_url() -> String {
@@ -168,7 +162,7 @@ impl App {
         self.scen.starting = Some((id.to_string(), sc));
         // a budget week: start_game halves the money it starts with
         self.mp.halve_money = c.kind == Kind::Budget;
-        self.start_game(g, prop, false);
+        self.start_fair_game(g, prop);
         self.mp.halve_money = false;
         // everyone plays the week with the same people and stories, whatever their files and theme pack (each seeing their
         // own words where they have them: club.rs take_shared_tables)
@@ -187,7 +181,8 @@ impl App {
         true
     }
 
-    /// At a year end: when the challenge's year is over, its result is sent.
+    /// At a year end: when the challenge's year is over, its result is sent and "Challenge complete" comes up (done.rs),
+    /// whatever is on the screen (a tournament ticks on through the year end; the box waits for the course view).
     pub fn rival_year_end(&mut self) {
         let Some(c) = challenge_of(self.scen.goals.scenario.as_deref()) else { return };
         let f = crate::scenario_ui::facts(self);
@@ -199,53 +194,32 @@ impl App {
         let platform = crate::playcount::platform_here();
         let who = result::Sender { player: &s.player, nick: &nick, group: &group, platform: &platform, version: env!("CARGO_PKG_VERSION") };
         let score = c.measure.score(&f);
-        match result::result_url(&board_url(), &c, &who, self.club.cheated, &f) {
-            Ok(url) => {
-                println!("rival: sending {} = {score}", c.measure.id());
-                SENDING.with(|r| *r.borrow_mut() = Some(crate::net::get(&url, 4096)));
-                self.show_toast(&trf("STR_MP_WEEKLY_OVER_SENDING", &[("SCORE", &score)]));
+        super::texts();
+        let url = if self.club.extras.changes_rules() {
+            // an extra that changes the rules (a game saved before they were kept off: fair.rs)
+            Err(tr("STR_MP_DONE_KEPT_EXTRAS").to_string())
+        } else if self.mods_block_multiplayer().is_some() {
+            // a saved challenge loaded with packs on that change the game (mods_ui.rs)
+            Err(tr("STR_MP_DONE_KEPT_MODS").to_string())
+        } else {
+            match result::result_url(&board_url(), &c, &who, self.club.cheated, &f) {
+                Ok(url) => Ok(url),
+                Err(result::NotSent::Cheated) => Err(tr("STR_MP_DONE_KEPT_CHEATS").to_string()),
+                Err(result::NotSent::YearNotOver) => return,
             }
-            Err(result::NotSent::Cheated) => {
-                self.show_toast(&trf("STR_MP_WEEKLY_OVER_CHEATS", &[("SCORE", &score)]));
-            }
-            Err(result::NotSent::YearNotOver) => {}
-        }
+        };
+        println!("rival: {} over, {} = {score}{}", c.id, c.measure.id(), if url.is_ok() { ", sending" } else { ", not sent" });
+        self.challenge_done(&c, score, url);
     }
 
-    /// Each frame: the board's answer to a result sent.
+    /// Each frame: last week's placing (lobby.rs) and the board's answer to a result sent (done.rs).
     pub fn rival_poll(&mut self) {
         if let Some(note) = super::lobby::poll(now_s()) {
             println!("rival: {note}");
             self.show_toast(&note);
             self.toast_until = self.clock + 8.0;
         }
-        let Some(reply) = SENDING.with(|r| {
-            let mut r = r.borrow_mut();
-            let reply = r.as_mut()?.poll()?;
-            *r = None;
-            Some(reply)
-        }) else {
-            return;
-        };
-        let msg = match reply {
-            Ok(body) => answer_text(&body),
-            Err(e) => trf("STR_MP_BOARD_UNREACHABLE", &[("ERROR", &e)]),
-        };
-        println!("rival: {msg}");
-        self.show_toast(&msg);
-    }
-}
-
-/// What the player is told of the Worker's answer.
-fn answer_text(body: &[u8]) -> String {
-    super::texts();
-    let v: serde_json::Value = serde_json::from_slice(body).unwrap_or_default();
-    match (v["ok"].as_bool(), v["better"].as_bool(), v["error"].as_str()) {
-        (Some(true), Some(true), _) => tr("STR_MP_RESULT_ON_BOARD").into(),
-        (Some(true), _, _) => tr("STR_MP_RESULT_NOT_BETTER").into(),
-        (_, _, Some("update the game")) => tr("STR_MP_RESULT_UPDATE").into(),
-        (_, _, Some(e)) => trf("STR_MP_RESULT_REFUSED", &[("ERROR", &e)]),
-        _ => tr("STR_MP_RESULT_UNREADABLE").into(),
+        self.challenge_done_poll();
     }
 }
 
@@ -300,13 +274,5 @@ mod tests {
         assert_eq!(a.club.stories.shape, super::tables().stories.shape);
         // (the people are the week's; their names this player's own)
         assert_eq!(a.club.roster[76].traits, super::tables().roster.unwrap()[76].traits);
-    }
-
-    #[test]
-    fn answers() {
-        assert_eq!(answer_text(br#"{"ok":true,"better":true}"#), "Your result is on the weekly board.");
-        assert!(answer_text(br#"{"ok":true,"better":false}"#).contains("still"));
-        assert!(answer_text(br#"{"ok":false,"error":"update the game"}"#).starts_with("Update"));
-        assert!(answer_text(b"<html>").contains("couldn't"));
     }
 }

@@ -8,6 +8,11 @@ Almost everything OpenSGolf adds to the original game is **off until you switch 
 unless you choose otherwise. Most of it is in Preferences: *Game options* holds the extras and presets, *Graphics* holds
 Enhanced graphics and HD.
 
+## 0.9.6 (25 November 2026)
+
+- Each update's release page and its post in the Discord #releases channel now say what changed in that update, above
+  the 0.9 highlights, instead of only the highlights.
+
 ## 0.9.5 (25 November 2026)
 
 - **A reminder while you play multiplayer:** a small box under the club's name shows the weekly challenge's goal, its

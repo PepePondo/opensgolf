@@ -63,13 +63,13 @@ sed -i -e '/^gilrs = /d' -e 's/^gamepad = \["dep:gilrs"\]/gamepad = []/' crates/
 # too, uses the same dependency versions. ANDROID_RELOCK=1 works the versions out again (for Rust 1.84, with the pins
 # below) and writes them back there: run it after changing a dependency, then commit the file.
 lock="$src/tools/android/Cargo.lock"
+deps() { awk '/^name = /{n=$3} /^version = /{v=$3} /^source = /{print n, v, $3}' "$1"; }
 if [ -f "$lock" ] && [ -z "$ANDROID_RELOCK" ]; then
     cp "$lock" Cargo.lock
     # only the game's own crates' versions may move (a version bump); a missing or changed dependency fails here
     CARGO_RESOLVER_INCOMPATIBLE_RUST_VERSIONS=fallback cargo update --workspace
     sed -i 's/^version = 4$/version = 3/' Cargo.lock
     # the crates.io packages (name, version, source) before and after must be the same
-    deps() { awk '/^name = /{n=$3} /^version = /{v=$3} /^source = /{print n, v, $3}' "$1"; }
     if [ "$(deps Cargo.lock)" != "$(deps "$lock")" ]; then
         echo "error: tools/android/Cargo.lock no longer fits the manifests; run with ANDROID_RELOCK=1 and commit it" >&2
         exit 1
@@ -103,6 +103,11 @@ if [ "$profile" = release ]; then rel="--release"; fi
 feat="--features multiplayer"
 case "${OPENSGOLF_NO_SELF_UPDATE:-0}" in 0) ;; *) feat="" ;; esac
 cargo quad-apk build $rel -p opensgolf $feat
+# and the build itself must not have moved any of them
+if [ "$(deps Cargo.lock)" != "$(deps "$lock")" ]; then
+    echo "error: the build changed dependency versions in Cargo.lock (tools/android/Cargo.lock should fix them)" >&2
+    exit 1
+fi
 # a store's build must not ask for any permission: checked on the manifest cargo-quad-apk wrote for the APK
 case "${OPENSGOLF_NO_SELF_UPDATE:-0}" in
     0) ;;

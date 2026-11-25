@@ -97,6 +97,13 @@ New in 0.9: play SimGolf with other people. Open *Start New Game*, pick *Multipl
 
 ![The Weekly challenge and Neighbours pages, with the original SimGolf files](docs/images/multiplayer.jpg)
 
+While you play, a small box under the club's name reminds you what the game is about (the goal, the months left and
+where you stand; click it for the board or table). When the weekly challenge's year ends, even in the middle of a
+tournament, *Challenge complete* shows your score and place, and you can go back to the menu or keep playing (nothing
+more is sent). To keep it fair, the weekly challenge and Neighbours play by the original rules: extras that change how
+the game plays are off (the looks extras stay), cheats keep a result off the board, and content packs that change the
+game's data or add objects or scripts close multiplayer while they are on.
+
 Multiplayer is off until you pick it on Start New Game (and can be turned off again in Preferences > More). When it
 is on, the game sends a nickname, a random player id and your results
 (in a shared club, what you do in it), and nothing else about you or your computer.
@@ -105,7 +112,7 @@ is on, the game sends a nickname, a random player id and your results
 |---|---|---|---|
 | Windows, macOS, Linux | yes | yes | yes |
 | Android (download from GitHub) | yes | yes | yes |
-| Browser | yes | yes | not yet |
+| Browser | yes | yes | yes |
 
 The F-Droid build has no multiplayer, as it stays offline. Players using the original SimGolf files and players using the free graphics can play together. It is a beta: please
 report problems on the [issue tracker](https://github.com/crspytopgn/opensgolf/issues/new/choose) or in

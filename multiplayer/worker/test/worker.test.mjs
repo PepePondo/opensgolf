@@ -35,6 +35,8 @@ test("only sound results are read", () => {
     "cheats were on": [{ cheats: true }, { cheats: undefined }],
     "bad facts": [{ facts: facts({ rank: 4 }) }, { facts: facts({ cash: 1.5 }) }, { facts: facts({ holes: 99 }) }],
     "the challenge's year is not over": [{ facts: facts({ year: 2001 }) }],
+    "not the challenge's year end": [{ facts: facts({ year: 2003 }) }],
+    "more than 18 holes": [{ facts: facts({ holes: 19 }) }],
     "update the game": [{ protocol: 2 }, { protocol: undefined }],
     "bad nickname": [{ nick: "ab" }, { nick: "x".repeat(17) }, { nick: "<script>" }, { nick: "sh1t head" }],
   };

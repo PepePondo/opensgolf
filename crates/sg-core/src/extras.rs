@@ -706,6 +706,14 @@ mod tests {
     use super::*;
 
     #[test]
+    fn multiplayer_keeps_only_the_looks() {
+        let e = Extras { rotate: true, path_style: 3, season_speed: 2, freeze_moods: true, tees: true, ..Extras::default() };
+        let l = e.looks_only();
+        assert_eq!(l, Extras { rotate: true, path_style: 3, ..Extras::default() });
+        assert!(e.changes_rules() && !l.changes_rules() && !Extras::LOOKS.changes_rules());
+    }
+
+    #[test]
     fn off_changes_nothing() {
         let e = Extras::default();
         assert!(e.is_off());
@@ -1017,6 +1025,17 @@ pub const LAMP_UNITS: i32 = 3;
 pub const MAX_LAMPS: usize = 256;
 
 impl Extras {
+    /// Only the extras that change how the game looks (Tab turning a building's picture, path styles and lamps), the
+    /// rest off: what the multiplayer modes play with, so every player's game runs by the same rules.
+    pub fn looks_only(&self) -> Extras {
+        Extras { rotate: self.rotate, path_style: self.path_style, ..Extras::default() }
+    }
+
+    /// Whether any extra that changes how the game plays is on.
+    pub fn changes_rules(&self) -> bool {
+        *self != self.looks_only()
+    }
+
     /// Path styles and lamps is on (lamps are drawn and may be placed).
     pub fn lamps(&self) -> bool {
         self.path_style != 0

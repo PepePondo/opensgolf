@@ -724,6 +724,9 @@ impl App {
             save(&e);
             return;
         }
+        // the weekly challenge and the leagues keep the rules they started with (mp/fair.rs)
+        #[cfg(feature = "multiplayer")]
+        let e = self.fair_extras(e);
         // a game's own extras changed while it is played: an action (replay.rs)
         if self.rec.depth_zero() {
             self.act(sg_core::action::Action::Extras(e));

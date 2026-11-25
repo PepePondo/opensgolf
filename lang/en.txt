@@ -2922,7 +2922,7 @@ STR_MODS_FULL                           :The course holds as many pack objects a
 STR_MODS_NEEDS_HOLES                    :This needs {N} open holes first.
 STR_MODS_CLOSE                          :Close
 STR_MODS_OK                             :OK
-STR_MODS_NO_MULTIPLAYER                 :Multiplayer is closed while content packs that add objects or scripts are on ({PACKS}). Switch them off in Preferences > Content and restart to play together.
+STR_MODS_NO_MULTIPLAYER                 :Multiplayer is closed while content packs that add objects or scripts or change the game's data are on ({PACKS}). Switch them off in Preferences > Content and restart to play together.
 STR_GOAL_STATE_OPEN                     :open
 STR_GOAL_STATE_BY                       :open, by the end of {YEAR}
 STR_GOAL_STATE_DONE                     :reached

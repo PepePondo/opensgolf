@@ -423,7 +423,7 @@ impl App {
         self.scen.start_money = None;
         println!("league: {} seat {seat} ({}, seed {})", l.code, sg_core::data::property_id(l.property), seat_seed(l.seed, seat));
         self.scen.starting = Some((game_id(&l.code, seat), sc));
-        self.start_game(g, prop, false);
+        self.start_fair_game(g, prop);
         // the same people and stories on every plot, whatever each player's files (as the weekly challenge)
         self.take_shared_tables(super::rival::tables());
     }
@@ -503,7 +503,7 @@ impl App {
     pub fn league_month(&mut self) {
         poll_sent();
         let Some((code, _seat)) = league_of(self.scen.goals.scenario.as_deref()) else { return };
-        if self.club.cheated {
+        if self.unfair_game() {
             return;
         }
         let f = crate::scenario_ui::facts(self);

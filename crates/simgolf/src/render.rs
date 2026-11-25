@@ -1105,6 +1105,9 @@ impl App {
         self.draw_dock(g, &s);
         s.anchor(Anchor::TopLeft);
         self.draw_leaderboard(g, &s);
+        // what the multiplayer game is about, under the name plate (mp/hud.rs)
+        #[cfg(feature = "multiplayer")]
+        self.draw_mp_hud(g, &s);
         s.anchor(Anchor::Top);
         self.draw_card(g, &s);
         s.anchor(Anchor::Centre);
@@ -1130,6 +1133,12 @@ impl App {
                     s.text_fit(g, 608.0, 440.0 - h + 20.0 + 16.0 * i as f32, 176.0, l, 13.0, c);
                 }
             }
+        }
+        // "Challenge complete" over everything when the weekly challenge's year is over (mp/done.rs)
+        #[cfg(feature = "multiplayer")]
+        {
+            s.anchor(Anchor::Centre);
+            self.draw_challenge_done(g, &s);
         }
         g.flush();
     }

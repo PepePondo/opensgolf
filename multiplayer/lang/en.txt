@@ -19,8 +19,22 @@ STR_MP_GOAL_CASH                        :the most cash
 STR_MP_GOAL_FUN                         :the highest fun rating
 STR_MP_GOAL_MEMBERS                     :the most members
 STR_MP_GOAL_SKILL                       :the highest skill rating
-STR_MP_WEEKLY_OVER_SENDING              :Weekly challenge over: {SCORE}. Sending it to the board...
-STR_MP_WEEKLY_OVER_CHEATS               :Weekly challenge over: {SCORE}. Cheats were used, so it isn't sent.
+# Challenge complete (mp/done.rs)
+STR_MP_DONE_TITLE                       :Challenge complete!
+STR_MP_DONE_WEEK                        :Week {WEEK}: {GOAL} at the end of {YEAR}
+STR_MP_DONE_SCORE                       :Your score: {SCORE}
+STR_MP_DONE_SENDING                     :Sending it to the board...
+STR_MP_DONE_ON_BOARD_PLACE              :It's on the board: you're {PLACE} this week.
+STR_MP_DONE_NOT_BETTER_PLACE            :Your better score from an earlier game stays on the board ({PLACE}).
+STR_MP_DONE_KEPT_CHEATS                 :Cheats were used, so it isn't sent.
+STR_MP_DONE_KEPT_EXTRAS                 :Extras that change the rules were on, so it isn't sent.
+STR_MP_DONE_KEPT_MODS                   :Content packs that change the game are on, so it isn't sent.
+STR_MP_DONE_VIEW_BOARD                  :View board
+STR_MP_DONE_AGAIN                       :Send again
+STR_MP_DONE_MENU                        :Return to menu
+STR_MP_DONE_PLAY_ON                     :Keep playing
+STR_MP_DONE_PLAY_ON_NOTE                :Keep playing goes on with this club, but nothing more is sent.
+STR_MP_FAIR_EXTRAS                      :Multiplayer games keep the original rules: only the looks extras can change.
 STR_MP_RESULT_ON_BOARD                  :Your result is on the weekly board.
 STR_MP_RESULT_NOT_BETTER                :Result sent: your best this week is still the one on the board.
 STR_MP_RESULT_UPDATE                    :Update the game to send results to the board.
@@ -46,6 +60,25 @@ STR_MP_BOARD_TITLE_PAST_GROUP           :Board of week {WEEK}: group {GROUP}
 STR_MP_BOARD_EARLIER                    :Earlier week
 STR_MP_BOARD_LATER                      :Later week
 STR_MP_LAST_WEEK_WON                    :You won last week's challenge! See Start New Game > Multiplayer > Weekly challenge.
+STR_MP_HUD_GOAL                         :Goal: {GOAL} by the end of {YEAR}
+STR_MP_HUD_GOAL_CASH                    :most cash
+STR_MP_HUD_GOAL_FUN                     :highest fun
+STR_MP_HUD_GOAL_MEMBERS                 :most members
+STR_MP_HUD_GOAL_SKILL                   :highest skill
+STR_MP_HUD_BUDGET                       :This week: half the usual money
+STR_MP_HUD_NINE                         :This week: {N} holes at most
+STR_MP_HUD_MONTHS                       :{N} months left
+STR_MP_HUD_ONE_MONTH                    :1 month left
+STR_MP_HUD_OVER                         :Finished
+STR_MP_HUD_NOW                          :you: {SCORE}
+STR_MP_HUD_NOW_PLACE                    :you: {SCORE} ({PLACE} on the board)
+STR_MP_HUD_CHEATED                      :Cheats or rule-changing extras: this game won't go on the board.
+STR_MP_HUD_PLAYED_ON                    :Over: playing on, nothing more is sent.
+STR_MP_HUD_LEAGUE                       :Neighbours: {NAME}
+STR_MP_HUD_LEAGUE_PLACE                 :{PLACE} of {N}
+STR_MP_HUD_CLUB                         :Shared club: {NAME}
+STR_MP_HUD_CLUB_ON                      :{N} players on
+STR_MP_HUD_CLUB_ALONE                   :Only you are on
 STR_MP_LAST_WEEK_PLACE                  :You finished {PLACE} in last week's challenge.
 STR_MP_BOARD_LOADING                    :Loading the board...
 STR_MP_BOARD_EMPTY                      :No results yet this week: be the first.

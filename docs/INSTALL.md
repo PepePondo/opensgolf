@@ -24,7 +24,7 @@ by Windows' own zipper, which uses Deflate64 for big files such as the sounds, o
 Unarchiver's stronger settings (BZip2, LZMA, PPMd): iPad's Files app cannot unpack those and shows the folders empty;
 OpenSGolf can, in the browser, the desktop app and Android alike. Files in other compressions (Zstandard, XZ) and
 encrypted ones are left out and the game says how many; unpack such a zip (or a .7z or .rar) on a computer and pick the
-folder, or zip it again with normal compression. The browser page shows its version at the bottom (OpenSGolf 0.9.2):
+folder, or zip it again with normal compression. The browser page shows its version at the bottom (OpenSGolf 0.9.3):
 an older one there is a copy the browser kept; reload the page.
 
 * **Windows**: unzip `opensgolf-windows.zip` anywhere and double-click `opensgolf.exe` (no console window opens). Windows
@@ -108,8 +108,8 @@ an older one there is a copy the browser kept; reload the page.
   [packaging/README.md](../packaging/README.md)) has neither button: the store updates it.
 * **No sound?** The game writes what it found and what it plays on to `sound.txt` in the same save folder (20 seconds after
   it starts, then every two minutes; in the browser the same lines go to the console, F12). Please attach it to a report.
-* **Browser**: nothing to install, see [Play in your browser](https://crspytopgn.github.io/opensgolf/); `opensgolf-web.zip` is the
-  same page to host yourself. It takes your SimGolf folder, a .zip of it, or the CD: an `.iso` or a Mac's `.cdr` (also
+* **Browser**: nothing to install, see [Play in your browser](https://crspytopgn.github.io/opensgolf/) (to host the page yourself, build it with
+  `web/build.sh`). It takes your SimGolf folder, a .zip of it, or the CD: an `.iso` or a Mac's `.cdr` (also
   inside a .zip), a .zip of the CD's files, or the CD picked as a folder, unpacked in the page (a `.dmg` cannot be read:
   make a `.cdr` as above). On an iPad or iPhone, a CD image in the Files app works too.
 * **From source**: see [Build and run](../README.md#build-and-run).

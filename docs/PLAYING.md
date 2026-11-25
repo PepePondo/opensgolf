@@ -156,14 +156,12 @@ GitHub for OpenSGolf's newest release and says whether you have it. When a newer
   the box then says why and offers the download page. Anything else that goes wrong (no internet, a folder the game may
   not write to such as `/Applications` for a standard user, a copy not installed from a release package) leaves your
   version as it was and offers the download page too.
-  **Only what changed** (the port's own, GitHub issue #65): on Windows and with the Linux `.tar.gz` the game first
-  compares its `packs` folder with the new release's signed list of pack files (`opensgolf-packs.sha256`), then
-  downloads the release's program-only package (`opensgolf-windows-bin.zip`, `opensgolf-linux-x86_64-bin.tar.gz`, ...:
-  the programs, `lang` and the documents, without `packs`) and only the pack files that differ, each checked against
-  the signed list. When nothing in `packs` changed, `packs` is not touched at all. When more than a quarter of the pack
-  files changed, or the release has no such files, or any of it fails, the whole package is downloaded as before. The
-  AppImage, the Mac's `OpenSGolf.app` (a signed app is replaced whole) and Android always take the whole package. Your
-  saves, settings and SimGolf files are never touched: they are not in the game's folder.
+  **Only what changed** (the port's own, GitHub issue #65): on Windows and with the Linux `.tar.gz`, for a release
+  that carries a signed list of pack files (`opensgolf-packs.sha256`) and program-only packages (`NAME-bin.zip`,
+  `NAME-bin.tar.gz`), the game downloads only the programs and the pack files that differ. Releases from 0.9.3 on no
+  longer carry them (since the free art is built into the program, they saved only about 0.5 MB), so the whole package
+  is downloaded, as it is for the AppImage, the Mac's `OpenSGolf.app` and Android. Your saves, settings and SimGolf
+  files are never touched: they are not in the game's folder.
 - **Open the download page**: the release page (https://github.com/crspytopgn/opensgolf/releases/latest) in the system's
   browser, to download and install it as the first time.
 - **Not now**.
@@ -1353,8 +1351,8 @@ photo (F10) are downloaded; saved games and the accomplishment snapshots stay in
 
 Content packs (mods, docs/MODDING.md): System Functions, Preferences, *Game files...*, *Content packs...* lists the installed packs; switch them on or off and order the mods there (Up and Down, or PageUp and PageDown on the picked row). The choices are saved in `settings.json` at once and take effect the next time the game starts. `--screen content` opens the screen for stills. *Save profile...* keeps the current choices under a name and *Profiles...* lists the saved ones to load (the choices then take effect at the next start) or delete. A game saved with other packs than the ones in use asks before it loads from *Load Previous Game*, in plain words ("This game was saved with the original SimGolf art; you're using the free graphics", or other add-ons; the packs' ids and versions go to the log): switch to the save's packs (the desktop game starts again on them and loads the save; on Android and in a browser restart or reload, then load it), load it anyway, or not load it (docs/MODDING.md 2).
 
-Scenarios (docs/MODDING.md 5): with a scenario pack installed, *Start New Game* first offers a free game (the original's
-way on: Select Difficulty, then a property) or one of the scenarios, each with its goals; a scenario that names no
+Scenarios (docs/MODDING.md 5): with a scenario pack installed, *Start New Game* (under *Single player*, in a build
+with multiplayer) offers a normal game (the original's way on: Select Difficulty, then a property) or one of the scenarios, each with its goals; a scenario that names no
 difficulty goes by way of Select Difficulty. Messages say when a goal is reached or missed and when the scenario is won or
 lost; *Information, Scenario Goals* (the menu's last line, shown when the game has goals) lists them. The Save dialog's
 *Export as scenario pack* button (or Tab) writes the game as a scenario pack into the save folder's `packs`, under the

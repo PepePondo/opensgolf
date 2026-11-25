@@ -1473,7 +1473,8 @@ To turn it off, choose *Don't ask again* (or *Maybe later* twice), or set `"done
 more).
 
 The store builds (Flathub, F-Droid; `OPENSGOLF_NO_SELF_UPDATE`) keep the reminder; their store pages list the donation
-link too. Test hooks: `SG_PLAYTIME=SECONDS` starts the counter there (`SG_PLAYTIME=3600` and a visit to the title menu
+link too. You can also support OpenSGolf on [Ko-fi](https://ko-fi.com/crspytopgn) or
+[GitHub Sponsors](https://github.com/sponsors/crspytopgn). Test hooks: `SG_PLAYTIME=SECONDS` starts the counter there (`SG_PLAYTIME=3600` and a visit to the title menu
 shows the box); `SG_SUPPORT=1` shows the box at the first frame of the title menu or of a quiet course, whatever the
 counter, for stills (`SG_SUPPORT=1 BIN --game DIR --png out.png --time 2`). A shown box still counts as an ask in
 `settings.json`, so use a scratch `OPENSGOLF_SAVE_DIR` for tests.

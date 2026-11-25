@@ -107,6 +107,11 @@
   <content_rating type="oars-1.1"/>
 
   <releases>
+    <release version="0.9.4" date="2026-11-25">
+      <description>
+        <p>Mods can now add their own buildings and objects with art, tools, panels and map views, with a much bigger script API. The title screen has a Join us on Discord button.</p>
+      </description>
+    </release>
     <release version="0.9.3" date="2026-11-25">
       <description>
         <p>Start New Game now asks Single player or Multiplayer first. The weekly challenge keeps past weeks' boards, tells you when you placed last week, and moves the friends' group behind Compare with friends.</p>

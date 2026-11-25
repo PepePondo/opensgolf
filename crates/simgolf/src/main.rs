@@ -2753,6 +2753,10 @@ impl Stage {
             if editor::title_button_rect().has(vx, vy) {
                 hit = editor::EDITOR_HOVER;
             }
+            // the port's own: "Join us on Discord" (welcome.rs)
+            if welcome::discord_button_rect().has(vx, vy) {
+                hit = welcome::DISCORD_HOVER;
+            }
         } else {
             hit = app.world_hit(vx, vy);
         }
@@ -2832,6 +2836,7 @@ impl Stage {
                 backups::CONTINUE_HOVER => app.continue_click(),
                 launcher::TITLE_HOVER => app.open_launcher(false, false),
                 editor::EDITOR_HOVER => app.open_editor_start(),
+                welcome::DISCORD_HOVER => app.open_discord(),
                 _ => quit_game(app),
             }
         } else {

@@ -407,6 +407,7 @@
   .get { display: flex; flex-direction: column; gap: 6px; }
   .get .btn { min-height: 40px; font-size: 13px; padding: 0 12px; justify-content: flex-start; border-radius: 8px; }
   .btn.coffee { color: #1b1b1b; border-color: #a38c00; background: linear-gradient(180deg, #fff59e 0%, #ffe600 45%, #ffd500 52%, #ffe233 100%); }
+  .btn.kofi { color: #fff; border-color: #1f7fb8; background: linear-gradient(180deg, #8fd6ff 0%, #29abe0 45%, #1a9bd6 52%, #3cb4e6 100%); text-shadow: 0 1px 0 rgba(0,0,0,0.25); }
 
   footer { padding: 12px 16px 16px; color: var(--foot); font-size: 11px; line-height: 1.6; text-align: center;
     border-top: 1px solid var(--line); background: linear-gradient(180deg, transparent, rgba(0,0,0,0.03)); }
@@ -672,7 +673,7 @@
           </div>
           <div id="summary" role="status" aria-live="polite"></div>
           <label class="remember"><input type="checkbox" id="remember" checked> Keep my files in this browser so next time starts at once</label>
-          <label class="remember"><input type="checkbox" id="playcount" checked> Count my play time, anonymously (one count per 15 minutes played and one at start; no cookies, no personal data)</label>
+          <label class="remember"><input type="checkbox" id="playcount" checked> Count my play time, anonymously (the seconds played, sent every 5 minutes of play and when you leave, and one count at start; no cookies, no personal data)</label>
           <div id="status" role="status" aria-live="polite"></div>
           <p class="trouble" id="install" hidden><span id="installtext"></span> <button class="linkish" id="installbtn" hidden>Install OpenSGolf</button></p>
           <p class="trouble">Game stuck on its first picture? <button class="linkish" id="resetgfx" onclick="sgResetGraphics(); return false;">Reset graphics settings</button> (your saved games are kept)</p>
@@ -840,6 +841,7 @@
             <p>OpenSGolf is free and always will be, with no ads. It's made by one person with the help of paid AI tools,
               which cost money every month, so a coffee goes straight into future updates.</p>
             <p class="get"><a class="btn coffee" href="https://buymeacoffee.com/crspytopgn">☕ Buy me a coffee</a>
+              <a class="btn kofi" href="https://ko-fi.com/crspytopgn">💙 Support me on Ko-fi</a>
               <a class="btn ghost" href="https://github.com/sponsors/crspytopgn">💖 Sponsor on GitHub</a></p>
           </div>
         </div>
@@ -871,8 +873,8 @@
         SimGolf's art, sounds and data belong to Electronic Arts and are not included; the page reads them from your own copy.
         The picture at the top is from the game running with the original SimGolf files.</p>
       <p>Visits and play time are counted with <a href="https://www.goatcounter.com">GoatCounter</a>: no cookies and no
-        personal data. The game counts play time anonymously with the project's own counter: one count per 15 minutes played
-        and one at start, with only the system, the version and a random number made fresh each time the game starts. The tick under the start buttons or the game's Preferences &gt; More turns it off.</p>
+        personal data. The game counts play time anonymously with the project's own counter: the seconds played, sent every 5
+        minutes of play and when you leave, and one count at start, with only the system, the version and a random number made fresh each time the game starts. The tick under the start buttons or the game's Preferences &gt; More turns it off.</p>
       <p class="viewed">Best viewed at any resolution, on any screen, with the sound on.</p>
     </footer>
   </div>

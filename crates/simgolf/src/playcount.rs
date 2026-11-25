@@ -1,16 +1,25 @@
 //! The play-time count (the port's own, none of it in the original; docs/PLAYING.md "Play-time count"): so the project can
-//! see how many hours are played on each system and version, the game sends one anonymous count to the project's own
-//! play-time counter ([`COUNT_URL`], a Cloudflare Worker: stats/README.md) for every 15 minutes of play, and one when it
-//! starts:
+//! see how many hours are played on each system and version, to the second, the game sends anonymous counts to the
+//! project's own play-time counter ([`COUNT_URL`], a Cloudflare Worker: stats/README.md):
 //!
 //! * `start/<platform>/<version>` once at start, e.g. `start/windows/0.6.0`;
-//! * `play-15min/<platform>` for each 15 minutes of play time, e.g. `play-15min/linux-arm64`.
+//! * `play/<platform>` with `t`, the whole seconds played in this run so far, every [`EVERY`] (5 minutes) of play, and
+//!   again whenever the game is left with time not yet sent: the window going to the background (or the app paused on
+//!   Android, the page hidden in the browser) and the game quitting.
+//!
+//! `t` only grows within a run, so the counter keeps the highest one it has seen for the run and adds only the increase:
+//! a count that is lost is made up by the next, and one that arrives twice adds nothing. That makes it exact to the second
+//! without ever counting twice. The last count of each run (its run id, `t` and version: [`Record::last`]) is kept in
+//! settings.json and sent again at the next start, so a run that ended without its last count getting through (no
+//! internet, the app closed from the background, a crash) is still counted in full; on the desktop and Android it is
+//! kept until the counter has answered (at most [`MAX_EARLIER`] runs). Builds up to 0.8.7 sent `play-15min/<platform>` for
+//! each 15 minutes instead (and GoatCounter before 0.8.2); the counter still takes those, and their unsent marks
+//! ([`Record::pending`]) go once as `kept` seconds, 900 each.
 //!
 //! The play time is the support reminder's clock (support.rs): real seconds on the course, not paused, not in the
 //! background, not on the menus. Each count also carries the version, the count's number in this run and a run id: a random
-//! number made at each start and never saved, so one run's counts can be told apart (how long people play at a time)
-//! but never linked to a player or to another run. Nothing else is sent: no names, saved games or course data, and no
-//! cookies. Builds before 0.8.2 counted with GoatCounter instead; the Worker imports those counts every week.
+//! number made at each start, so one run's counts can be told apart (how long people play at a time) but never linked to a
+//! player or to another run. Nothing else is sent: no names, saved games or course data, and no cookies.
 //! `<platform>` is windows, macos, linux, android or web, with `-arm64` on 64-bit ARM (but Android).
 //!
 //! It is on by default; the first time a course is played the ticker says so once, and Preferences > More > "Count my play
@@ -19,21 +28,19 @@
 //! sent, and no address in the program.
 //!
 //! Each count is one GET of the counter's address ([`count_url`]: `e` the event, `v` the version, `s` the run id or `kept`,
-//! `n` the count's number in the run, `rnd` against caching): on the desktop and Android by ureq as the update check uses
-//! it (net.rs), on a thread of its own with a short timeout; in the browser by the page (web/opensgolf.js sg_playcount,
-//! which makes the run id too: sg_random; the page's own "Count my play time" tick off turns it off as the game's tick
-//! does). On the desktop and Android a
-//! 15-minute count that does not get through (no internet) is kept as a number in settings.json ([`Record::pending`], at
-//! most [`MAX_PENDING`], a week's play) and sent with the next count that does, [`BATCH`] at a time a second apart:
-//! nothing but the same counts, later; taking the tick off deletes them. The start count is not kept. Nothing is ever
-//! shown about a failure.
+//! `n` the count's number in the run, `t` the seconds, `rnd` against caching): on the desktop and Android by ureq as the
+//! update check uses it (net.rs), on a thread of its own with a short timeout (the one at quit is waited for, at most
+//! [`QUIT_TIMEOUT_S`]); in the browser by the page (web/opensgolf.js sg_playcount, which makes the run id too: sg_random;
+//! the page's own "Count my play time" tick off turns it off as the game's tick does), from inside the page's
+//! visibilitychange event when it is hidden. Nothing is ever shown about a failure.
 //!
 //! Never from tests or scripted runs: under `cargo test`, with --png, --time or --screen, or with any SG_* test hook
 //! nothing is sent and the notice is not shown. Test hook: `SG_PLAYCOUNT_LOG=1` prints each count instead of sending it
-//! (and shows the notice, without remembering it), with `SG_PLAYTIME=SECONDS` to start the clock near a mark.
+//! (and shows the notice, without remembering it), with `SG_PLAYTIME=SECONDS` to start the clock anywhere.
 // the address and the User-Agent go unused where nothing is sent from Rust (a store's build, the browser, no `net`)
 #![cfg_attr(any(opensgolf_store, target_arch = "wasm32", not(feature = "net")), allow(dead_code))]
 use serde::{Deserialize, Serialize};
+use std::sync::Mutex;
 
 /// Whether this build has the count at all (not a store's build).
 pub const AVAILABLE: bool = cfg!(not(opensgolf_store));
@@ -45,16 +52,38 @@ pub const KEPT_RUN: &str = "kept";
 /// settings.json's key.
 pub const SETTINGS_KEY: &str = "playcount";
 /// The play time between two counts, in seconds.
-pub const EVERY: f64 = 15.0 * 60.0;
+pub const EVERY: f64 = 5.0 * 60.0;
 /// The test hook's variable.
 pub const LOG_ENV: &str = "SG_PLAYCOUNT_LOG";
-/// At most this many unsent 15-minute counts are kept (a week of play).
-pub const MAX_PENDING: u32 = 7 * 24 * 4;
-/// Kept counts sent along with one that gets through, a second apart.
-pub const BATCH: u32 = 16;
+/// Seconds in one of the older builds' kept 15-minute marks.
+pub const MARK_S: u64 = 15 * 60;
+/// The most one run, or the kept seconds, can report: a week of play (the counter takes no more).
+pub const MAX_S: u64 = 7 * 24 * 3600;
+/// Earlier runs whose last count is kept until the counter answers.
+pub const MAX_EARLIER: usize = 8;
 /// How long a count may take before it is dropped.
 #[cfg(all(not(opensgolf_store), not(target_arch = "wasm32"), feature = "net"))]
 const TIMEOUT_S: u64 = 10;
+/// The run's seconds are written to [`Record::last`] this often between counts (not sent), so even a run that is killed
+/// is counted to within this at the next start.
+pub const CHECKPOINT_S: u64 = 30;
+/// The test hook's variable for a shorter time between counts, in seconds (tools/playcount_test.sh): only with a stand-in
+/// counter ([`TEST_URL_ENV`]).
+pub const TEST_EVERY_ENV: &str = "OPENSGOLF_COUNT_TEST_EVERY";
+/// How long the game waits, as it quits, for its last count.
+pub const QUIT_TIMEOUT_S: u64 = 2;
+
+/// A run's latest play count: sent again at a later start until the counter has it.
+#[derive(Clone, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(default)]
+pub struct RunTime {
+    /// The run's id.
+    pub run: String,
+    /// Whole seconds played in the run.
+    pub t: u64,
+    /// The version that played it.
+    pub v: String,
+}
 
 /// What is kept in settings.json.
 #[derive(Clone, Debug, Default, PartialEq, Serialize, Deserialize)]
@@ -64,21 +93,36 @@ pub struct Record {
     pub off: bool,
     /// The one-time notice was shown.
     pub noticed: bool,
-    /// 15-minute counts that did not get through (no internet), to be sent later: only their number is kept.
+    /// Older builds' 15-minute counts that did not get through: read once, then sent as [`Record::kept_s`].
     pub pending: u32,
+    /// Seconds from those to send, with no run (`kept`).
+    pub kept_s: u64,
+    /// This run's latest play count, kept as it is sent; moves to `earlier` at the next start.
+    pub last: Option<RunTime>,
+    /// Earlier runs' last counts the counter has not answered yet.
+    pub earlier: Vec<RunTime>,
 }
 
-/// Counts that a sending thread gave back (they did not get through), for the frame to keep in [`Record::pending`].
-static RETURNED: std::sync::atomic::AtomicU32 = std::sync::atomic::AtomicU32::new(0);
-
-/// `pending` after `back` more counts were given back, never above [`MAX_PENDING`].
-pub fn keep(pending: u32, back: u32) -> u32 {
-    pending.saturating_add(back).min(MAX_PENDING)
+/// What a sending thread found got through, for the frame to take off the record.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub enum Ack {
+    /// A run's count with `t` seconds.
+    Run(String, u64),
+    /// Kept seconds.
+    Kept(u64),
 }
 
-/// How many kept counts go out with the next one: at most [`BATCH`].
-pub fn batch(pending: u32) -> u32 {
-    pending.min(BATCH)
+/// Answers the sending threads have had, waiting for the next frame.
+static ACKS: Mutex<Vec<Ack>> = Mutex::new(Vec::new());
+
+fn ack(a: Ack) {
+    if let Ok(mut v) = ACKS.lock() {
+        v.push(a);
+    }
+}
+
+fn take_acks() -> Vec<Ack> {
+    ACKS.lock().map(|mut v| std::mem::take(&mut *v)).unwrap_or_default()
 }
 
 /// What this run does with the count.
@@ -134,25 +178,36 @@ pub fn start_event(platform: &str, version: &str) -> String {
     format!("start/{platform}/{version}")
 }
 
-/// The count sent for each 15 minutes of play.
+/// The play-time count.
 pub fn play_event(platform: &str) -> String {
-    format!("play-15min/{platform}")
+    format!("play/{platform}")
 }
 
-/// The first mark after the play time `played`: the next whole 15 minutes (time played before this run is not counted
-/// again).
-pub fn first_mark(played: f64) -> f64 {
-    ((played.max(0.0) / EVERY).floor() + 1.0) * EVERY
+/// The first mark after `t` seconds of this run's play: the next whole `every` ([`EVERY`]).
+pub fn first_mark(t: f64, every: f64) -> f64 {
+    ((t.max(0.0) / every).floor() + 1.0) * every
 }
 
-/// Whether the play time `played` has reached the mark `next`; if so the mark moves to the next one after `played` (one
-/// count however far the clock jumped).
-pub fn reached(played: f64, next: &mut f64) -> bool {
-    if played < *next {
+/// Whether the run's play time `t` has reached the mark `next`; if so the mark moves to the next one after `t` (one count
+/// however far the clock jumped).
+pub fn reached(t: f64, next: &mut f64, every: f64) -> bool {
+    if t < *next {
         return false;
     }
-    *next = first_mark(played);
+    *next = first_mark(t, every);
     true
+}
+
+/// The time between counts: [`EVERY`], or the test hook's (5 s or more) with a stand-in counter.
+pub fn every_from(test_url: Option<&str>, test_every: Option<&str>) -> f64 {
+    let t = local_test_url(test_url).and(test_every.and_then(|v| v.trim().parse::<f64>().ok()));
+    t.filter(|t| t.is_finite() && *t >= 5.0).unwrap_or(EVERY)
+}
+
+/// Whole seconds played in this run: the clock `played` less where it stood at start, never more than [`MAX_S`].
+pub fn run_seconds(played: f64, at_start: f64) -> u64 {
+    let t = (played - at_start).max(0.0).floor();
+    (t as u64).min(MAX_S)
 }
 
 /// Whether the one-time notice is due on the course.
@@ -185,17 +240,32 @@ pub fn local_test_url(v: Option<&str>) -> Option<String> {
     local.iter().any(|p| v.starts_with(p)).then(|| v.to_string())
 }
 
-/// The address that counts `event` of `version`, count `n` of the run `run` ([`KEPT_RUN`] for kept counts); `rnd`
-/// against caching.
+/// One count to send.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct Count {
+    pub event: String,
+    pub version: String,
+    /// The run id, or [`KEPT_RUN`].
+    pub run: String,
+    /// The count's number in the run (0: the start count, or one sent again).
+    pub n: u32,
+    /// Seconds (play counts only).
+    pub t: Option<u64>,
+    /// What to take off the record when it gets through.
+    pub ack: Option<Ack>,
+}
+
+/// The address that sends `c`; `rnd` against caching.
 #[cfg(not(opensgolf_store))]
-pub fn count_url(event: &str, version: &str, run: &str, n: u32, rnd: u64) -> String {
-    let e = query_value(event);
-    let (v, s) = (query_value(version), query_value(run));
+pub fn count_url(c: &Count, rnd: u64) -> String {
+    let e = query_value(&c.event);
+    let (v, s) = (query_value(&c.version), query_value(&c.run));
     #[cfg(not(target_arch = "wasm32"))]
     let base = local_test_url(std::env::var(TEST_URL_ENV).ok().as_deref()).unwrap_or_else(|| COUNT_URL.to_string());
     #[cfg(target_arch = "wasm32")]
     let base = COUNT_URL;
-    format!("{base}?e={e}&v={v}&s={s}&n={n}&rnd={rnd:x}")
+    let t = c.t.map_or(String::new(), |t| format!("&t={t}"));
+    format!("{base}?e={e}&v={v}&s={s}&n={}{t}&rnd={rnd:x}", c.n)
 }
 
 /// The User-Agent of a count, e.g. "OpenSGolf/0.6.0 (linux)".
@@ -203,7 +273,7 @@ pub fn user_agent(version: &str, platform: &str) -> String {
     format!("OpenSGolf/{version} ({platform})")
 }
 
-/// 64 random bits as 16 hex digits: the run id, made at each start and never saved.
+/// 64 random bits as 16 hex digits: the run id, made at each start.
 pub fn run_id_hex(bits: u64) -> String {
     format!("{bits:016x}")
 }
@@ -234,20 +304,76 @@ pub fn new_run_id() -> String {
     run_id_hex(bits)
 }
 
+/// A record read from settings.json made safe: older builds' unsent marks turned into kept seconds, everything within a
+/// week, the run ids valid, at most [`MAX_EARLIER`] earlier runs; nothing kept when the tick is off.
+pub fn tidy(mut r: Record) -> Record {
+    if r.off {
+        return Record { off: true, noticed: r.noticed, ..Default::default() };
+    }
+    r.kept_s = r.kept_s.saturating_add(u64::from(r.pending).saturating_mul(MARK_S)).min(MAX_S);
+    r.pending = 0;
+    let ok =
+        |l: &RunTime| (8..=32).contains(&l.run.len()) && l.run.bytes().all(|c| c.is_ascii_hexdigit() && !c.is_ascii_uppercase()) && l.t > 0;
+    r.earlier.retain(ok);
+    for l in &mut r.earlier {
+        l.t = l.t.min(MAX_S);
+    }
+    if r.last.as_ref().is_some_and(|l| !ok(l)) {
+        r.last = None;
+    }
+    r
+}
+
+/// At start: the last run's count joins the earlier ones still to send (the newest [`MAX_EARLIER`]).
+pub fn start_run(r: &mut Record) {
+    if let Some(l) = r.last.take() {
+        r.earlier.retain(|e| e.run != l.run);
+        r.earlier.push(l);
+    }
+    let n = r.earlier.len();
+    if n > MAX_EARLIER {
+        r.earlier.drain(..n - MAX_EARLIER);
+    }
+}
+
+/// Takes what got through off the record: an earlier run sent at least as far, this run's `last` too, the kept seconds
+/// sent. True when the record changed.
+pub fn apply_acks(r: &mut Record, acks: &[Ack]) -> bool {
+    let before = r.clone();
+    for a in acks {
+        match a {
+            Ack::Run(run, t) => {
+                r.earlier.retain(|e| !(e.run == *run && e.t <= *t));
+                if r.last.as_ref().is_some_and(|l| l.run == *run && l.t <= *t) {
+                    r.last = None;
+                }
+            }
+            Ack::Kept(s) => r.kept_s = r.kept_s.saturating_sub(*s),
+        }
+    }
+    *r != before
+}
+
 /// The play-time count's state (`App::playcount`).
 #[derive(Debug)]
 pub struct State {
     pub record: Record,
     /// The mode with the tick on (the tick can be taken off and put back while the game runs).
     base: Mode,
-    /// The next play time that sends a count.
+    /// The support clock when this run started: the run's play time is counted from there.
+    at_start: f64,
+    /// The run's next play time (from `at_start`) that sends a count.
     next: f64,
+    /// The time between counts ([`every_from`]).
+    every: f64,
+    /// The run's seconds in the last play count sent (or tried).
+    sent: u64,
     /// The browser page's own "Count my play time" tick is off (web/index.html #playcount): off as with the game's tick.
     page_off: bool,
     platform: String,
     /// This run's id ([`new_run_id`]; empty until a count is sent).
     run: String,
-    /// 15-minute counts sent (or tried) in this run: the next one's number less one.
+    /// Play counts sent (or tried) in this run: the next one's number less one.
     marks: u32,
 }
 
@@ -256,7 +382,10 @@ impl Default for State {
         State {
             record: Record::default(),
             base: Mode::Off,
+            at_start: 0.0,
             next: EVERY,
+            every: EVERY,
+            sent: 0,
             page_off: false,
             platform: String::new(),
             run: String::new(),
@@ -320,56 +449,96 @@ fn log_hook() -> bool {
 }
 
 /// At start up, after the support reminder's clock (`played`): the saved record, the run's mode (`scripted`: --png,
-/// --time or --screen), and the start count.
+/// --time or --screen), the start count, and after it the kept seconds and earlier runs' last counts.
 pub fn init(played: f64, scripted: bool) -> State {
-    let mut record: Record = serde_json::from_value(settings_json()[SETTINGS_KEY].clone()).unwrap_or_default();
-    // an edited or damaged settings.json never asks for more than a week of kept counts; none when the tick is off
-    record.pending = if record.off { 0 } else { record.pending.min(MAX_PENDING) };
+    let record = tidy(serde_json::from_value(settings_json()[SETTINGS_KEY].clone()).unwrap_or_default());
     let log = log_hook();
     let scripted = scripted || cfg!(test) || test_hooks();
     let base = mode(AVAILABLE, false, log, scripted);
-    let mut s =
-        State { record, base, next: first_mark(played), page_off: page_off(), platform: platform_here(), run: String::new(), marks: 0 };
+    #[cfg(not(target_arch = "wasm32"))]
+    let every = every_from(std::env::var(TEST_URL_ENV).ok().as_deref(), std::env::var(TEST_EVERY_ENV).ok().as_deref());
+    #[cfg(target_arch = "wasm32")]
+    let every = EVERY;
+    let mut s = State {
+        record,
+        base,
+        at_start: played.max(0.0),
+        next: every,
+        every,
+        page_off: page_off(),
+        platform: platform_here(),
+        ..Default::default()
+    };
     if log {
-        println!("play count: {:?} (platform {}, next count at {:.0} s of play)", s.mode(), s.platform, s.next);
+        println!("play count: {:?} (platform {}, a count every {:.0} s of play)", s.mode(), s.platform, s.every);
     }
-    let start = start_event(&s.platform, crate::update::VERSION);
-    s.send(&start, false);
+    if !matches!(s.mode(), Mode::Send | Mode::Log) {
+        return s;
+    }
+    s.run = new_run_id();
+    start_run(&mut s.record);
+    let v = crate::update::VERSION.to_string();
+    let mut counts = vec![Count { event: start_event(&s.platform, &v), version: v.clone(), run: s.run.clone(), n: 0, t: None, ack: None }];
+    if s.record.kept_s > 0 {
+        let k = s.record.kept_s;
+        counts.push(Count { event: play_event(&s.platform), version: v, run: KEPT_RUN.into(), n: 0, t: Some(k), ack: Some(Ack::Kept(k)) });
+    }
+    for e in &s.record.earlier {
+        let ack = Some(Ack::Run(e.run.clone(), e.t));
+        counts.push(Count { event: play_event(&s.platform), version: e.v.clone(), run: e.run.clone(), n: 0, t: Some(e.t), ack });
+    }
+    // the browser never hears back: its earlier runs go once, now (each is safe to send again: it adds nothing twice)
+    if cfg!(target_arch = "wasm32") {
+        s.record.earlier.clear();
+        s.record.kept_s = 0;
+    }
+    if s.mode() == Mode::Send {
+        save(&s.record);
+    }
+    s.dispatch(counts, false);
     s
 }
 
 impl State {
-    /// Sends `event` (Send), prints it (Log), or nothing; with up to [`BATCH`] kept counts after it. `play`: a 15-minute
-    /// count, kept for later if it does not get through.
-    fn send(&mut self, event: &str, play: bool) {
+    /// Sends the play count for the run's seconds now (`t`), first keeping it as [`Record::last`] so a later start sends it
+    /// again if it never gets through; `wait`: as the game quits, waited for.
+    fn send_play(&mut self, t: u64, wait: bool) {
         let mode = self.mode();
-        if !matches!(mode, Mode::Send | Mode::Log) {
+        if !matches!(mode, Mode::Send | Mode::Log) || t == 0 || t <= self.sent || self.run.is_empty() {
             return;
         }
-        if self.run.is_empty() {
-            self.run = new_run_id();
+        self.sent = t;
+        self.marks += 1;
+        let v = crate::update::VERSION.to_string();
+        self.record.last = Some(RunTime { run: self.run.clone(), t, v: v.clone() });
+        if mode == Mode::Send {
+            save(&self.record);
         }
-        let n = if play {
-            self.marks += 1;
-            self.marks
-        } else {
-            0
+        let c = Count {
+            event: play_event(&self.platform),
+            version: v,
+            run: self.run.clone(),
+            n: self.marks,
+            t: Some(t),
+            ack: Some(Ack::Run(self.run.clone(), t)),
         };
-        // the browser keeps nothing: its page is online to have loaded at all, and it tells the game nothing back
-        let later = if cfg!(target_arch = "wasm32") { 0 } else { batch(self.record.pending) };
-        if later > 0 {
-            self.record.pending -= later;
-            if mode == Mode::Send {
-                save(&self.record);
+        self.dispatch(vec![c], wait);
+    }
+
+    /// Sends `counts` in order (Send; the rest are dropped after one fails), prints them (Log), or nothing.
+    fn dispatch(&self, counts: Vec<Count>, wait: bool) {
+        match self.mode() {
+            Mode::Log => {
+                for c in &counts {
+                    let t = c.t.map_or(String::new(), |t| format!(", {t} s"));
+                    println!("play count: would send {} (run {}, count {}{t}){}", c.event, c.run, c.n, if wait { " and wait" } else { "" });
+                    if let Some(a) = c.ack.clone() {
+                        ack(a);
+                    }
+                }
             }
-        }
-        match mode {
-            Mode::Log => println!(
-                "play count: would send {event} (run {}, count {n}){}",
-                self.run,
-                if later > 0 { format!(" and {later} kept") } else { String::new() }
-            ),
-            _ => send_now(event, play, later, &self.platform, &self.run, n),
+            Mode::Send => send_now(counts, &self.platform, wait),
+            _ => {}
         }
     }
 }
@@ -390,41 +559,36 @@ fn page_off() -> bool {
     false
 }
 
-/// The count on its way, then `later` kept 15-minute counts: a thread's GETs on the desktop and Android (what does not get
-/// through is given back to [`RETURNED`]: the event if `play`, and the kept counts not yet sent), the page's fetch in the
-/// browser. `run` and `n`: the run id and the count's number in it.
+/// The counts on their way: GETs one after another on the desktop and Android, on a thread (or here and waited for, at
+/// most [`QUIT_TIMEOUT_S`] each, with `wait`), what gets through told to [`ACKS`]; the page's fetches in the browser.
 #[allow(unused_variables)]
-fn send_now(event: &str, play: bool, later: u32, platform: &str, run: &str, n: u32) {
+fn send_now(counts: Vec<Count>, platform: &str, wait: bool) {
     #[cfg(all(not(opensgolf_store), not(target_arch = "wasm32"), feature = "net"))]
     {
-        let event = event.to_string();
-        let run = run.to_string();
-        let kept = play_event(platform);
         let agent_name = user_agent(crate::update::VERSION, platform);
-        // named: a panic in it ends only the count (android.rs); the answer is read only for whether it got through
-        let spawned = std::thread::Builder::new().name("opensgolf-count".into()).spawn(move || {
-            use std::sync::atomic::Ordering;
+        let timeout = if wait { QUIT_TIMEOUT_S } else { TIMEOUT_S };
+        let go = move || {
             let agent: ureq::Agent =
-                ureq::Agent::config_builder().timeout_global(Some(std::time::Duration::from_secs(TIMEOUT_S))).build().into();
-            let get = |e: &str, run: &str, n: u32| {
+                ureq::Agent::config_builder().timeout_global(Some(std::time::Duration::from_secs(timeout))).build().into();
+            for (i, c) in counts.into_iter().enumerate() {
+                if i > 0 {
+                    // a second apart, as a few counts after the start count
+                    std::thread::sleep(std::time::Duration::from_secs(1));
+                }
                 let rnd = std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).map_or(0, |d| d.as_nanos() as u64);
-                let url = count_url(e, crate::update::VERSION, run, n, rnd);
-                agent.get(&url).header("User-Agent", &agent_name).call().is_ok()
-            };
-            if !get(&event, &run, n) {
-                RETURNED.fetch_add(u32::from(play) + later, Ordering::Relaxed);
-                return;
-            }
-            for i in 0..later {
-                std::thread::sleep(std::time::Duration::from_secs(1));
-                if !get(&kept, KEPT_RUN, 0) {
-                    RETURNED.fetch_add(later - i, Ordering::Relaxed);
+                if agent.get(&count_url(&c, rnd)).header("User-Agent", &agent_name).call().is_err() {
                     return;
                 }
+                if let Some(a) = c.ack {
+                    ack(a);
+                }
             }
-        });
-        if spawned.is_err() {
-            RETURNED.fetch_add(u32::from(play) + later, std::sync::atomic::Ordering::Relaxed);
+        };
+        if wait {
+            go();
+        } else {
+            // named: a panic in it ends only the count (android.rs); the answer is read only for whether it got through
+            let _ = std::thread::Builder::new().name("opensgolf-count".into()).spawn(go);
         }
     }
     #[cfg(all(not(opensgolf_store), target_arch = "wasm32"))]
@@ -434,15 +598,17 @@ fn send_now(event: &str, play: bool, later: u32, platform: &str, run: &str, n: u
             /// Sends a count: the page fetches the address (web/opensgolf.js).
             fn sg_playcount(ptr: *const u8, len: usize);
         }
-        let url = count_url(event, crate::update::VERSION, run, n, u64::from(n));
-        // SAFETY: the page reads `len` bytes at `ptr`, which live for the call
-        unsafe { sg_playcount(url.as_ptr(), url.len()) };
+        for c in &counts {
+            let url = count_url(c, u64::from(c.n) ^ c.t.unwrap_or(0));
+            // SAFETY: the page reads `len` bytes at `ptr`, which live for the call
+            unsafe { sg_playcount(url.as_ptr(), url.len()) };
+        }
     }
 }
 
 impl crate::app::App {
-    /// Once a frame, after the play time is counted: a count at each 15 minutes of play, and the one-time notice the first
-    /// time the course is played.
+    /// Once a frame, after the play time is counted: a count at each 5 minutes of play, what got through taken off the
+    /// record, and the one-time notice the first time the course is played.
     pub fn playcount_frame(&mut self) {
         let mode = self.playcount.mode();
         if matches!(mode, Mode::Off | Mode::Quiet) {
@@ -450,18 +616,18 @@ impl crate::app::App {
         }
         let played = self.support.record.played;
         let p = &mut self.playcount;
-        // counts that did not get through are kept for later (the tick off throws them away)
-        let back = RETURNED.swap(0, std::sync::atomic::Ordering::Relaxed);
-        if back > 0 && mode == Mode::Send {
-            p.record.pending = keep(p.record.pending, back);
+        let acks = take_acks();
+        if apply_acks(&mut p.record, &acks) && mode == Mode::Send {
             save(&p.record);
         }
-        if reached(played, &mut p.next) {
-            let e = play_event(&p.platform);
-            p.send(&e, true);
-            // the mark is kept with the clock at once, so a restart soon after never sends it again
+        let t = run_seconds(played, p.at_start);
+        if reached(t as f64, &mut p.next, p.every) {
+            p.send_play(t, false);
+        } else if !p.run.is_empty() && t >= p.record.last.as_ref().map_or(p.sent, |l| l.t) + CHECKPOINT_S {
+            // between counts the seconds are only written down, for the next start should this run be killed
+            p.record.last = Some(RunTime { run: p.run.clone(), t, v: crate::update::VERSION.to_string() });
             if mode == Mode::Send {
-                self.support_save_now();
+                save(&p.record);
             }
         }
         let quiet = self.popup.is_none() && self.notice.is_none() && self.ui_ok;
@@ -476,18 +642,53 @@ impl crate::app::App {
         }
     }
 
+    /// The game is left (the window to the background, the app paused, the page hidden): the seconds played since the
+    /// last count go now, so a run that never comes back is still counted to the second.
+    pub fn playcount_left(&mut self) {
+        let t = run_seconds(self.support.record.played, self.playcount.at_start);
+        self.playcount.send_play(t, false);
+        // the player's own clock kept to the second too (support.rs), when it has moved
+        if self.support.unsaved > 0.0 {
+            self.support_save_now();
+        }
+    }
+
+    /// The game quits: the last seconds go now, waited for (at most [`QUIT_TIMEOUT_S`]); if they do not get through they
+    /// stay in settings.json for the next start.
+    pub fn playcount_quit(&mut self) {
+        let t = run_seconds(self.support.record.played, self.playcount.at_start);
+        self.playcount.send_play(t, true);
+        // the player's own clock kept to the second too (support.rs), when it has moved
+        if self.support.unsaved > 0.0 {
+            self.support_save_now();
+        }
+        let acks = take_acks();
+        if apply_acks(&mut self.playcount.record, &acks) && self.playcount.mode() == Mode::Send {
+            save(&self.playcount.record);
+        }
+    }
+
     /// Preferences > More's tick: off stops every count (and the start count of later runs); saved.
     pub fn set_playcount(&mut self, on: bool) {
         if !AVAILABLE || self.playcount.on() == on {
             return;
         }
+        // on again: the counts go on from the seconds already sent (the time with it off is not counted)
+        if on {
+            self.playcount.at_start = self.support.record.played - self.playcount.sent as f64;
+            self.playcount.next = first_mark(self.playcount.sent as f64, self.playcount.every);
+            if self.playcount.run.is_empty() {
+                self.playcount.run = new_run_id();
+            }
+        }
         self.playcount.record.off = !on;
         // the notice would only say what the player has just seen in Preferences
         self.playcount.record.noticed = true;
-        // off: counts kept for later are thrown away, never sent
+        // off: nothing kept to send later, never sent
         if !on {
-            self.playcount.record.pending = 0;
-            RETURNED.store(0, std::sync::atomic::Ordering::Relaxed);
+            let noticed = self.playcount.record.noticed;
+            self.playcount.record = Record { off: true, noticed, ..Default::default() };
+            take_acks();
         }
         save(&self.playcount.record);
         if self.playcount.base == Mode::Log {
@@ -501,27 +702,40 @@ mod tests {
     use super::*;
 
     #[test]
-    fn a_count_every_15_minutes_of_play() {
-        let mut next = first_mark(0.0);
+    fn a_count_every_5_minutes_of_play() {
+        let mut next = first_mark(0.0, EVERY);
         assert_eq!(next, EVERY);
         let mut sent = 0;
         let mut t = 0.0;
-        // an hour of play in 1/60 s frames: four counts, each at its mark
+        // an hour of play in 1/60 s frames: twelve counts, each at its mark
         while t < 3600.0 + 0.5 {
-            if reached(t, &mut next) {
+            if reached(t, &mut next, EVERY) {
                 sent += 1;
                 assert!((t - sent as f64 * EVERY).abs() < 0.1, "at {t}");
             }
             t += 1.0 / 60.0;
         }
-        assert_eq!(sent, 4);
-        // time played before this run is not counted again; a jump counts once
-        let mut next = first_mark(20_000.0);
-        assert_eq!(next, 20_700.0);
-        assert!(!reached(20_699.0, &mut next));
-        assert!(reached(30_000.0, &mut next));
-        assert_eq!(next, 30_600.0);
-        assert!(!reached(30_001.0, &mut next));
+        assert_eq!(sent, 12);
+        // a jump counts once
+        let mut next = first_mark(0.0, EVERY);
+        assert!(reached(1000.0, &mut next, EVERY));
+        assert_eq!(next, 1200.0);
+        assert!(!reached(1001.0, &mut next, EVERY));
+        // the test hook's shorter time, only with a stand-in counter
+        let local = Some("http://127.0.0.1:8771/count");
+        assert_eq!(every_from(local, Some("20")), 20.0);
+        assert_eq!(every_from(local, Some("1")), EVERY, "not under 5 s");
+        assert_eq!(every_from(Some("https://example.com/count"), Some("20")), EVERY);
+        assert_eq!(every_from(None, Some("20")), EVERY);
+        assert_eq!(every_from(local, None), EVERY);
+    }
+
+    #[test]
+    fn the_run_counts_from_its_start_to_the_second() {
+        assert_eq!(run_seconds(20_000.0, 20_000.0), 0);
+        assert_eq!(run_seconds(20_937.9, 20_000.0), 937, "whole seconds");
+        assert_eq!(run_seconds(10.0, 20.0), 0);
+        assert_eq!(run_seconds(1e12, 0.0), MAX_S);
     }
 
     #[test]
@@ -563,21 +777,70 @@ mod tests {
         let v = serde_json::to_value(&r).unwrap();
         assert_eq!(serde_json::from_value::<Record>(v).unwrap(), r);
         let none: Record = serde_json::from_value(serde_json::json!({})[SETTINGS_KEY].clone()).unwrap_or_default();
-        assert_eq!(none, Record { off: false, noticed: false, pending: 0 });
+        assert_eq!(none, Record::default());
     }
 
     #[test]
-    fn counts_that_do_not_get_through_are_kept_a_week_at_most() {
-        assert_eq!(keep(0, 1), 1);
-        assert_eq!(keep(5, 17), 22);
-        assert_eq!(keep(MAX_PENDING - 1, 5), MAX_PENDING, "a week of play at most");
-        assert_eq!(keep(u32::MAX, 1), MAX_PENDING);
-        assert_eq!(batch(0), 0);
-        assert_eq!(batch(3), 3);
-        assert_eq!(batch(200), BATCH);
-        // old settings without the number read as none kept
-        let r: Record = serde_json::from_value(serde_json::json!({"off": false, "noticed": true})).unwrap();
-        assert_eq!(r.pending, 0);
+    fn older_builds_settings_read_safely() {
+        // 0.8.x kept unsent 15-minute marks as a number: they go once as kept seconds
+        let r = tidy(serde_json::from_value(serde_json::json!({"off": false, "noticed": true, "pending": 3})).unwrap());
+        assert_eq!((r.pending, r.kept_s, r.noticed), (0, 3 * MARK_S, true));
+        let r = tidy(Record { pending: u32::MAX, kept_s: 5, ..Default::default() });
+        assert_eq!(r.kept_s, MAX_S, "an edited settings.json: a week at most");
+        // the tick off keeps nothing
+        let r = tidy(Record {
+            off: true,
+            noticed: true,
+            pending: 4,
+            last: Some(RunTime { run: "0123abcd".into(), t: 9, v: "1.0.0".into() }),
+            ..Default::default()
+        });
+        assert_eq!(r, Record { off: true, noticed: true, ..Default::default() });
+        // damaged runs are dropped, long ones held to a week
+        let bad = RunTime { run: "NOT HEX".into(), t: 5, v: "x".into() };
+        let none = RunTime { run: "0123abcd".into(), t: 0, v: "x".into() };
+        let long = RunTime { run: "0123abcd".into(), t: u64::MAX, v: "x".into() };
+        let r = tidy(Record { earlier: vec![bad.clone(), none, long], last: Some(bad), ..Default::default() });
+        assert_eq!(r.earlier.len(), 1);
+        assert_eq!(r.earlier[0].t, MAX_S);
+        assert_eq!(r.last, None);
+    }
+
+    #[test]
+    fn a_runs_last_count_is_sent_again_until_it_gets_through() {
+        let rt = |run: &str, t| RunTime { run: run.into(), t, v: "0.8.8".into() };
+        let mut r = Record { last: Some(rt("aaaaaaaa", 937)), ..Default::default() };
+        // the next start: the last run's count is to be sent again
+        start_run(&mut r);
+        assert_eq!((r.last.clone(), r.earlier.clone()), (None, vec![rt("aaaaaaaa", 937)]));
+        // this run's counts: kept as they go, taken off as they get through
+        r.last = Some(rt("bbbbbbbb", 300));
+        assert!(!apply_acks(&mut r, &[Ack::Run("aaaaaaaa".into(), 600)]), "an older count of the run is not enough");
+        assert!(apply_acks(&mut r, &[Ack::Run("aaaaaaaa".into(), 937)]));
+        assert!(r.earlier.is_empty());
+        r.last = Some(rt("bbbbbbbb", 600));
+        apply_acks(&mut r, &[Ack::Run("bbbbbbbb".into(), 300)]);
+        assert_eq!(r.last, Some(rt("bbbbbbbb", 600)), "a count that came back late does not take off a newer one");
+        apply_acks(&mut r, &[Ack::Run("bbbbbbbb".into(), 600)]);
+        assert_eq!(r.last, None);
+        // kept seconds
+        r.kept_s = 2700;
+        apply_acks(&mut r, &[Ack::Kept(2700)]);
+        assert_eq!(r.kept_s, 0);
+        // runs offline for many starts: the newest few are kept
+        let mut r = Record::default();
+        for i in 0..20u64 {
+            r.last = Some(rt(&format!("{:08x}", i + 1), 60));
+            start_run(&mut r);
+        }
+        assert_eq!(r.earlier.len(), MAX_EARLIER);
+        assert_eq!(r.earlier.last().unwrap().run, "00000014");
+        // the same run never twice
+        r.last = Some(rt("00000014", 120));
+        start_run(&mut r);
+        assert_eq!(r.earlier.len(), MAX_EARLIER);
+        assert_eq!(r.earlier.iter().filter(|e| e.run == "00000014").count(), 1);
+        assert_eq!(r.earlier.last().unwrap().t, 120);
     }
 
     #[test]
@@ -601,15 +864,19 @@ mod tests {
         assert_eq!(platform("", "wasm32", true), "web");
         assert_eq!(platform("freebsd", "x86_64", false), "other");
         assert_eq!(start_event("linux", "0.6.0"), "start/linux/0.6.0");
-        assert_eq!(play_event("macos-arm64"), "play-15min/macos-arm64");
+        assert_eq!(play_event("macos-arm64"), "play/macos-arm64");
         assert_eq!(query_value("start/linux/0.6.0-rc1+x"), "start%2Flinux%2F0.6.0-rc1%2Bx");
         assert_eq!(user_agent("0.6.0", "linux"), "OpenSGolf/0.6.0 (linux)");
+        let c = |run: &str, n, t| Count { event: "play/linux".into(), version: "0.8.8".into(), run: run.into(), n, t, ack: None };
         #[cfg(not(opensgolf_store))]
-        assert_eq!(
-            count_url("play-15min/linux", "0.8.2", "00ff00ff00ff00ff", 3, 255),
-            format!("{COUNT_URL}?e=play-15min%2Flinux&v=0.8.2&s=00ff00ff00ff00ff&n=3&rnd=ff")
-        );
-        assert!(count_url("play-15min/web", "0.8.2", KEPT_RUN, 0, 1).contains("&s=kept&n=0&"));
+        {
+            assert_eq!(
+                count_url(&c("00ff00ff00ff00ff", 3, Some(937)), 255),
+                format!("{COUNT_URL}?e=play%2Flinux&v=0.8.8&s=00ff00ff00ff00ff&n=3&t=937&rnd=ff")
+            );
+            assert!(count_url(&c(KEPT_RUN, 0, Some(1800)), 1).contains("&s=kept&n=0&t=1800&"));
+            assert!(!count_url(&Count { event: start_event("linux", "0.8.8"), ..c("00ff00ff", 0, None) }, 1).contains("&t="));
+        }
         // a run id is 16 hex digits (the counter takes 8 to 32), different each run
         assert_eq!(run_id_hex(0xab), "00000000000000ab");
         let (a, b) = (new_run_id(), new_run_id());

@@ -3,6 +3,7 @@
 [![Release](https://img.shields.io/github/v/release/crspytopgn/opensgolf?label=release)](https://github.com/crspytopgn/opensgolf/releases/latest)
 [![Licence: GPL-2.0-or-later](https://img.shields.io/badge/licence-GPL--2.0--or--later-blue)](LICENSE)
 [![Buy me a coffee](https://img.shields.io/badge/Buy%20me%20a%20coffee-FFDD00?logo=buymeacoffee&logoColor=black)](https://buymeacoffee.com/crspytopgn)
+[![Ko-fi](https://img.shields.io/badge/Ko--fi-FF5E5B?logo=kofi&logoColor=white)](https://ko-fi.com/crspytopgn)
 [![Sponsor on GitHub](https://img.shields.io/badge/Sponsor-EA4AAA?logo=githubsponsors&logoColor=white)](https://github.com/sponsors/crspytopgn)
 
 OpenSGolf is an open source game engine that plays Sid Meier's SimGolf (2002). It uses the original game's files if you
@@ -230,8 +231,8 @@ with the GPL.
 
 OpenSGolf is free and always will be, with no ads. It's made by one person with the help of paid AI tools, which cost
 money every month, so if you enjoy it, a coffee helps pay for future updates:
-[buymeacoffee.com/crspytopgn](https://buymeacoffee.com/crspytopgn). You can also
-[sponsor it on GitHub](https://github.com/sponsors/crspytopgn). The launcher has a *Support future updates* button
+[buymeacoffee.com/crspytopgn](https://buymeacoffee.com/crspytopgn). You can also use
+[Ko-fi](https://ko-fi.com/crspytopgn) or [sponsor it on GitHub](https://github.com/sponsors/crspytopgn). The launcher has a *Support future updates* button
 beside Play.
 The game itself asks at most twice, gently, after an hour of play and again five hours later if you said *Maybe later*
 (the play time is counted on your device; *Don't ask again* ends it; see
@@ -241,12 +242,14 @@ More from me: [OpenMCM2](https://github.com/crspytopgn/openmcm2) · [OpenLinks20
 
 **Privacy: the play-time count.** So I can see how much OpenSGolf is played, the GitHub release builds and the browser
 version send an anonymous count to the project's own counter (a small Cloudflare Worker, [stats/](stats/)): one at start
-(`start/<platform>/<version>`) and one per 15 minutes of play (`play-15min/<platform>`), with the version and a random
-number made fresh at each start (never saved, so runs can't be linked to a player), nothing else (no names, saves or
-cookies). The game says so once; *Preferences > More > Count my play time (anonymous)* turns it off. Store
+(`start/<platform>/<version>`) and the seconds played in that run (`play/<platform>`, every 5 minutes of play and when
+you leave or quit, so play time is exact to the second), with the version and a random number made fresh at each start
+(kept only on your device until the run's last seconds are sent, so runs can't be linked to a player), nothing else (no
+names, saves or cookies). The game says so once; *Preferences > More > Count my play time (anonymous)* turns it off. Store
 builds (Flathub, F-Droid) do not include it. See [docs/PLAYING.md](docs/PLAYING.md#play-time-count).
 
 [![Buy me a coffee](https://img.shields.io/badge/Buy%20me%20a%20coffee-FFDD00?style=for-the-badge&logo=buymeacoffee&logoColor=black)](https://buymeacoffee.com/crspytopgn)
+[![Support me on Ko-fi](https://img.shields.io/badge/Ko--fi-FF5E5B?style=for-the-badge&logo=kofi&logoColor=white)](https://ko-fi.com/crspytopgn)
 [![Sponsor on GitHub](https://img.shields.io/badge/Sponsor%20on%20GitHub-EA4AAA?style=for-the-badge&logo=githubsponsors&logoColor=white)](https://github.com/sponsors/crspytopgn)
 
 Thank you to everyone who reports bugs, tests on their devices, draws art for the free set and shares the game, and to

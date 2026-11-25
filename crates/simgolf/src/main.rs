@@ -2223,7 +2223,7 @@ impl Stage {
                 }
             }
             // in a browser the page has the files' picker: back to it (as the title menu's Quit)
-            Hit::BackToPage => quit_game(),
+            Hit::BackToPage => quit_game(&mut self.app),
             // a preset put in use as "How would you like to play?" and Game options do; Custom without a mix of the
             // player's own (or chosen again) opens Game options to tick one
             Hit::Preset(k) => {
@@ -2774,7 +2774,7 @@ impl Stage {
                 backups::CONTINUE_HOVER => app.continue_click(),
                 launcher::TITLE_HOVER => app.open_launcher(false, false),
                 editor::EDITOR_HOVER => app.open_editor_start(),
-                _ => quit_game(),
+                _ => quit_game(app),
             }
         } else {
             app.world_click(&mut self.g, hit);
@@ -2972,7 +2972,7 @@ impl Stage {
                     app.open_popup(popup_ui::PopupKind::System);
                     app.hover = -1;
                 } else {
-                    quit_game();
+                    quit_game(app);
                 }
             }
             // Space drops the tool and the selected golfer (and ends People > Follow)
@@ -3708,7 +3708,7 @@ impl EventHandler for Stage {
         }
         // the support reminder counts the time played (support.rs; real time, whatever the game speed)
         app.support_tick(dt, playing);
-        // the play-time count at each 15 minutes of that time, and its one-time notice (playcount.rs)
+        // the play-time count at each 5 minutes of that time, and its one-time notice (playcount.rs)
         app.playcount_frame();
         // the exe's fast mode follows the speed the game is played at (replay.rs: a replay's own, whatever the keys say)
         #[cfg(feature = "multiplayer")]
@@ -4480,6 +4480,8 @@ impl EventHandler for Stage {
     /// the program with an error code in that teardown on the ARM64 test machine).
     fn quit_requested_event(&mut self) {
         sysdiag::note("the window's close was asked for: exiting");
+        // the play-time count's last seconds (playcount.rs), waited for briefly
+        self.app.playcount_quit();
         enhanced::trial_clean_exit();
         #[cfg(not(any(target_arch = "wasm32", target_os = "android")))]
         std::process::exit(0);
@@ -4493,8 +4495,9 @@ impl EventHandler for Stage {
     fn window_minimized_event(&mut self) {
         self.app.window_hidden();
         self.app.autosave_on_hide();
-        // no play time counted in the background (support.rs)
+        // no play time counted in the background (support.rs); the seconds played so far are counted now (playcount.rs)
         self.app.support.hidden = true;
+        self.app.playcount_left();
     }
 
     /// The window is back: the pause the extra made ends, and its sound goes on.
@@ -4511,6 +4514,8 @@ impl EventHandler for Stage {
 impl Drop for Stage {
     fn drop(&mut self) {
         sysdiag::note("main loop ended: exiting");
+        // the play-time count's last seconds (playcount.rs; nothing when the quit already sent them)
+        self.app.playcount_quit();
         std::process::exit(0);
     }
 }
@@ -4628,7 +4633,7 @@ impl Stage {
                 app.tourney_key(k);
             } else if k == KeyCode::Escape {
                 if app.screen == Screen::Menu {
-                    quit_game();
+                    quit_game(app);
                 } else if app.screen == Screen::Land || (app.screen == Screen::Property && app.world_move) {
                     // TRACTS FOR SALE and the world map opened from a game (F6) go back to the course, as their cancel
                     // buttons do; Esc used to drop the game for the title menu
@@ -4650,7 +4655,9 @@ impl Stage {
 
 /// Leaves the game (the title menu's exit button, Esc there). A browser tab cannot close itself: the page goes back to its
 /// start page (web/opensgolf.js sg_quit) instead of stopping on the last frame drawn.
-fn quit_game() {
+fn quit_game(app: &mut App) {
+    // the play-time count's last seconds first (playcount.rs)
+    app.playcount_quit();
     #[cfg(target_arch = "wasm32")]
     {
         #[link(wasm_import_module = "env")]

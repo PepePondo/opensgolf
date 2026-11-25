@@ -3668,7 +3668,7 @@ STR_MENU_PREFS_WHATSNEW                 : What's new...
 STR_PREFS_DESC_WHATSNEW                 :Shows what's new in this version. Try it turns a new option on; a link opens the full changelog.
 STR_PLAYCOUNT_NOTICE                    :OpenSGolf counts anonymous play time (no personal data). Turn it off in Preferences > More.
 STR_MENU_PREFS_PLAYCOUNT                : Count my play time (anonymous)
-STR_PREFS_DESC_PLAYCOUNT                :Sends an anonymous count at start and every 15 minutes of play: only your system and version, never names or saves.
+STR_PREFS_DESC_PLAYCOUNT                :Sends your play time anonymously, to the second: only your system and version, never names or saves.
 
 # Making HD graphics from the player's own files (the port's own, hd_make.rs; docs/HD.md)
 STR_PREFS_MAKE_HD                       : Make HD graphics from my SimGolf files (beta)...

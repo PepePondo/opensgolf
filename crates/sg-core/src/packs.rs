@@ -193,7 +193,7 @@ pub struct Manifest {
 }
 
 /// The mod API this game offers. It goes up by one whenever a release changes what packs see in a way that can break
-/// one (a data file's or objects.toml's keys, a script hook or function): 1 up to 0.9.1, 2 from the pack objects, tools,
+/// one (a data file's or objects.toml's keys, a script hook or function): 1 up to 0.9.2, 2 from the pack objects, tools,
 /// panels and map views. Old packs are not kept working: one that fails is told it was made for an older game.
 pub const MOD_API: u32 = 2;
 

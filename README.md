@@ -198,8 +198,7 @@ mix; each option says whether it changes the looks, helps, or changes the gamepl
   sound, and what's new, on one screen in the look of the start page, before the title menu; untick *Show this at start*
   to skip it (Preferences → More → *Launcher...* brings it back) ([docs/PLAYING.md](docs/PLAYING.md#the-launcher)).
 - **Updates from the title menu:** *Check for updates*, then *Update now* downloads the new version, checks its signature
-  and installs it in place (Windows, macOS, Linux, Android); on Windows and with the Linux .tar.gz it downloads only the
-  programs and the pack files that changed. A Preferences tick (Preferences → More) checks once at each start. Only GitHub is contacted, and
+  and installs it in place (Windows, macOS, Linux, Android). A Preferences tick (Preferences → More) checks once at each start. Only GitHub is contacted, and
   only then.
 - **Content packs and game scripts** that change prices, buildings, terrain, golfers, text, art and sounds, add scenarios,
   and can be downloaded from inside the game ([docs/MODDING.md](docs/MODDING.md)).

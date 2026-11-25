@@ -8,13 +8,10 @@ name: release
 #   macOS    opensgolf-macos.zip (OpenSGolf.app, Apple silicon and Intel)
 #   Windows  opensgolf-windows.zip (x64) and opensgolf-windows-arm64.zip (Windows on ARM, e.g. Snapdragon laptops)
 #   Android  opensgolf-android.apk (signed with a debug key, for sideloading)
-#   browser  opensgolf-web.zip
 # No package carries packs/opensgolf-free/art (about 15 MB in 1,900 files): those files are built into the programs (freeset/baked_list.rs)
 # and the game never reads them from the pack folder, so a copy beside the program would only double the download.
-# Each Windows .zip and Linux .tar.gz also comes as NAME-bin.zip / NAME-bin.tar.gz, the same package without packs/ (the
-# programs, lang and the documents, a few MB), with opensgolf-packs.sha256 listing every file in packs/: the game's
-# "Update now" then downloads only the programs and the pack files that changed (GitHub issue #65, autoupdate.rs),
-# and SHA256SUMS with SHA256SUMS.sig, its ed25519 signature, which the game's "Update now" checks before installing a
+# The browser version is played on the website (pages.yml), so it is not a release file. The release also carries
+# SHA256SUMS with SHA256SUMS.sig, its ed25519 signature, which the game's "Update now" checks before installing a
 # package (crates/simgolf/src/autoupdate.rs; the key is the secret OPENSGOLF_UPDATE_KEY, docs/RELEASING.md).
 # The icon is the engine's own drawing (sg_core::freeset::app_icon, `sgtool icon`).
 
@@ -77,8 +74,6 @@ jobs:
           cp -r packs lang "$out/"
           rm -rf "$out/packs/opensgolf-free/art"
           tar czf "$out.tar.gz" "$out"
-          # the same without packs/, for selective updates (autoupdate.rs)
-          tar czf "$out-bin.tar.gz" --exclude="$out/packs" "$out"
       - name: AppImage
         run: |
           # the game finds its packs and translations next to the program (usr/bin), its saves in ~/.local/share/opensgolf
@@ -171,14 +166,10 @@ jobs:
           cp -r packs lang "$out/"
           rm -rf "$out/packs/opensgolf-free/art"
           7z a "$out.zip" "$out" > /dev/null
-          # the same without packs/, for selective updates (autoupdate.rs)
-          7z a "$out-bin.zip" "$out" '-xr!packs' > /dev/null
       - uses: actions/upload-artifact@v4
         with:
           name: windows-${{ matrix.name }}
-          path: |
-            ${{ matrix.out }}.zip
-            ${{ matrix.out }}-bin.zip
+          path: ${{ matrix.out }}.zip
 
   android:
     runs-on: ubuntu-latest
@@ -200,26 +191,8 @@ jobs:
           name: android
           path: opensgolf-android.apk
 
-  web:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-      - uses: dtolnay/rust-toolchain@stable
-        with:
-          targets: wasm32-unknown-unknown
-      - name: Build the browser version
-        run: ./web/build.sh
-      - name: Package
-        run: |
-          cp LICENSE web/dist/
-          (cd web/dist && zip -qr "../../opensgolf-web.zip" .)
-      - uses: actions/upload-artifact@v4
-        with:
-          name: web
-          path: opensgolf-web.zip
-
   publish:
-    needs: [linux, macos, windows, android, web]
+    needs: [linux, macos, windows, android]
     runs-on: ubuntu-latest
     if: startsWith(github.ref, 'refs/tags/') || inputs.version != ''
     steps:
@@ -230,11 +203,6 @@ jobs:
         with:
           path: dist
           merge-multiple: true
-      - name: List the packs' files (opensgolf-packs.sha256)
-        # a selective update compares these with the player's copy and fetches only the files that differ, from this
-        # release's tag in the repository (autoupdate.rs); signed with the packages below
-        # (packs/opensgolf-free/art is in no package, see the top of this file, so it is not listed either)
-        run: (cd src && find packs -path packs/opensgolf-free/art -prune -o -type f -print0 | LC_ALL=C sort -z | xargs -0 sha256sum) > dist/opensgolf-packs.sha256
       - name: Sign the packages (SHA256SUMS, SHA256SUMS.sig)
         # "Update now" (crates/simgolf/src/autoupdate.rs) installs only a package whose SHA-256 is in SHA256SUMS, signed
         # with the key in the OPENSGOLF_UPDATE_KEY secret (the private key `sgtool update-keygen` prints: 64 hex digits,
@@ -271,6 +239,23 @@ jobs:
           m = re.search(r"^## " + re.escape(minor) + r" \(.*?(?=^## |\Z)", text, re.S | re.M)
           body = m.group(0).strip() if m else ""
           body = body.replace("](docs/", "](https://github.com/crspytopgn/opensgolf/blob/main/docs/")
+          # which file to pick, above the highlights (the file names never change: Update now and the stores use them)
+          d = "https://github.com/crspytopgn/opensgolf/releases/download/v" + v + "/"
+          table = (
+              "### Which download do I need?\n\n"
+              "| You have | Download |\n|---|---|\n"
+              f"| Windows PC | [opensgolf-windows.zip]({d}opensgolf-windows.zip) |\n"
+              f"| Windows on ARM (Snapdragon laptops) | [opensgolf-windows-arm64.zip]({d}opensgolf-windows-arm64.zip) |\n"
+              f"| Mac (Apple silicon or Intel) | [opensgolf-macos.zip]({d}opensgolf-macos.zip) |\n"
+              f"| Linux PC or Steam Deck | [opensgolf-linux-x86_64.AppImage]({d}opensgolf-linux-x86_64.AppImage) |\n"
+              f"| Linux on ARM (Raspberry Pi 4/5) | [opensgolf-linux-arm64.AppImage]({d}opensgolf-linux-arm64.AppImage) |\n"
+              f"| Android phone or tablet | [opensgolf-android.apk]({d}opensgolf-android.apk) |\n"
+              "| Just want to try it | [Play in your browser](https://crspytopgn.github.io/opensgolf/), nothing to install |\n\n"
+              "The Linux `.tar.gz` files are the same game as a plain folder, for when an AppImage won't start. "
+              "`SHA256SUMS` and `SHA256SUMS.sig` let the game's *Update now* check what it downloads; you don't need them. "
+              "Install help: [INSTALL.md](https://github.com/crspytopgn/opensgolf/blob/main/docs/INSTALL.md)\n\n"
+          )
+          body = table + body
           body += "\n\nEverything, version by version: [CHANGELOG.md](https://github.com/crspytopgn/opensgolf/blob/main/CHANGELOG.md)\n"
           body += "\nChat, help and bug reports: join the [OpenSGolf Discord](https://discord.gg/DVsBzGN4dC).\n"
           open("release-notes.md", "w", encoding="utf-8").write(body)

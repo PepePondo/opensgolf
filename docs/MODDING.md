@@ -815,7 +815,7 @@ show_panel("association", #{
 ### Mod API version
 
 `api = 2` in the `[pack]` table of pack.toml says which mod API the pack was made for (1 when it is not given: packs made
-up to 0.9.2). The number goes up when a release changes what packs see in a way that can break them. A pack made for a
+up to 0.9.3). The number goes up when a release changes what packs see in a way that can break them. A pack made for a
 newer API than the game's is not loaded, and the Content screen says the game needs updating. Old packs are not kept
 working by the game: when one has a problem, the message adds that it was made for an older OpenSGolf, so its maker knows
 to update it.

@@ -22,3 +22,16 @@ enabled = true
 binding = "BOARD"
 database_name = "opensgolf-board"
 database_id = "f9841ce7-7018-47cf-9c3a-0bc85ef1cdcc"
+
+# Pull request previews (Cloudflare Workers Builds runs `wrangler preview` on non-main branches). A preview is only
+# useful with real numbers, so it reads the same two databases. Previews never run the cron import, and only the
+# game and the multiplayer server send writes to the production URL, so a preview does not add data by itself.
+[[previews.d1_databases]]
+binding = "DB"
+database_name = "opensgolf-stats"
+database_id = "4feb91e9-dbbd-4110-aee0-14d1d8f31b6e"
+
+[[previews.d1_databases]]
+binding = "BOARD"
+database_name = "opensgolf-board"
+database_id = "f9841ce7-7018-47cf-9c3a-0bc85ef1cdcc"

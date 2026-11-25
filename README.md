@@ -15,6 +15,9 @@ have them, or its own free graphics and sound if you don't. It runs on Windows, 
 <sub>Screenshot taken with the original SimGolf files (not included). More pictures on the
 [website](https://crspytopgn.github.io/opensgolf/).</sub>
 
+**New in 0.9: multiplayer (beta).** Weekly challenges, neighbours leagues and shared clubs where up to 4 people run one
+course together. [How to play together](#multiplayer-beta).
+
 **Join the community on [Discord](https://discord.gg/DVsBzGN4dC)**: chat with other players, show off your course, get help installing and
 talk about what comes next.
 
@@ -26,6 +29,7 @@ talk about what comes next.
 
 - [About](#about)
 - [Playing](#playing)
+- [Multiplayer (beta)](#multiplayer-beta)
 - [Game files: original or free](#game-files-original-or-free)
 - [Differences from the original](#differences-from-the-original)
 - [Reporting bugs and contributing](#reporting-bugs-and-contributing)
@@ -77,6 +81,33 @@ Every download is a real app that runs offline; the browser version is there for
 or for a quick try. Controllers (Xbox, PlayStation, Switch, Steam Deck) work on Windows, macOS, Linux and in the browser.
 The Windows and macOS warnings appear because the project has no paid code-signing certificate. Details for each system
 are in [docs/INSTALL.md](docs/INSTALL.md); how to play, keys and touch controls are in [docs/PLAYING.md](docs/PLAYING.md), and quick answers to common questions in [docs/HOWTO.md](docs/HOWTO.md).
+
+## Multiplayer (beta)
+
+New in 0.9: play SimGolf with other people. Open *Start New Game* and pick one of the new rows:
+
+- **Weekly challenge:** everyone gets the same property and start for the week and one score to beat at the end of
+  2001 (cash, fun, members or skill). Results go on a public weekly board, or a private one for your friends' group.
+- **Neighbours:** up to 4 friends each build their own course on a plot of the same land, at their own pace. A league
+  table compares you until the end of 2002, and you can look round a neighbour's course. Share the league's code to
+  invite them.
+- **Shared clubs:** up to 4 players build and run one course together, live. Clubs can be public or private (join with a
+  code) and pause when nobody is on.
+
+![The Weekly challenge and Neighbours pages, with the original SimGolf files](docs/images/multiplayer.jpg)
+
+Multiplayer is off until you turn it on. When it is on, the game sends a nickname, a random player id and your results
+(in a shared club, what you do in it), and nothing else about you or your computer.
+
+| | Weekly challenge | Neighbours | Shared clubs |
+|---|---|---|---|
+| Windows, macOS, Linux | yes | yes | yes |
+| Android (download from GitHub) | yes | yes | yes |
+| Browser | yes | yes | not yet |
+
+The F-Droid build has no multiplayer, as it stays offline. Players using the original SimGolf files and players using the free graphics can play together. It is a beta: please
+report problems on the [issue tracker](https://github.com/crspytopgn/opensgolf/issues/new/choose) or in
+[Discord](https://discord.gg/DVsBzGN4dC).
 
 ## Game files: original or free
 

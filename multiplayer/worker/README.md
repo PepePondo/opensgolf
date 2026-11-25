@@ -1,7 +1,7 @@
-# Rival-courses leaderboard (private until launch)
+# The multiplayer server
 
 A Cloudflare Worker with a D1 database that keeps the weekly rival-courses challenge's board. Part of the multiplayer
-work in `multiplayer/` (see the plan in the project's docs). Not deployed yet.
+work in `multiplayer/`. Deployed at https://opensgolf-board.openmcm2-laps.workers.dev.
 
 * **The weekly challenge** is worked out from the ISO week's id alone (`src/challenge.js`): the measure the board sorts
   by (cash, fun, members or skill at the end of the first game year), the course theme, the difficulty and the new game's

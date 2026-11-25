@@ -127,7 +127,7 @@ pub fn is_open() -> bool {
     PAGE.with(|p| p.borrow().is_some())
 }
 
-/// The row Start New Game adds (once Multiplayer is on, or always while it is private: the page says what is sent).
+/// The row Start New Game adds (the page says what is sent before anything is).
 pub fn entry() -> ScenarioEntry {
     super::texts();
     let sc = Scenario {

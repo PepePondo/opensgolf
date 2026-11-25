@@ -1,4 +1,4 @@
-//! Multiplayer (private until launch; the plan's "Rival courses" and "Shared course"). Built only with the `multiplayer`
+//! Multiplayer: the weekly challenge, neighbours leagues and shared clubs. Built with the `multiplayer`
 //! feature, and even then off until the player turns the Multiplayer extra on.
 //!
 //! * [`challenge`]: the weekly rival-courses challenge, the same for everyone each ISO week.

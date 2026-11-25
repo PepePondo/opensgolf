@@ -130,6 +130,15 @@ pub const HIGHLIGHTS: &[(&str, &[Highlight])] = &[
             hl("STR_WHATSNEW_MORE08", "STR_WHATSNEW_MORE08_NOTE", None),
         ],
     ),
+    (
+        "0.9",
+        &[
+            hl("STR_WHATSNEW_MULTIPLAYER", "STR_WHATSNEW_MULTIPLAYER_NOTE", None),
+            hl("STR_WHATSNEW_WEEKLY", "STR_WHATSNEW_WEEKLY_NOTE", None),
+            hl("STR_WHATSNEW_NEIGHBOURS", "STR_WHATSNEW_NEIGHBOURS_NOTE", None),
+            hl("STR_WHATSNEW_CLUBS", "STR_WHATSNEW_CLUBS_NOTE", None),
+        ],
+    ),
 ];
 
 /// The highlights file on GitHub (and its copy in the save folder), and the test hook that names another address.

@@ -4,8 +4,8 @@ name: determinism across platforms
 # game of tools/determinism_check.sh on the free base set (no original game files) with the simulation fingerprint on,
 # and the compare job checks every platform's fingerprints against Linux x86-64's, tick by tick
 # (tools/xplat_compare.sh). This is the groundwork for a shared course, where every player's computer runs the same game.
-# Run it by hand only (Actions > determinism across platforms > Run workflow): in this private repository Actions
-# minutes are limited, and macOS minutes count ten times.
+# Run it by hand only (Actions > determinism across platforms > Run workflow): macOS Actions
+# minutes count ten times.
 on:
   workflow_dispatch:
     inputs:

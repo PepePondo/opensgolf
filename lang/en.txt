@@ -3660,6 +3660,14 @@ STR_WHATSNEW_PORTRAIT                   : Play upright on phones
 STR_WHATSNEW_PORTRAIT_NOTE              :Phones and tablets can play in portrait, with the interface at the screen's edges.
 STR_WHATSNEW_MORE08                     : And more
 STR_WHATSNEW_MORE08_NOTE                :Speed x8, a height map, club records, a course review, a feature guide.
+STR_WHATSNEW_MULTIPLAYER                : Multiplayer (beta)
+STR_WHATSNEW_MULTIPLAYER_NOTE           :Start New Game has a weekly challenge, neighbours leagues and shared clubs.
+STR_WHATSNEW_WEEKLY                     : Weekly challenge
+STR_WHATSNEW_WEEKLY_NOTE                :The same land for everyone each week, and a board of the best.
+STR_WHATSNEW_NEIGHBOURS                 : Neighbours
+STR_WHATSNEW_NEIGHBOURS_NOTE            :Up to 4 friends each run their own plot of one property, in a league table.
+STR_WHATSNEW_CLUBS                      : Shared clubs
+STR_WHATSNEW_CLUBS_NOTE                 :Up to 4 players build and run one course together, live.
 STR_WHATSNEW_ALL                        : See everything that's new
 STR_WHATSNEW_OK                         : OK
 STR_WHATSNEW_TRY                        :Try it

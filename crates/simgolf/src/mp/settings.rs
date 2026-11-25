@@ -21,6 +21,9 @@ pub struct Settings {
     /// The private clubs this player made or joined, newest first (the shared clubs' page lists them with their codes).
     #[serde(skip_serializing_if = "Vec::is_empty")]
     pub clubs: Vec<MyClub>,
+    /// The neighbours leagues this player made or joined (id: the league's code), newest first.
+    #[serde(skip_serializing_if = "Vec::is_empty")]
+    pub leagues: Vec<MyClub>,
 }
 
 /// A private club the player knows.

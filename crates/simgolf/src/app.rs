@@ -2934,6 +2934,10 @@ impl App {
             let members = self.club.member_count();
             self.club.record_history(self.club.cash, members);
         }
+        #[cfg(feature = "multiplayer")]
+        if new_month {
+            self.league_month();
+        }
         if new_month && self.difficulty != 0 && !self.econ.sandbox && !self.club.championship() {
             // the monthly reminder for buildings with no path to the clubhouse
             let cut: Vec<(String, (i32, i32))> = self

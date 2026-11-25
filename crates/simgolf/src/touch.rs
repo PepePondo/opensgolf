@@ -1826,7 +1826,7 @@ impl App {
     /// The multiplayer pages' fields (mp/lobby.rs, mp/clubs_ui.rs).
     #[cfg(feature = "multiplayer")]
     fn mp_typing(&self) -> bool {
-        crate::mp::lobby::editing() || crate::mp::clubs_ui::editing()
+        crate::mp::lobby::editing() || crate::mp::clubs_ui::editing() || crate::mp::league::editing()
     }
 
     #[cfg(not(feature = "multiplayer"))]

@@ -94,6 +94,38 @@ STR_MP_WHY_PACK_EXTRA                   :turn off the pack {PACK}
 STR_MP_WHY_PACKS                        :other packs
 
 # Shared clubs: playing one (mp/club.rs)
+STR_MP_LEAGUES                          :Neighbours
+STR_MP_LEAGUES_ROW                      :Up to 4 friends, each on their own plot of one property: who runs the best club?
+STR_MP_LEAGUES_INTRO                    :Each player builds their own course on their own plot of the same property.
+STR_MP_LEAGUES_INTRO2                   :The table compares you as you play (each at their own pace) until the end of {YEAR}. Pick a neighbour to look round their course.
+STR_MP_LEAGUES_MINE                     :Your leagues
+STR_MP_LEAGUES_NONE                     :None yet: make one below, or join a friend's with its code.
+STR_MP_LEAGUE_CODE                      :code {CODE}
+STR_MP_LEAGUE_LOADING                   :Loading the league...
+STR_MP_LEAGUE_ABOUT                     :{LEAGUE}: {PLACE}, {DIFFICULTY}. Best: {MEASURE}.
+STR_MP_LEAGUE_WHO                       :Player
+STR_MP_LEAGUE_DATE                      :Reached
+STR_MP_LEAGUE_MONTHS                    :March,April,May,June,July,August,September,October
+STR_MP_LEAGUE_YOU                       :{NICK} (you)
+STR_MP_LEAGUE_NOT_YET                   :not started
+STR_MP_LEAGUE_PLAY                      :Play my plot
+STR_MP_LEAGUE_VISIT                     :Look round their course
+STR_MP_LEAGUE_NEW                       :New league
+STR_MP_LEAGUE_PROPERTY                  :Land: {PLACE}
+STR_MP_LEAGUE_SCORES                    :Best: {MEASURE}
+STR_MP_LEAGUE_MAKE                      :Make the league
+STR_MP_LEAGUE_JOIN_CODE                 :Join with a code
+STR_MP_LEAGUE_JOIN                      :Join
+STR_MP_LEAGUE_NAME_FIRST                :Type the new league's name first (3 to 32 letters).
+STR_MP_LEAGUE_CODE_FIRST                :Type the league's code first (6 letters and digits).
+STR_MP_LEAGUE_MADE                      :League made. Friends join it with the code {CODE}.
+STR_MP_LEAGUE_REFUSED                   :Couldn't do that: {WHY}.
+STR_MP_LEAGUE_NO_SAVE                   :{NICK} hasn't sent their course yet.
+STR_MP_LEAGUE_VISITING                  :Looking round {NICK}'s course: a copy, so nothing you change is kept or sent. Neighbours > Play my plot takes you back.
+STR_MP_LEAGUE_OVER                      :The league's season is over: see the final table on the Neighbours page.
+STR_MP_LEAGUE_GAME                      :League {LEAGUE}
+STR_MP_LEAGUE_GOAL                      :Have {GOAL} of your league when {YEAR} ends
+STR_MP_LEAGUE_INTRO                     :Welcome to your plot in the league {LEAGUE}. Have {GOAL} of your neighbours when {YEAR} ends: the league's table shows how you're doing.
 STR_MP_CLUB_MAKING                      :Making the club "{CLUB}"...
 STR_MP_CLUB_JOINING                     :Joining "{CLUB}"...
 STR_MP_CLUB_LEFT                        :You left the club.

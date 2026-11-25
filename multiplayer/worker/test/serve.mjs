@@ -11,8 +11,8 @@ createServer(async (req, res) => {
   for await (const c of req) chunks.push(c);
   const body = ["GET", "HEAD"].includes(req.method) ? undefined : Buffer.concat(chunks);
   const r = await worker.fetch(new Request(`http://127.0.0.1:${port}${req.url}`, { method: req.method, headers: req.headers, body }), env);
-  const text = await r.text();
-  console.log(req.method, req.url.slice(0, 60), r.status, text.slice(0, 200));
+  const bytes = Buffer.from(await r.arrayBuffer());
+  console.log(req.method, req.url.slice(0, 60), r.status, bytes.subarray(0, 200).toString());
   res.writeHead(r.status, Object.fromEntries(r.headers));
-  res.end(text);
+  res.end(bytes);
 }).listen(port, "127.0.0.1", () => console.log(`board on http://127.0.0.1:${port}`));

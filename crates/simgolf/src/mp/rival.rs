@@ -40,7 +40,7 @@ pub fn challenge_of(scenario: Option<&str>) -> Option<Challenge> {
     challenge::is_week_id(week).then(|| challenge::challenge(week))
 }
 
-fn measure_text(m: Measure) -> &'static str {
+pub fn measure_text(m: Measure) -> &'static str {
     match m {
         Measure::Cash => tr("STR_MP_GOAL_CASH"),
         Measure::Fun => tr("STR_MP_GOAL_FUN"),
@@ -103,6 +103,7 @@ pub fn entries() -> Vec<ScenarioEntry> {
             def: Ok(sc),
         },
         super::clubs_ui::entry(),
+        super::league::entry(),
     ]
 }
 
@@ -132,6 +133,9 @@ impl App {
     pub fn pick_rival(&mut self, g: &mut Gfx, id: &str) -> bool {
         if id == super::clubs_ui::ROW_ID {
             return self.screen == crate::app::Screen::Scenarios && self.ui_ok && self.open_clubs_page();
+        }
+        if id == super::league::ROW_ID {
+            return self.screen == crate::app::Screen::Scenarios && self.ui_ok && self.open_leagues_page();
         }
         if self.screen == crate::app::Screen::Scenarios && self.ui_ok {
             self.open_rival_lobby(id)

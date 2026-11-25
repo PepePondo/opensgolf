@@ -327,6 +327,8 @@ impl App {
                         // the shared clubs' row says what it is (mp/clubs_ui.rs)
                         #[cfg(feature = "multiplayer")]
                         let line = crate::mp::clubs_ui::row_line(&e.id).unwrap_or(line);
+                        #[cfg(feature = "multiplayer")]
+                        let line = crate::mp::league::row_line(&e.id).unwrap_or(line);
                         (e.name.clone(), line, false)
                     }
                     Err(err) => (e.name.clone(), trf("STR_CONTENT_ERROR", &[("ERROR", err)]), true),

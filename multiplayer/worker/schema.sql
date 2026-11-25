@@ -44,3 +44,28 @@ CREATE TABLE IF NOT EXISTS clubs (
   at      TEXT NOT NULL              -- last change (someone joined or left, or a save)
 );
 CREATE INDEX IF NOT EXISTS clubs_list ON clubs (listed, hidden, at);
+
+-- Neighbours leagues (src/league.js): 2 to 4 players each run their own course on their own plot of one property. A
+-- player's row keeps their latest numbers and their latest save (for the neighbours to look round).
+CREATE TABLE IF NOT EXISTS leagues (
+  code       TEXT PRIMARY KEY,       -- 6 letters/digits, what friends type to join
+  name       TEXT NOT NULL,
+  property   INTEGER NOT NULL,       -- 0..15, the game's property slot
+  difficulty INTEGER NOT NULL,       -- 0 easy .. 3 impossible
+  measure    TEXT NOT NULL,          -- what the table sorts by: cash, fun, members, skill
+  seed       INTEGER NOT NULL,       -- the land's seed (each seat's plot its own from it)
+  owner      TEXT NOT NULL,
+  made       TEXT NOT NULL
+);
+CREATE TABLE IF NOT EXISTS league_players (
+  code    TEXT NOT NULL,
+  seat    INTEGER NOT NULL,          -- 0..3, which plot
+  player  TEXT NOT NULL,
+  nick    TEXT NOT NULL,
+  facts   TEXT,                      -- JSON: the latest numbers and game date
+  at      TEXT NOT NULL,             -- last report (or joining)
+  save    BLOB,                      -- the latest save
+  save_at TEXT,
+  PRIMARY KEY (code, seat),
+  UNIQUE (code, player)
+);

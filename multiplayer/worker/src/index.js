@@ -6,6 +6,9 @@
 //   the asking player's own place.
 // * GET /clubs: the shared clubs' list. GET /clubs/new?d=<JSON, base64url> makes a club (newClub). GET /clubs/<id>/ws is
 //   a club's WebSocket, served by its Durable Object (club.js).
+// * Neighbours leagues (league.js): GET /leagues/new?d= makes one; GET /leagues/<code>?p=<player> is its table;
+//   GET /leagues/<code>/join?d= takes a seat; GET /leagues/<code>/report?d= sends a player's numbers; POST
+//   /leagues/<code>/save?p=<player> (the save's bytes) and GET /leagues/<code>/save/<seat> keep and hand out saves.
 // * GET /admin (password): the latest results, hidden ones too; POST /admin/hide hides a result or a nickname.
 //
 // Nothing about the player is kept but the random id their game made, the nickname they typed, their group code, the
@@ -16,6 +19,9 @@
 import { breaks, challenge, isWeekId, previousWeekId, score, weekId } from "./challenge.js";
 import { clean, cleanNick, generatedNick } from "./names.js";
 import { isCompat } from "./club.js";
+import {
+  isLeagueCode, joinLeague, league, LEAGUE_SAVE_MAX, makeLeague, readFacts, readNewLeague, report, seatSave, storeSave,
+} from "./league.js";
 
 
 /** Rows a board shows. */
@@ -302,6 +308,47 @@ export default {
       }
       if (m[2] === "state" && !authorised(request, env)) return new Response("password needed", { status: 401 });
       return env.CLUB.get(id).fetch(new Request(`https://club/${m[2]}`, request));
+    }
+    const lg = url.pathname.match(/^\/leagues\/([A-Z0-9]{6})(?:\/(join|report|save)(?:\/([0-3]))?)?$/);
+    if (url.pathname === "/leagues/new" && request.method === "GET") {
+      const b = fromBase64Url(url.searchParams.get("d"));
+      if (b && b.protocol !== PROTOCOL) return json({ ok: false, error: "update the game" }, 400);
+      const l = readNewLeague(b);
+      if (typeof l === "string") return json({ ok: false, error: l }, 400);
+      const code = await makeLeague(env.DB, l, now);
+      return json({ ok: true, ...(await league(env.DB, code, l.player)) }, 200, { "Cache-Control": "no-store" });
+    }
+    if (lg && isLeagueCode(lg[1])) {
+      const code = lg[1];
+      const noStore = { "Cache-Control": "no-store" };
+      if (!lg[2] && request.method === "GET") {
+        const l = await league(env.DB, code, url.searchParams.get("p") || "");
+        return l ? json({ ok: true, ...l }, 200, noStore) : json({ ok: false, error: "no league has that code" }, 404, noStore);
+      }
+      if (lg[2] === "join" && request.method === "GET") {
+        const b = fromBase64Url(url.searchParams.get("d")) || {};
+        if (b.protocol !== PROTOCOL) return json({ ok: false, error: "update the game" }, 400);
+        const seat = await joinLeague(env.DB, code, b.player, b.nick, now);
+        if (typeof seat === "string") return json({ ok: false, error: seat }, 400, noStore);
+        return json({ ok: true, seat, ...(await league(env.DB, code, b.player)) }, 200, noStore);
+      }
+      if (lg[2] === "report" && request.method === "GET") {
+        const b = fromBase64Url(url.searchParams.get("d")) || {};
+        const f = readFacts(b.facts);
+        if (!f || typeof b.player !== "string") return json({ ok: false, error: "bad report" }, 400);
+        if (b.cheats !== false) return json({ ok: false, error: "cheats were on" }, 400);
+        return json({ ok: await report(env.DB, code, b.player, f, now) }, 200, noStore);
+      }
+      if (lg[2] === "save" && lg[3] === undefined && request.method === "POST") {
+        const bytes = new Uint8Array(await request.arrayBuffer());
+        if (bytes.length === 0 || bytes.length > LEAGUE_SAVE_MAX) return json({ ok: false, error: "bad save" }, 400);
+        return json({ ok: await storeSave(env.DB, code, url.searchParams.get("p") || "", bytes, now) }, 200, noStore);
+      }
+      if (lg[2] === "save" && lg[3] !== undefined && request.method === "GET") {
+        const bytes = await seatSave(env.DB, code, Number(lg[3]));
+        if (!bytes) return json({ ok: false, error: "no save yet" }, 404, noStore);
+        return new Response(bytes, { headers: { "Content-Type": "application/octet-stream", "Access-Control-Allow-Origin": "*", ...noStore } });
+      }
     }
     if (url.pathname.startsWith("/admin")) {
       if (!authorised(request, env)) {

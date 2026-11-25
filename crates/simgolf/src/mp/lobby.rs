@@ -124,7 +124,7 @@ pub fn score_text(m: Measure, v: i64) -> String {
     }
 }
 
-fn measure_name(m: Measure) -> &'static str {
+pub fn measure_name(m: Measure) -> &'static str {
     super::texts();
     match m {
         Measure::Cash => tr("STR_MP_MEASURE_CASH"),
@@ -246,7 +246,7 @@ impl App {
 
     /// A click while the page is open (false: it isn't).
     pub fn rival_lobby_click(&mut self, g: &mut Gfx, x: f32, y: f32) -> bool {
-        if self.clubs_click(x, y) {
+        if self.clubs_click(x, y) || self.leagues_click(g, x, y) {
             return true;
         }
         let Some(l) = lobby() else { return false };
@@ -270,7 +270,7 @@ impl App {
     /// A key while the page is open (false: it isn't).
     pub fn rival_lobby_key(&mut self, g: &mut Gfx, k: miniquad::KeyCode) -> bool {
         use miniquad::KeyCode;
-        if self.clubs_key(k) {
+        if self.clubs_key(k) || self.leagues_key(g, k) {
             return true;
         }
         let Some(l) = lobby() else { return false };
@@ -295,7 +295,7 @@ impl App {
 
     /// A typed character (nothing unless a field is being edited).
     pub fn rival_lobby_char(&mut self, c: char) {
-        if self.clubs_char(c) {
+        if self.clubs_char(c) || self.leagues_char(c) {
             return;
         }
         change(|l| match l.editing {
@@ -308,7 +308,7 @@ impl App {
     /// Draws the page while it is open (false: it isn't).
     pub fn rival_lobby_draw(&mut self, g: &mut Gfx) -> bool {
         // the shared clubs' page (clubs_ui.rs) is drawn the same way
-        if self.clubs_draw(g) {
+        if self.clubs_draw(g) || self.leagues_draw(g) {
             return true;
         }
         let Some(l) = lobby() else { return false };

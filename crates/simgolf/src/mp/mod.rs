@@ -5,6 +5,7 @@
 //! * [`club`]: a shared club in the game: making, joining, playing it through the club's room, leaving.
 //! * [`clubs_ui`]: the shared clubs' page (the list, joining, making a club).
 //! * [`conn`]: a shared club's WebSocket, on its own thread.
+//! * [`league`]: neighbours leagues: each player's own plot of one property, compared in a table.
 //! * [`lobby`]: the weekly challenge's page (nickname, group, the board, turning Multiplayer on).
 //! * [`lockstep`]: a shared game's simulation, with nothing the screen, the art or the drawing's clock sees reaching it.
 //! * [`result`]: a finished challenge's result, as the leaderboard Worker (multiplayer/worker) reads it.
@@ -19,6 +20,7 @@ pub mod challenge;
 pub mod club;
 pub mod clubs_ui;
 pub mod conn;
+pub mod league;
 pub mod lobby;
 pub mod lockstep;
 pub mod names;

@@ -45,7 +45,7 @@ pub struct ScenarioState {
     /// A scenario waiting for the Select Difficulty screen (its scenario.toml names no difficulty).
     pub chosen: Option<usize>,
     /// The scenario a game is being started with: (pack id, scenario), taken when the game starts.
-    starting: Option<(String, Scenario)>,
+    pub(crate) starting: Option<(String, Scenario)>,
     /// The cash a scenario starts with, taken by `start_game`.
     pub start_money: Option<i64>,
 }
@@ -81,6 +81,8 @@ pub fn find_scenarios(c: &crate::content::ContentState) -> Vec<ScenarioEntry> {
         })
         .collect();
     v.sort_by_key(|e| e.name.to_lowercase());
+    #[cfg(feature = "multiplayer")]
+    v.splice(0..0, crate::mp::rival::entries());
     v
 }
 
@@ -109,6 +111,10 @@ impl App {
     /// offers them. With only the example, Start New Game goes straight to Choose Difficulty as in the original (the
     /// example still opens in the course editor's Load scenario and starts with `--scenario`).
     pub fn has_scenarios(&self) -> bool {
+        // the multiplayer build always asks: its rows (the weekly challenge and the shared clubs) are on that list
+        if cfg!(feature = "multiplayer") {
+            return true;
+        }
         self.content.found.packs.iter().any(|p| p.manifest.kind == Kind::Scenario && !is_bundled_example(&p.manifest.id))
     }
 
@@ -127,6 +133,10 @@ impl App {
 
     /// A click on the Start New Game screen.
     pub fn scenarios_click(&mut self, g: &mut Gfx, x: f32, y: f32) {
+        #[cfg(feature = "multiplayer")]
+        if self.rival_lobby_click(g, x, y) {
+            return;
+        }
         if Rect::new(BOX.x + BOX.w - 70.0, BOX.y + BOX.h - 58.0, 50.0, 50.0).has(x, y) {
             return self.scenario_go(g);
         }
@@ -162,6 +172,10 @@ impl App {
     /// Keys: Up and Down pick, Enter starts, Esc goes back to the title.
     pub fn scenarios_key(&mut self, g: &mut Gfx, k: miniquad::KeyCode) {
         use miniquad::KeyCode;
+        #[cfg(feature = "multiplayer")]
+        if self.rival_lobby_key(g, k) {
+            return;
+        }
         let n = self.scenario_rows();
         match k {
             KeyCode::Escape => self.screen = Screen::Menu,
@@ -207,6 +221,11 @@ impl App {
     /// Starts scenario `k` of the list (after Select Difficulty when it was needed: `self.difficulty` is set then).
     pub fn start_scenario(&mut self, g: &mut Gfx, k: usize) {
         self.scen.chosen = None;
+        // the weekly challenge's row (mp/rival.rs)
+        #[cfg(feature = "multiplayer")]
+        if self.scen.list.get(k).map(|e| e.id.clone()).is_some_and(|id| self.pick_rival(g, &id)) {
+            return;
+        }
         // a scenario is played on the original's map size (one with its own course takes that course's size)
         self.course_size = sg_core::mapsize::ORIGINAL;
         let Some(e) = self.scen.list.get(k) else { return };
@@ -263,6 +282,11 @@ impl App {
 
     /// The `--scenario ID` test hook: starts the scenario pack with that id (Moderate when it names no difficulty).
     pub fn start_scenario_by_id(&mut self, g: &mut Gfx, id: &str) -> Result<(), String> {
+        // (any week's challenge, to try weeks ahead: the list only has this week's)
+        #[cfg(feature = "multiplayer")]
+        if id.starts_with(crate::mp::rival::ID_PREFIX) {
+            return if self.start_rival(g, id) { Ok(()) } else { Err(format!("{id} is not a week's challenge")) };
+        }
         self.scen.list = find_scenarios(&self.content);
         let k = self.scen.list.iter().position(|e| e.id == id).ok_or_else(|| format!("no scenario pack {id}"))?;
         if let Err(e) = &self.scen.list[k].def {
@@ -275,6 +299,10 @@ impl App {
 
     pub fn draw_scenarios(&mut self, g: &mut Gfx) {
         use crate::info_ui::c15;
+        #[cfg(feature = "multiplayer")]
+        if self.rival_lobby_draw(g) {
+            return;
+        }
         let s = Ui::new(self.draw_w, self.draw_h);
         self.view = s.view;
         crate::info_ui::dim(g, &s);
@@ -294,7 +322,15 @@ impl App {
             } else {
                 let e = &self.scen.list[i - 1];
                 match &e.def {
-                    Ok(sc) => (e.name.clone(), scenario_summary(sc), false),
+                    Ok(sc) => {
+                        let line = scenario_summary(sc);
+                        // the shared clubs' row says what it is (mp/clubs_ui.rs)
+                        #[cfg(feature = "multiplayer")]
+                        let line = crate::mp::clubs_ui::row_line(&e.id).unwrap_or(line);
+                        #[cfg(feature = "multiplayer")]
+                        let line = crate::mp::league::row_line(&e.id).unwrap_or(line);
+                        (e.name.clone(), line, false)
+                    }
                     Err(err) => (e.name.clone(), trf("STR_CONTENT_ERROR", &[("ERROR", err)]), true),
                 }
             };
@@ -695,7 +731,8 @@ fn scenario_summary(sc: &Scenario) -> String {
         Some(m) => trf("STR_SCENARIOS_MONEY", &[("MONEY", &economy::money_digits(m))]),
         None => String::new(),
     };
-    trf("STR_SCENARIOS_SUMMARY", &[("PLACE", &place), ("DIFFICULTY", &diff), ("MONEY", &money), ("GOALS", &sc.goals.len())])
+    let key = if sc.goals.len() == 1 { "STR_SCENARIOS_SUMMARY_ONE" } else { "STR_SCENARIOS_SUMMARY" };
+    trf(key, &[("PLACE", &place), ("DIFFICULTY", &diff), ("MONEY", &money), ("GOALS", &sc.goals.len())])
 }
 
 #[cfg(test)]

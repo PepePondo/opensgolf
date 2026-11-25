@@ -1,13 +1,18 @@
 // OpenSGolf's play-time stats (stats/README.md): a Cloudflare Worker with a D1 database.
 //
-// * GET /count?e=<event>&v=<version>&s=<run id>&n=<mark>: the game's play-time count (crates/simgolf/src/playcount.rs).
-//   `e` is start/<platform>/<version> once at start or play-15min/<platform> at each 15 minutes of play; `s` a random id the
-//   game makes at each start and never saves (or "kept" for marks sent late, with no run); `n` the mark's number in the run.
-//   Nothing else is kept: no address, only the country Cloudflare reads from it.
+// * GET /count?e=<event>&v=<version>&s=<run id>&n=<count>&t=<seconds>: the game's play-time count
+//   (crates/simgolf/src/playcount.rs). `e` is start/<platform>/<version> once at start, or play/<platform> with `t` the
+//   whole seconds played in the run so far, sent every 5 minutes of play and when the game is left or quit (builds before
+//   the exact count sent play-15min/<platform> at each 15 minutes instead, still taken). `s` a random id the game makes at
+//   each start (or "kept" for play sent late, with no run); `n` the count's number in the run. Nothing else is kept: no
+//   address, only the country Cloudflare reads from it.
 // * Every day (the cron in wrangler.toml), and on POST /admin/import: GoatCounter's counts from older builds, by hour.
-// * GET / (password): the stats page; GET /api/stats the same as JSON.
+// * GET / (password): the stats page; GET /api/stats the same as JSON. Its Multiplayer section reads the multiplayer
+//   server's database (src/mp.js), bound as BOARD.
 //
 // Copyright the OpenSGolf contributors. GPL-2.0-or-later.
+
+import { mpStats } from "./mp.js";
 
 /** Platforms the game names (playcount.rs `platform`). */
 export const PLATFORMS = new Set([
@@ -20,6 +25,10 @@ export const GOATCOUNTER = "https://opensgolf.goatcounter.com";
 export const FIRST_DAY = "2026-10-01";
 /** How far back the daily import looks again (late counts from older builds land in recent hours). */
 export const REIMPORT_DAYS = 15;
+/** The most play time one run (or one kept count) can report: a week. */
+export const MAX_SECONDS = 7 * 24 * 3600;
+/** Seconds in one of the older builds' 15-minute marks. */
+export const MARK = 900;
 /** Old builds' weekly play below this many hours, for [RETIRE_WEEKS] full weeks in a row: the import can be retired. */
 export const RETIRE_HOURS = 1;
 export const RETIRE_WEEKS = 3;
@@ -32,6 +41,7 @@ export function parseEvent(e) {
     return { kind: "start", platform: p[1], version: p[2] };
   }
   if (p[0] === "play-15min" && p.length === 2 && PLATFORMS.has(p[1])) return { kind: "play", platform: p[1] };
+  if (p[0] === "play" && p.length === 2 && PLATFORMS.has(p[1])) return { kind: "seconds", platform: p[1] };
   return null;
 }
 
@@ -61,11 +71,19 @@ export function readCount(url, country) {
   if (!kept && !isRunId(s)) return null;
   const n = Number.parseInt(q.get("n") || "0", 10);
   if (!Number.isFinite(n) || n < 0 || n > 100000) return null;
+  let t = 0;
+  if (ev.kind === "seconds") {
+    const tq = q.get("t") || "";
+    if (!/^\d{1,7}$/.test(tq)) return null;
+    t = Number(tq);
+    if (t > MAX_SECONDS) return null;
+  }
   const c = typeof country === "string" && /^[A-Z0-9]{2}$/.test(country) ? country : "";
-  return { kind: ev.kind, platform: ev.platform, version, sid: kept ? null : s, n, country: c };
+  return { kind: ev.kind, platform: ev.platform, version, sid: kept ? null : s, n, t, country: c };
 }
 
-/** Stores one count. A mark already counted for its run (a repeat) changes nothing. */
+/** Stores one count. A mark already counted for its run (a repeat) changes nothing; nor does a play time no higher than
+ * the run's (`t` only grows within a run: only the increase is added). */
 export async function storeCount(db, c, now) {
   const at = now.toISOString();
   const hour = hourOf(now);
@@ -74,14 +92,38 @@ export async function storeCount(db, c, now) {
       `INSERT INTO play_hourly (hour, platform, version, country, kept, beats) VALUES (?1, ?2, ?3, ?4, ?5, 1)
        ON CONFLICT (hour, platform, version, country, kept) DO UPDATE SET beats = beats + 1`,
     ).bind(hour, c.platform, c.version, c.country, kept);
+  const secondsRow = (kept, n) =>
+    db.prepare(
+      `INSERT INTO seconds_hourly (hour, platform, version, country, kept, seconds) VALUES (?1, ?2, ?3, ?4, ?5, ?6)
+       ON CONFLICT (hour, platform, version, country, kept) DO UPDATE SET seconds = seconds + excluded.seconds`,
+    ).bind(hour, c.platform, c.version, c.country, kept, n);
+  if (c.kind === "seconds" && c.t <= 0) return; // nothing played yet
   if (!c.sid) {
     if (c.kind === "play") await playRow(1).run();
+    if (c.kind === "seconds") await secondsRow(1, c.t).run();
     return;
   }
   await db.prepare(
     `INSERT INTO runs (sid, platform, version, country, started_at, last_at, beats) VALUES (?1, ?2, ?3, ?4, ?5, ?5, 0)
      ON CONFLICT (sid) DO NOTHING`,
   ).bind(c.sid, c.platform, c.version, c.country, at).run();
+  if (c.kind === "seconds") {
+    const had = await db.prepare(`SELECT seconds FROM run_time WHERE sid = ?1`).bind(c.sid).first();
+    let added = 0;
+    if (!had) {
+      const r = await db.prepare(`INSERT INTO run_time (sid, seconds) VALUES (?1, ?2) ON CONFLICT (sid) DO NOTHING`).bind(c.sid, c.t).run();
+      if (r.meta && r.meta.changes > 0) added = c.t;
+    } else if (c.t > had.seconds) {
+      // only from the value just read, so two counts arriving together never add the same seconds twice
+      const r = await db.prepare(`UPDATE run_time SET seconds = ?2 WHERE sid = ?1 AND seconds = ?3`).bind(c.sid, c.t, had.seconds).run();
+      if (r.meta && r.meta.changes > 0) added = c.t - had.seconds;
+    }
+    if (added > 0) {
+      await secondsRow(0, added).run();
+      await db.prepare(`UPDATE runs SET last_at = ?2 WHERE sid = ?1`).bind(c.sid, at).run();
+    }
+    return;
+  }
   if (c.kind !== "play") return;
   const r = await db.prepare(`UPDATE runs SET beats = ?2, last_at = ?3 WHERE sid = ?1 AND beats < ?2`)
     .bind(c.sid, Math.max(1, c.n), at).run();
@@ -180,79 +222,93 @@ export async function importStart(db, now) {
 
 // ---------------------------------------------------------------- stats
 
-/** Session-length buckets, by 15-minute marks reached. */
+/** Session-length buckets, by seconds played in the run (older builds' runs: 900 s for each 15-minute mark reached). */
 export const LENGTHS = [
-  ["under 15 min", 0, 0], ["15–30 min", 1, 1], ["30 min–1 h", 2, 3], ["1–2 h", 4, 7], ["2–4 h", 8, 15], ["4 h or more", 16, 1e9],
+  ["under 15 min", 0, 899], ["15–30 min", 900, 1799], ["30 min–1 h", 1800, 3599], ["1–2 h", 3600, 7199], ["2–4 h", 7200, 14399],
+  ["4 h or more", 14400, 1e12],
 ];
 
-/** The stats, from both sources. */
+/** The stats, from every source: GoatCounter's and this counter's 15-minute marks (900 s each) and the exact seconds. */
 export async function stats(db, now = new Date()) {
   const all = async (sql, ...p) => (await db.prepare(sql).bind(...p).all()).results || [];
   const day30 = new Date(now.getTime() - 30 * 86400e3).toISOString().slice(0, 10);
   const day7 = new Date(now.getTime() - 7 * 86400e3).toISOString().slice(0, 13);
+  // this counter's play in seconds, per hour: the older builds' marks and the exact counts together
+  const here = `SELECT hour, platform, version, country, beats * ${MARK} AS s FROM play_hourly
+    UNION ALL SELECT hour, platform, version, country, seconds FROM seconds_hourly`;
+  // each run's play: exact when it sent any, else its marks
+  const played = `COALESCE(t.seconds, r.beats * ${MARK})`;
 
   const daily = await all(`
     SELECT day, SUM(old) AS old, SUM(new) AS new FROM (
-      SELECT substr(hour, 1, 10) AS day, SUM(count) AS old, 0 AS new FROM gc_hourly WHERE path LIKE 'play-15min/%' GROUP BY day
+      SELECT substr(hour, 1, 10) AS day, SUM(count) * ${MARK} AS old, 0 AS new FROM gc_hourly WHERE path LIKE 'play-15min/%' GROUP BY day
       UNION ALL
-      SELECT substr(hour, 1, 10) AS day, 0, SUM(beats) FROM play_hourly GROUP BY day
+      SELECT substr(hour, 1, 10) AS day, 0, SUM(s) FROM (${here}) GROUP BY day
     ) GROUP BY day ORDER BY day`);
   const platforms = await all(`
-    SELECT platform, SUM(marks) AS marks FROM (
-      SELECT substr(path, 12) AS platform, SUM(count) AS marks FROM gc_hourly WHERE path LIKE 'play-15min/%' GROUP BY platform
-      UNION ALL SELECT platform, SUM(beats) FROM play_hourly GROUP BY platform
-    ) GROUP BY platform ORDER BY marks DESC`);
+    SELECT platform, SUM(s) AS s FROM (
+      SELECT substr(path, 12) AS platform, SUM(count) * ${MARK} AS s FROM gc_hourly WHERE path LIKE 'play-15min/%' GROUP BY platform
+      UNION ALL SELECT platform, SUM(s) FROM (${here}) GROUP BY platform
+    ) GROUP BY platform ORDER BY s DESC`);
   // launches by version: GoatCounter's start/<platform>/<version> and this Worker's runs
   const launches = await all(`
     SELECT version, SUM(n) AS launches FROM (
       SELECT substr(path, instr(substr(path, 7), '/') + 7) AS version, SUM(count) AS n FROM gc_hourly WHERE path LIKE 'start/%' GROUP BY version
       UNION ALL SELECT version, COUNT(*) FROM runs GROUP BY version
     ) GROUP BY version`);
-  const versionHours = await all(`SELECT version, SUM(beats) AS marks FROM play_hourly GROUP BY version`);
+  const versionSeconds = await all(`SELECT version, SUM(s) AS s FROM (${here}) GROUP BY version`);
   const hourOfDay = await all(`
-    SELECT h, SUM(marks) AS marks FROM (
-      SELECT CAST(substr(hour, 12, 2) AS INTEGER) AS h, SUM(count) AS marks FROM gc_hourly WHERE path LIKE 'play-15min/%' GROUP BY h
-      UNION ALL SELECT CAST(substr(hour, 12, 2) AS INTEGER), SUM(beats) FROM play_hourly GROUP BY 1
+    SELECT h, SUM(s) AS s FROM (
+      SELECT CAST(substr(hour, 12, 2) AS INTEGER) AS h, SUM(count) * ${MARK} AS s FROM gc_hourly WHERE path LIKE 'play-15min/%' GROUP BY h
+      UNION ALL SELECT CAST(substr(hour, 12, 2) AS INTEGER), SUM(s) FROM (${here}) GROUP BY 1
     ) GROUP BY h ORDER BY h`);
-  const lengths = await all(`SELECT beats, COUNT(*) AS runs FROM runs GROUP BY beats ORDER BY beats`);
+  // by whole minutes, so the rows stay few
+  const lengths = await all(`
+    SELECT (${played} / 60) * 60 AS s, COUNT(*) AS runs FROM runs r LEFT JOIN run_time t ON t.sid = r.sid GROUP BY 1 ORDER BY 1`);
   const countries = await all(`
-    SELECT country, COUNT(*) AS runs, SUM(beats) AS marks FROM runs GROUP BY country ORDER BY marks DESC, runs DESC LIMIT 25`);
+    SELECT r.country AS country, COUNT(*) AS runs, SUM(${played}) AS s FROM runs r LEFT JOIN run_time t ON t.sid = r.sid
+    GROUP BY r.country ORDER BY s DESC, runs DESC LIMIT 25`);
   const recentRuns = await all(`
-    SELECT platform, version, country, started_at, beats FROM runs WHERE started_at >= ?1 ORDER BY started_at DESC LIMIT 50`, day7);
+    SELECT r.platform AS platform, r.version AS version, r.country AS country, r.started_at AS started_at, r.beats AS beats,
+      t.seconds AS seconds
+    FROM runs r LEFT JOIN run_time t ON t.sid = r.sid WHERE r.started_at >= ?1 ORDER BY r.started_at DESC LIMIT 50`, day7);
   const oldWeekly = await all(`
     SELECT date(substr(hour, 1, 10), '-6 days', 'weekday 1') AS week, SUM(count) AS marks
     FROM gc_hourly WHERE path LIKE 'play-15min/%' GROUP BY week ORDER BY week`);
   const imports = await all(`SELECT at, start_day, rows, play_marks, error FROM gc_imports ORDER BY at DESC LIMIT 8`);
   const runs7 = await db.prepare(`SELECT COUNT(*) AS n FROM runs WHERE started_at >= ?1`).bind(day7).first();
+  const exact = await db.prepare(`SELECT COALESCE(SUM(seconds), 0) AS s FROM seconds_hourly`).first();
 
   const lengthBuckets = LENGTHS.map(([label, lo, hi]) => ({
-    label, runs: lengths.filter((r) => r.beats >= lo && r.beats <= hi).reduce((a, r) => a + r.runs, 0),
+    label, runs: lengths.filter((r) => r.s >= lo && r.s <= hi).reduce((a, r) => a + r.runs, 0),
   }));
   const totalRuns = lengths.reduce((a, r) => a + r.runs, 0);
-  const sorted = lengths.flatMap((r) => Array(Math.min(r.runs, 100000)).fill(r.beats));
+  const sorted = lengths.flatMap((r) => Array(Math.min(r.runs, 100000)).fill(r.s));
   const median = sorted.length ? sorted[Math.floor(sorted.length / 2)] : null;
 
-  const vh = new Map(versionHours.map((r) => [r.version, r.marks]));
-  const versions = launches.map((r) => ({ version: r.version, launches: r.launches, hours: (vh.get(r.version) || 0) / 4 }))
+  const H = 3600;
+  const vs = new Map(versionSeconds.map((r) => [r.version, r.s]));
+  const versions = launches.map((r) => ({ version: r.version, launches: r.launches, hours: (vs.get(r.version) || 0) / H }))
     .sort((a, b) => cmpVersion(b.version, a.version));
 
-  const totalMarks = daily.reduce((a, d) => a + d.old + d.new, 0);
-  const last7Marks = daily.filter((d) => d.day >= day7.slice(0, 10)).reduce((a, d) => a + d.old + d.new, 0);
-  const last30Marks = daily.filter((d) => d.day >= day30).reduce((a, d) => a + d.old + d.new, 0);
+  const total = daily.reduce((a, d) => a + d.old + d.new, 0);
+  const last7 = daily.filter((d) => d.day >= day7.slice(0, 10)).reduce((a, d) => a + d.old + d.new, 0);
+  const last30 = daily.filter((d) => d.day >= day30).reduce((a, d) => a + d.old + d.new, 0);
 
   return {
     generated_at: now.toISOString(),
     totals: {
-      hours: totalMarks / 4, hours_7d: last7Marks / 4, hours_30d: last30Marks / 4,
-      old_hours: daily.reduce((a, d) => a + d.old, 0) / 4, new_hours: daily.reduce((a, d) => a + d.new, 0) / 4,
-      runs: totalRuns, runs_7d: runs7 ? runs7.n : 0, median_session_marks: median,
+      seconds: total, hours: total / H, hours_7d: last7 / H, hours_30d: last30 / H,
+      old_hours: daily.reduce((a, d) => a + d.old, 0) / H, new_hours: daily.reduce((a, d) => a + d.new, 0) / H,
+      exact_hours: (exact ? exact.s : 0) / H,
+      runs: totalRuns, runs_7d: runs7 ? runs7.n : 0, median_session_seconds: median,
     },
-    daily: daily.map((d) => ({ day: d.day, old_hours: d.old / 4, new_hours: d.new / 4 })),
-    platforms: platforms.map((p) => ({ platform: p.platform, hours: p.marks / 4 })),
+    daily: daily.map((d) => ({ day: d.day, old_hours: d.old / H, new_hours: d.new / H })),
+    platforms: platforms.map((p) => ({ platform: p.platform, hours: p.s / H })),
     versions,
-    hour_of_day: Array.from({ length: 24 }, (_, h) => ({ hour: h, hours: (hourOfDay.find((r) => r.h === h) || { marks: 0 }).marks / 4 })),
+    hour_of_day: Array.from({ length: 24 }, (_, h) => ({ hour: h, hours: (hourOfDay.find((r) => r.h === h) || { s: 0 }).s / H })),
     session_lengths: lengthBuckets,
-    countries: countries.map((c) => ({ country: c.country || "unknown", runs: c.runs, hours: c.marks / 4 })),
+    countries: countries.map((c) => ({ country: c.country || "unknown", runs: c.runs, hours: c.s / H })),
     recent_runs: recentRuns,
     old_builds: retirement(oldWeekly, now),
     imports,
@@ -286,6 +342,17 @@ export function cmpVersion(a, b) {
 
 // ---------------------------------------------------------------- the Worker
 
+/** The page's numbers: play time, and multiplayer from the BOARD database (src/mp.js) when it answers. */
+export async function allStats(env, now = new Date()) {
+  const s = await stats(env.DB, now);
+  try {
+    s.mp = await mpStats(env.BOARD, now);
+  } catch (e) {
+    s.mp = { error: String(e && e.message ? e.message : e).slice(0, 200) };
+  }
+  return s;
+}
+
 /** Basic auth against STATS_PASSWORD (any user name). */
 export function authorized(request, env) {
   if (!env.STATS_PASSWORD) return false;
@@ -315,7 +382,7 @@ export default {
     if (url.pathname === "/robots.txt") return new Response("User-agent: *\nDisallow: /\n");
     if (!authorized(request, env)) return ASK();
     if (url.pathname === "/api/stats") {
-      return Response.json(await stats(env.DB), { headers: { "Cache-Control": "no-store" } });
+      return Response.json(await allStats(env), { headers: { "Cache-Control": "no-store" } });
     }
     if (url.pathname === "/admin/import" && request.method === "POST") {
       const from = url.searchParams.get("from");
@@ -324,7 +391,7 @@ export default {
     }
     if (url.pathname === "/") {
       const { page } = await import("./page.js");
-      return new Response(page(await stats(env.DB)), { headers: { "Content-Type": "text/html; charset=utf-8", "Cache-Control": "no-store" } });
+      return new Response(page(await allStats(env)), { headers: { "Content-Type": "text/html; charset=utf-8", "Cache-Control": "no-store" } });
     }
     return new Response("Not found", { status: 404 });
   },

@@ -2862,6 +2862,7 @@ STR_SCENARIOS_HELP                      :Play a free game, or a scenario with go
 STR_SCENARIOS_FREE_GAME                 :Free game
 STR_SCENARIOS_FREE_GAME_TEXT            :Choose the difficulty and a property, and play as long as you like.
 STR_SCENARIOS_SUMMARY                   :{PLACE}, {DIFFICULTY}{MONEY}, {GOALS} goals
+STR_SCENARIOS_SUMMARY_ONE               :{PLACE}, {DIFFICULTY}{MONEY}, 1 goal
 STR_SCENARIOS_MONEY                     :, §{MONEY} to start
 STR_SCENARIOS_ANY_DIFFICULTY            :your choice of difficulty
 STR_SCENARIOS_GOALS                     :Goals: {GOALS}.
@@ -3659,6 +3660,14 @@ STR_WHATSNEW_PORTRAIT                   : Play upright on phones
 STR_WHATSNEW_PORTRAIT_NOTE              :Phones and tablets can play in portrait, with the interface at the screen's edges.
 STR_WHATSNEW_MORE08                     : And more
 STR_WHATSNEW_MORE08_NOTE                :Speed x8, a height map, club records, a course review, a feature guide.
+STR_WHATSNEW_MULTIPLAYER                : Multiplayer (beta)
+STR_WHATSNEW_MULTIPLAYER_NOTE           :Start New Game has a weekly challenge, neighbours leagues and shared clubs.
+STR_WHATSNEW_WEEKLY                     : Weekly challenge
+STR_WHATSNEW_WEEKLY_NOTE                :The same land for everyone each week, and a board of the best.
+STR_WHATSNEW_NEIGHBOURS                 : Neighbours
+STR_WHATSNEW_NEIGHBOURS_NOTE            :Up to 4 friends each run their own plot of one property, in a league table.
+STR_WHATSNEW_CLUBS                      : Shared clubs
+STR_WHATSNEW_CLUBS_NOTE                 :Up to 4 players build and run one course together, live.
 STR_WHATSNEW_ALL                        : See everything that's new
 STR_WHATSNEW_OK                         : OK
 STR_WHATSNEW_TRY                        :Try it
@@ -3667,7 +3676,7 @@ STR_MENU_PREFS_WHATSNEW                 : What's new...
 STR_PREFS_DESC_WHATSNEW                 :Shows what's new in this version. Try it turns a new option on; a link opens the full changelog.
 STR_PLAYCOUNT_NOTICE                    :OpenSGolf counts anonymous play time (no personal data). Turn it off in Preferences > More.
 STR_MENU_PREFS_PLAYCOUNT                : Count my play time (anonymous)
-STR_PREFS_DESC_PLAYCOUNT                :Sends an anonymous count at start and every 15 minutes of play: only your system and version, never names or saves.
+STR_PREFS_DESC_PLAYCOUNT                :Sends your play time anonymously, to the second: only your system and version, never names or saves.
 
 # Making HD graphics from the player's own files (the port's own, hd_make.rs; docs/HD.md)
 STR_PREFS_MAKE_HD                       : Make HD graphics from my SimGolf files (beta)...

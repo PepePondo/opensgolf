@@ -19,10 +19,26 @@ impl App {
     /// The fingerprint of the game as it stands.
     pub fn fingerprint(&self) -> Fingerprint {
         let mut f = Fingerprint::new();
+        #[cfg(not(feature = "multiplayer"))]
         f.add("club", &self.club);
+        // the people's names (and the best rounds' names) are each player's own in a shared club (mp/club.rs take_shared_tables)
+        #[cfg(feature = "multiplayer")]
+        {
+            let mut c = self.club.clone();
+            c.celebrities.iter_mut().for_each(|x| x.name.clear());
+            c.pros.iter_mut().for_each(|x| x.name.clear());
+            for p in c.roster.iter_mut() {
+                (p.name, p.job, p.sayings, p.bio) = Default::default();
+            }
+            c.top_names = Default::default();
+            f.add("club", &c);
+        }
         f.add_hash("club_unsaved", club_unsaved(&self.club));
         f.add("course", &self.course);
-        f.add("terrain", &self.terrain);
+        // the retaining walls are the drawing's (only the sides the view faces: App::build_walls), not the simulation's
+        let mut terrain = self.terrain.clone();
+        terrain.wall_mask.clear();
+        f.add("terrain", &terrain);
         f.add("land", &self.land);
         f.add("econ", &self.econ);
         f.add("econ_unsaved", &(self.econ.extras, self.econ.free));
@@ -106,6 +122,11 @@ impl App {
 
     /// The test hook's line after a game tick (or a save or load, `tag`), when SG_FINGERPRINT names a file.
     pub fn fingerprint_note(&self, tag: &str) {
+        // SG_FINGERPRINT_FROM=TICK: nothing before that tick (a long run looked at near where it goes wrong)
+        static FROM: std::sync::OnceLock<u32> = std::sync::OnceLock::new();
+        if self.game_tick < *FROM.get_or_init(|| std::env::var("SG_FINGERPRINT_FROM").ok().and_then(|v| v.parse().ok()).unwrap_or(0)) {
+            return;
+        }
         log::note(|parts| {
             let mut s = format!("{} {}", self.game_tick, self.fingerprint().text(parts > 0));
             if parts > 1 {

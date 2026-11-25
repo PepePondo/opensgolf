@@ -22,6 +22,10 @@ ureq = { version = "3", optional = true, default-features = false, features = ["
 # "Update now" (autoupdate.rs): the release's SHA256SUMS is checked against OpenSGolf's ed25519 signing key before anything
 # downloaded is installed. A small pure-Rust implementation with no dependencies of its own.
 ed25519-compact = { version = "2", optional = true, default-features = false }
+# Multiplayer's shared clubs (mp/conn.rs): a WebSocket client in pure Rust over the same rustls as ureq, trusting the
+# built-in roots and the system's own (an HTTPS-scanning antivirus or company proxy, issue #65). The browser uses
+# the page's WebSocket.
+tungstenite = { version = "0.28", optional = true, default-features = false, features = ["handshake", "rustls-tls-webpki-roots", "rustls-tls-native-roots"] }
 
 # "Use my SimGolf files..." (gamefiles.rs): the system's own folder picker on Windows, macOS and Linux. On Linux it asks
 # the desktop through the XDG portal over D-Bus (no GTK, nothing extra to install to build it). Not built for the browser
@@ -43,6 +47,9 @@ net = ["dep:ureq", "dep:ed25519-compact"]
 picker = ["dep:rfd"]
 # Controllers on the desktop (gamepad.rs). Without it only the browser reads controllers.
 gamepad = ["dep:gilrs"]
+# Multiplayer (crates/simgolf/src/mp; the release builds have it). Even when built, Multiplayer is
+# off until the player turns it on.
+multiplayer = ["net", "dep:tungstenite"]
 
 # Android only: hands miniquad's Java VM to cpal's oboe sound output (src/android.rs).
 [target.'cfg(target_os = "android")'.dependencies]
@@ -53,8 +60,8 @@ ndk-context = "0.1"
 [package.metadata.android]
 package_name = "org.opensgolf.game"
 label = "OpenSGolf"
-version_code = 73
-version_name = "0.8.7"
+version_code = 74
+version_name = "0.9.0"
 min_sdk_version = 26
 target_sdk_version = 33
 build_targets = ["aarch64-linux-android", "armv7-linux-androideabi", "x86_64-linux-android"]

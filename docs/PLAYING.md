@@ -1459,7 +1459,7 @@ OpenSGolf is free and complete; nothing is ever locked. The port's own gentle re
 never in the original's menus or screens): the game counts the time you spend playing on the course (the game running,
 not paused and not in the background) **on your own device only**, in `settings.json` in the save folder (the browser's
 own storage on the web, the app's folder on Android), and saved games do not hold it. The counter itself is never sent;
-only the play-time count's 15-minute marks are (see *Play-time count*).
+only the seconds of it played in each run are (see *Play-time count*).
 
 After about **an hour of play**, at the next natural pause (the title menu, or just after the year-end report is closed;
 never while building, while your pro is out, during a tournament or over another box) a small box asks once:
@@ -1473,34 +1473,42 @@ To turn it off, choose *Don't ask again* (or *Maybe later* twice), or set `"done
 more).
 
 The store builds (Flathub, F-Droid; `OPENSGOLF_NO_SELF_UPDATE`) keep the reminder; their store pages list the donation
-link too. Test hooks: `SG_PLAYTIME=SECONDS` starts the counter there (`SG_PLAYTIME=3600` and a visit to the title menu
+link too. You can also support OpenSGolf on [Ko-fi](https://ko-fi.com/crspytopgn) or
+[GitHub Sponsors](https://github.com/sponsors/crspytopgn). Test hooks: `SG_PLAYTIME=SECONDS` starts the counter there (`SG_PLAYTIME=3600` and a visit to the title menu
 shows the box); `SG_SUPPORT=1` shows the box at the first frame of the title menu or of a quiet course, whatever the
 counter, for stills (`SG_SUPPORT=1 BIN --game DIR --png out.png --time 2`). A shown box still counts as an ask in
 `settings.json`, so use a scratch `OPENSGOLF_SAVE_DIR` for tests.
 
 ## Play-time count
 
-So the project can see how many hours are played on each system and version, and for how long at a time, the game sends
-an anonymous count to OpenSGolf's own play-time counter, a small Cloudflare Worker (`stats/` in the source; the port's
-own, crates/simgolf/src/playcount.rs). Exactly this is sent, and nothing else:
+So the project can see how many hours are played on each system and version, and for how long at a time, **to the
+second**, the game sends anonymous counts to OpenSGolf's own play-time counter, a small Cloudflare Worker (`stats/` in the
+source; the port's own, crates/simgolf/src/playcount.rs). Exactly this is sent, and nothing else:
 
 - once when the game starts: `start/<platform>/<version>`, e.g. `start/windows/0.6.0`;
-- once for every **15 minutes of play**: `play-15min/<platform>`, e.g. `play-15min/linux`.
+- `play/<platform>` (e.g. `play/linux`) with the **whole seconds played in this run so far**, every **5 minutes of play**,
+  and again when you leave the game with time not yet sent: the window going to the background, the app paused on
+  Android, the page hidden in the browser, and quitting.
 
 `<platform>` is `windows`, `macos`, `linux`, `android` or `web`, with `-arm64` on 64-bit ARM computers. The play time is
 the support reminder's clock (see *Supporting OpenSGolf*): time on the course with the game running, not paused, not in
-the background and not on the menus. Each count also carries the game's version, its number in this run (1 for the first
-15 minutes, 2 for the next...) and a **run id**: a random number made each time the game starts and never saved, so the
-counts of one run can be told apart (how long people play at a time) but never linked to a player or to another run.
-Counts kept from an earlier run (below) carry `kept` instead. No names, saved games or course data are sent, and no
-cookies are set; the counter keeps the country Cloudflare reads from the address, never the address itself. Each count
-is one request to the counter's address (on the desktop and Android with a User-Agent of
-`OpenSGolf/<version> (<platform>)`), made in the background with a short timeout. The game never waits for a count.
-Versions before 0.8.2 sent the same counts, without the version, number and run id, to OpenSGolf's
-[GoatCounter](https://www.goatcounter.com) instead; the counter imports those every week. On the desktop and Android a 15-minute count that does not get
-through (no internet) is kept, as a number only (`"pending"` under `"playcount"` in `settings.json`, a week of play at
-most), and sent later along with the next count that does, up to 16 at a time a second apart: the same counts, nothing
-more. Taking the tick off throws the kept ones away. The start count and the browser's counts are not kept.
+the background and not on the menus. Each count also carries the game's version, its number in this run and a **run
+id**: a random number made each time the game starts, so the counts of one run can be told apart (how long people play
+at a time) but never linked to a player or to another run. The seconds only grow within a run, so the counter keeps the
+highest it has seen for each run and adds only the increase: a count that does not get through is made up by the next
+one, and one that arrives twice adds nothing. No names, saved games or course data are sent, and no cookies are set; the
+counter keeps the country Cloudflare reads from the address, never the address itself. Each count is one request to the
+counter's address (on the desktop and Android with a User-Agent of `OpenSGolf/<version> (<platform>)`), made in the
+background with a short timeout; only the one as you quit is waited for, two seconds at most.
+
+So that a run's last seconds are never lost (no internet, the app closed from the background, a crash), the game writes
+the run's id, seconds and version down in `settings.json` (`"last"` under `"playcount"`, updated every 30 seconds of
+play) and sends that count again the next time it starts. On the desktop and Android it is kept (`"earlier"`, the last 8
+runs) until the counter has answered; sending it again is always safe, as it adds nothing twice. Versions up to 0.8.7
+sent `play-15min/<platform>` for each 15 minutes instead, and versions before 0.8.2 sent those to OpenSGolf's
+[GoatCounter](https://www.goatcounter.com), which the counter imports every week; their totals are kept. The 15-minute
+counts an older version kept unsent (`"pending"`) go once, as `kept` seconds (900 each). Taking the tick off throws away
+everything kept.
 
 It is on by default. The first time you play a course, the ticker says once: *OpenSGolf counts anonymous play time (no
 personal data). Turn it off in Preferences > More.* Take the tick off **Preferences > More... > Count my play time
@@ -1512,8 +1520,9 @@ the browser version have it.
 
 Nothing is sent from tests or scripted runs: under `cargo test`, with `--png`, `--time` or `--screen`, or with any `SG_*`
 test hook set (the notice is not shown either, so stills are unchanged). Test hook: `SG_PLAYCOUNT_LOG=1` prints each
-count instead of sending it (`play count: would send play-15min/linux`) and shows the notice without remembering it;
-with `SG_PLAYTIME=890` the first 15-minute count comes after ten seconds on the course.
+count instead of sending it (`play count: would send play/linux (run ..., count 1, 300 s)`) and shows the notice without
+remembering it. tools/playcount_test.sh runs the game against a stand-in counter on the same computer, with 20 seconds
+between counts.
 
 ## Controllers and the Steam Deck
 

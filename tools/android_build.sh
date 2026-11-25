@@ -80,7 +80,10 @@ sed -i 's/^version = 4$/version = 3/' Cargo.lock
 # (a 32-bit overflow in autoupdate.rs broke the armeabi-v7a build; issue #191).
 rel=""
 if [ "$profile" = release ]; then rel="--release"; fi
-cargo quad-apk build $rel -p opensgolf
+# multiplayer (crates/simgolf/src/mp) in the GitHub APK; a store build (no permissions, so no internet) leaves it out
+feat="--features multiplayer"
+case "${OPENSGOLF_NO_SELF_UPDATE:-0}" in 0) ;; *) feat="" ;; esac
+cargo quad-apk build $rel -p opensgolf $feat
 # a store's build must not ask for any permission: checked on the manifest cargo-quad-apk wrote for the APK
 case "${OPENSGOLF_NO_SELF_UPDATE:-0}" in
     0) ;;

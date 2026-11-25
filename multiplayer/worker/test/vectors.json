@@ -1,0 +1,119 @@
+{
+ "weeks": {
+  "2026-11-18": "2026-W47",
+  "2027-01-01": "2026-W53",
+  "2026-12-28": "2026-W53",
+  "2025-12-29": "2026-W01",
+  "2024-12-30": "2025-W01"
+ },
+ "challenges": [
+  {
+   "id": "2026-W47",
+   "measure": "cash",
+   "theme": "links",
+   "difficulty": "easy",
+   "kind": "standard",
+   "seed": 2120436,
+   "endYear": 2001
+  },
+  {
+   "id": "2026-W48",
+   "measure": "fun",
+   "theme": "parkland",
+   "difficulty": "moderate",
+   "kind": "standard",
+   "seed": 2579199,
+   "endYear": 2001
+  },
+  {
+   "id": "2026-W49",
+   "measure": "cash",
+   "theme": "desert",
+   "difficulty": "easy",
+   "kind": "standard",
+   "seed": 2513661,
+   "endYear": 2001
+  },
+  {
+   "id": "2026-W50",
+   "measure": "fun",
+   "theme": "tropical",
+   "difficulty": "moderate",
+   "kind": "budget",
+   "seed": 1661098,
+   "endYear": 2001
+  },
+  {
+   "id": "2026-W52",
+   "measure": "skill",
+   "theme": "parkland",
+   "difficulty": "easy",
+   "kind": "nine",
+   "seed": 1792173,
+   "endYear": 2001
+  },
+  {
+   "id": "2026-W53",
+   "measure": "cash",
+   "theme": "desert",
+   "difficulty": "moderate",
+   "kind": "standard",
+   "seed": 1857711,
+   "endYear": 2001
+  },
+  {
+   "id": "2027-W01",
+   "measure": "fun",
+   "theme": "tropical",
+   "difficulty": "difficult",
+   "kind": "standard",
+   "seed": 5693122,
+   "endYear": 2001
+  },
+  {
+   "id": "2027-W02",
+   "measure": "members",
+   "theme": "links",
+   "difficulty": "easy",
+   "kind": "budget",
+   "seed": 5496509,
+   "endYear": 2001
+  },
+  {
+   "id": "2027-W04",
+   "measure": "cash",
+   "theme": "desert",
+   "difficulty": "difficult",
+   "kind": "nine",
+   "seed": 5889735,
+   "endYear": 2001
+  },
+  {
+   "id": "2027-W13",
+   "measure": "fun",
+   "theme": "links",
+   "difficulty": "difficult",
+   "kind": "standard",
+   "seed": 6086922,
+   "endYear": 2001
+  },
+  {
+   "id": "2028-W10",
+   "measure": "members",
+   "theme": "parkland",
+   "difficulty": "easy",
+   "kind": "budget",
+   "seed": 6100853,
+   "endYear": 2001
+  },
+  {
+   "id": "2030-W10",
+   "measure": "members",
+   "theme": "desert",
+   "difficulty": "difficult",
+   "kind": "standard",
+   "seed": 1127220,
+   "endYear": 2001
+  }
+ ]
+}

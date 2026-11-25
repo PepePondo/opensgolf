@@ -1,7 +1,7 @@
 //! The support reminder (the port's own, none of it in the original; docs/PLAYING.md "Supporting OpenSGolf"): the game
 //! counts the time played on the course (the game running, not paused and not in the background) on the player's own
 //! device, in settings.json (the browser's storage on the web, the app's folder on Android). The counter is never sent;
-//! the play-time count (playcount.rs) sends only a mark for each 15 minutes of it.
+//! the play-time count (playcount.rs) sends only the seconds of it played in each run.
 //!
 //! After about an hour of play, at the next natural pause (the title menu, or just after the year-end report closes, never
 //! while building, while the pro is out, in a tournament or over another box) a small box asks once: Support on Buy Me a
@@ -135,7 +135,7 @@ pub fn natural_pause(at: Spot, busy: Busy, forced: bool) -> bool {
 pub struct State {
     pub record: Record,
     /// Play time counted since settings.json was last written.
-    unsaved: f64,
+    pub(crate) unsaved: f64,
     /// The window is in the background.
     pub hidden: bool,
     /// The screen of the last frame.
@@ -199,7 +199,7 @@ impl App {
         }
     }
 
-    /// Writes the play time now (the play-time count's 15-minute mark: a quit soon after must not count it again).
+    /// Writes the play time now (the game left or quitting, as the play-time count sends its seconds: kept to the second).
     pub fn support_save_now(&mut self) {
         self.support.unsaved = 0.0;
         save(&self.support.record);

@@ -4,6 +4,15 @@
 const esc = (s) => String(s).replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[c]);
 const h1 = (n) => (n >= 100 ? Math.round(n).toLocaleString("en-GB") : (Math.round(n * 10) / 10).toLocaleString("en-GB"));
 const hrs = (n) => `${h1(n)} h`;
+/** Seconds as "45 s", "12 min" or "1 h 05 min". */
+export const dur = (s) => {
+  s = Math.max(0, Math.round(s));
+  if (s < 60) return `${s} s`;
+  const m = Math.floor(s / 60);
+  return m < 60 ? `${m} min` : `${Math.floor(m / 60)} h ${String(m % 60).padStart(2, "0")} min`;
+};
+/** A run's play: exact for builds that send seconds, else from its 15-minute marks. */
+const runPlayed = (r) => (r.seconds != null ? dur(r.seconds) : r.beats ? `${r.beats * 15}+ min` : "under 15 min");
 
 /** Horizontal bars: rows of {label, value, note?}; one hue (one measure). */
 function bars(rows, fmt = hrs) {
@@ -47,6 +56,45 @@ function daily(days) {
     <div class="legend"><span><i class="s1"></i>Older builds (GoatCounter)</span><span><i class="s2"></i>New builds (this counter)</span></div>`;
 }
 
+/** The Multiplayer section (src/mp.js): counts only. */
+function multiplayer(m) {
+  if (!m) return `<div class="card"><h2>Multiplayer</h2><p class="muted">The multiplayer server's database is not bound to this Worker.</p></div>`;
+  if (m.error) return `<div class="card"><h2>Multiplayer</h2><p class="muted">The multiplayer server's database did not answer: ${esc(m.error)}</p></div>`;
+  const n = (v) => Number(v || 0).toLocaleString("en-GB");
+  const p = m.players, c = m.clubs, l = m.leagues;
+  const tiles = [
+    ["Players today", n(p.today)], ["Players, last 7 days", n(p.d7)], ["Players, last 30 days", n(p.d30)],
+    ["Shared clubs", n(c.total), `${n(c.on_now)} players on now in ${n(c.busy)} · ${n(c.public)} public · ${n(c.new_7d)} new this week`],
+    ["Neighbours leagues", n(l.total), `${n(l.seats)} seats filled · ${n(l.new_7d)} new this week`],
+  ];
+  const max = Math.max(1, ...m.daily.map((d) => d.players));
+  const W = 960, H = 160, pad = 28, bw = (W - pad) / m.daily.length;
+  const y = (v) => H - 18 - (v / max) * (H - 30);
+  const cols = m.daily.map((d, i) => {
+    const x = pad + i * bw + 1, w = Math.max(1, bw - 2);
+    const tip = `${d.day}: ${d.players} players (clubs ${d.club}, leagues ${d.league}, challenge ${d.challenge})`;
+    const label = i % Math.ceil(m.daily.length / 10) === 0 ? `<text x="${x + w / 2}" y="${H - 4}" class="ax" text-anchor="middle">${d.day.slice(5)}</text>` : "";
+    return `<g class="col"><title>${tip}</title><rect x="${pad + i * bw}" y="0" width="${bw}" height="${H - 18}" class="hit"/>
+      ${d.players ? `<rect x="${x}" y="${y(d.players)}" width="${w}" height="${Math.max(1, y(0) - y(d.players))}" class="s1" rx="1"/>` : ""}${label}</g>`;
+  }).join("");
+  const axis = `<line x1="${pad}" x2="${W}" y1="${y(0)}" y2="${y(0)}" class="grid"/><line x1="${pad}" x2="${W}" y1="${y(max)}" y2="${y(max)}" class="grid"/>
+    <text x="${pad - 4}" y="${y(max) + 4}" class="ax" text-anchor="end">${max}</text><text x="${pad - 4}" y="${y(0) + 4}" class="ax" text-anchor="end">0</text>`;
+  return `<h2 class="sec">Multiplayer</h2>
+<p class="muted">From the multiplayer server: a player counts on a day they join a shared club, make, join or report to a
+Neighbours league, or send a weekly challenge result. Counts only, from 0.9.0 on; the hidden pre-launch test clubs are left out.</p>
+<div class="tiles">${tiles.map(([k, v, sub]) => `<div class="tile"><b>${esc(v)}</b><span>${esc(k)}</span>${sub ? `<small style="display:block">${esc(sub)}</small>` : ""}</div>`).join("")}</div>
+<div class="card"><h2>Multiplayer players per day</h2><svg viewBox="0 0 ${W} ${H}" class="chart" role="img" aria-label="Multiplayer players per day">${axis}${cols}</svg>
+<details><summary class="muted">As a table</summary><table><tr><th>Day</th><th>Players</th><th>Clubs</th><th>Leagues</th><th>Challenge</th></tr>
+${m.daily.slice().reverse().map((d) => `<tr><td>${d.day}</td><td class="n">${d.players}</td><td class="n">${d.club}</td><td class="n">${d.league}</td><td class="n">${d.challenge}</td></tr>`).join("")}</table></details></div>
+<div class="grid2">
+<div class="card"><h2>Last 7 days by mode</h2>${bars(m.modes_7d.map((r) => ({ label: r.label, value: r.players,
+    note: r.mode === "club" ? `${r.places} clubs · ${r.events} joins` : r.mode === "league" ? `${r.places} leagues · ${r.events} visits` : `${r.events} results` })), (v) => `${v} players`)}</div>
+<div class="card"><h2>Players per week</h2>${m.weekly.length ? bars(m.weekly.map((w) => ({ label: `w/c ${w.week.slice(5)}`, value: w.players })), (v) => `${v} players`) : `<p class="muted">Nothing yet.</p>`}</div>
+<div class="card"><h2>Weekly challenge entries</h2>${m.challenge_weeks.length ? `<table><tr><th>Week</th><th>Players</th><th>In a friends' group</th><th>Results sent</th></tr>
+${m.challenge_weeks.map((w) => `<tr><td>${esc(w.week)}</td><td class="n">${w.players}</td><td class="n">${w.in_groups}</td><td class="n">${w.results}</td></tr>`).join("")}</table>` : `<p class="muted">No results yet: they arrive at the end of each challenge's first game year.</p>`}</div>
+</div>`;
+}
+
 function niceStep(max) {
   const raw = max / 4, p = 10 ** Math.floor(Math.log10(raw));
   return [1, 2, 5, 10].map((m) => m * p).find((s) => s >= raw) || p * 10;
@@ -60,7 +108,7 @@ export function page(s) {
     ["Last 7 days", hrs(t.hours_7d)],
     ["Last 30 days", hrs(t.hours_30d)],
     ["Launches counted here", t.runs.toLocaleString("en-GB")],
-    ["Typical session", t.median_session_marks == null ? "–" : t.median_session_marks === 0 ? "under 15 min" : `${t.median_session_marks * 15}–${t.median_session_marks * 15 + 15} min`],
+    ["Typical session", t.median_session_seconds == null ? "–" : dur(t.median_session_seconds)],
   ];
   return `<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
 <title>OpenSGolf play time</title><meta name="robots" content="noindex">
@@ -81,9 +129,10 @@ main{max-width:1040px;margin:0 auto;padding:24px 16px 48px}h1{font-size:22px;mar
 .status{padding:10px 14px;border-radius:8px;border:1px solid var(--line);margin-top:10px}.ok{border-color:#0ca30c}
 table{width:100%;border-collapse:collapse;font-size:13px}td,th{text-align:left;padding:4px 6px;border-bottom:1px solid var(--line)}th{color:var(--ink2);font-weight:500}
 td.n{text-align:right;font-variant-numeric:tabular-nums}details{margin-top:12px}
+.sec{font-size:18px;margin:32px 0 0}
 </style></head><body><main>
 <h1>OpenSGolf play time</h1>
-<p class="muted">Updated ${esc(s.generated_at.slice(0, 16).replace("T", " "))} UTC. One count per 15 minutes on the course, so hours are counts ÷ 4.
+<p class="muted">Updated ${esc(s.generated_at.slice(0, 16).replace("T", " "))} UTC. Newer builds report the exact seconds played; older ones sent one count per 15 minutes on the course (900 s each).
 Store builds (Flathub, F-Droid) send nothing.</p>
 <div class="tiles">${tiles.map(([k, v]) => `<div class="tile"><b>${esc(v)}</b><span>${esc(k)}</span></div>`).join("")}</div>
 
@@ -104,8 +153,10 @@ ${s.daily.slice().reverse().map((d) => `<tr><td>${d.day}</td><td class="n">${h1(
     : `This week so far: ${hrs(ob.this_week_hours)}. The import can be switched off once this stays under 1 hour a week for 3 full weeks.`}</div></div>
 </div>
 
+${multiplayer(s.mp)}
+
 <details class="card"><summary><b>Launches in the last 7 days (new builds)</b></summary><table><tr><th>Started (UTC)</th><th>Platform</th><th>Version</th><th>Country</th><th>Played</th></tr>
-${s.recent_runs.map((r) => `<tr><td>${esc(r.started_at.slice(0, 16).replace("T", " "))}</td><td>${esc(r.platform)}</td><td>${esc(r.version)}</td><td>${esc(r.country || "–")}</td><td class="n">${r.beats ? `${r.beats * 15}+ min` : "under 15 min"}</td></tr>`).join("")}</table></details>
+${s.recent_runs.map((r) => `<tr><td>${esc(r.started_at.slice(0, 16).replace("T", " "))}</td><td>${esc(r.platform)}</td><td>${esc(r.version)}</td><td>${esc(r.country || "–")}</td><td class="n">${esc(runPlayed(r))}</td></tr>`).join("")}</table></details>
 <details class="card"><summary><b>GoatCounter imports</b></summary><table><tr><th>When (UTC)</th><th>From</th><th>Rows</th><th>Hours in window</th><th>Problem</th></tr>
 ${s.imports.map((i) => `<tr><td>${esc(i.at.slice(0, 16).replace("T", " "))}</td><td>${esc(i.start_day)}</td><td class="n">${i.rows}</td><td class="n">${h1(i.play_marks / 4)}</td><td>${esc(i.error || "")}</td></tr>`).join("")}</table></details>
 </main></body></html>`;

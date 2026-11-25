@@ -1,6 +1,12 @@
 {
   "news": [
     {
+      "date": "25 November 2026",
+      "iso": "2026-11-25",
+      "title": "OpenSGolf 0.9 released: multiplayer (beta)",
+      "text": "Play SimGolf with other people: a weekly challenge with a board, neighbours leagues where up to 4 friends run their own courses side by side, and shared clubs where up to 4 build one course together, live. Start New Game > Weekly challenge to turn it on."
+    },
+    {
       "date": "13 November 2026",
       "iso": "2026-11-13",
       "title": "OpenSGolf 0.8 released",
@@ -94,6 +100,24 @@
       {
         "line": "And more",
         "note": "Speed x8, a height map, club records, a course review, a feature guide."
+      }
+    ],
+    "0.9": [
+      {
+        "line": "Multiplayer (beta)",
+        "note": "Start New Game has a weekly challenge, neighbours leagues and shared clubs."
+      },
+      {
+        "line": "Weekly challenge",
+        "note": "The same land for everyone each week, and a board of the best."
+      },
+      {
+        "line": "Neighbours",
+        "note": "Up to 4 friends each run their own plot of one property, in a league table."
+      },
+      {
+        "line": "Shared clubs",
+        "note": "Up to 4 players build and run one course together, live."
       }
     ]
   }

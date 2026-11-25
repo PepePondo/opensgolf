@@ -59,21 +59,40 @@ esac
 # the desktop's controller library (gamepad.rs) is not built for Android, and its uuid wants a newer js-sys than the old
 # Cargo below can have: left out of the manifest here
 sed -i -e '/^gilrs = /d' -e 's/^gamepad = \["dep:gilrs"\]/gamepad = []/' crates/simgolf/Cargo.toml
-rm -f Cargo.lock
-CARGO_RESOLVER_INCOMPATIBLE_RUST_VERSIONS=fallback cargo generate-lockfile
-# the wasm-bindgen family (cpal's browser side, not built here) as of 2024: the newer ones declare features the old Cargo
-# cannot resolve (js-sys's `dep:futures-util`)
-# rhai's ahash and its const-random moved to getrandom 0.4 in November 2026 (ahash 0.8.13, const-random 0.1.19,
-# const-random-macro 0.1.17); getrandom 0.4 is a 2024 edition crate and wants a newer js-sys than the pin below
-cargo update -p ahash --precise 0.8.12
-cargo update -p const-random --precise 0.1.18
-cargo update -p const-random-macro --precise 0.1.16
-cargo update -p web-sys --precise 0.3.70
-cargo update -p wasm-bindgen-futures --precise 0.4.43
-cargo update -p js-sys --precise 0.3.70
-cargo update -p wasm-bindgen --precise 0.2.93
-# a version 3 lock file says the same for crates.io dependencies
-sed -i 's/^version = 4$/version = 3/' Cargo.lock
+# The lock file for this build is kept in the repository (tools/android/Cargo.lock), so every build of a tag, a store's
+# too, uses the same dependency versions. ANDROID_RELOCK=1 works the versions out again (for Rust 1.84, with the pins
+# below) and writes them back there: run it after changing a dependency, then commit the file.
+lock="$src/tools/android/Cargo.lock"
+if [ -f "$lock" ] && [ -z "$ANDROID_RELOCK" ]; then
+    cp "$lock" Cargo.lock
+    # only the game's own crates' versions may move (a version bump); a missing or changed dependency fails here
+    CARGO_RESOLVER_INCOMPATIBLE_RUST_VERSIONS=fallback cargo update --workspace
+    sed -i 's/^version = 4$/version = 3/' Cargo.lock
+    # the crates.io packages (name, version, source) before and after must be the same
+    deps() { awk '/^name = /{n=$3} /^version = /{v=$3} /^source = /{print n, v, $3}' "$1"; }
+    if [ "$(deps Cargo.lock)" != "$(deps "$lock")" ]; then
+        echo "error: tools/android/Cargo.lock no longer fits the manifests; run with ANDROID_RELOCK=1 and commit it" >&2
+        exit 1
+    fi
+else
+    rm -f Cargo.lock
+    CARGO_RESOLVER_INCOMPATIBLE_RUST_VERSIONS=fallback cargo generate-lockfile
+    # the wasm-bindgen family (cpal's browser side, not built here) as of 2024: the newer ones declare features the old Cargo
+    # cannot resolve (js-sys's `dep:futures-util`)
+    # rhai's ahash and its const-random moved to getrandom 0.4 in November 2026 (ahash 0.8.13, const-random 0.1.19,
+    # const-random-macro 0.1.17); getrandom 0.4 is a 2024 edition crate and wants a newer js-sys than the pin below
+    cargo update -p ahash --precise 0.8.12
+    cargo update -p const-random --precise 0.1.18
+    cargo update -p const-random-macro --precise 0.1.16
+    cargo update -p web-sys --precise 0.3.70
+    cargo update -p wasm-bindgen-futures --precise 0.4.43
+    cargo update -p js-sys --precise 0.3.70
+    cargo update -p wasm-bindgen --precise 0.2.93
+    # a version 3 lock file says the same for crates.io dependencies
+    sed -i 's/^version = 4$/version = 3/' Cargo.lock
+    mkdir -p "$(dirname "$lock")"
+    cp Cargo.lock "$lock"
+fi
 
 # Sound goes through cpal's oboe output, whose C++ (oboe-sys) is compiled with the NDK. A failed build fails: it used to fall
 # back to a build without the default features, which shipped a silent app with no update check for weeks without a word

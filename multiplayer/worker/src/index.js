@@ -158,6 +158,10 @@ export async function hide(db, body, now) {
       .bind(body.challenge, body.player, body.show ? 0 : 1).run();
     return r.meta.changes > 0;
   }
+  if (body && isClubId(body.club)) {
+    const r = await db.prepare(`UPDATE clubs SET hidden = ?2 WHERE id = ?1`).bind(body.club, body.show ? 0 : 1).run();
+    return r.meta.changes > 0;
+  }
   if (body && typeof body.nick === "string" && body.nick.length > 0 && body.nick.length <= 32) {
     if (body.show) await db.prepare(`DELETE FROM hidden_nicks WHERE nick = ?1`).bind(body.nick).run();
     else {

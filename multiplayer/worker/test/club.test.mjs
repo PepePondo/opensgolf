@@ -3,7 +3,7 @@ import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import { RoomCore, pausedAt } from "../src/room.js";
 import { Club, mismatches, SAVE_EVERY, MAX_PLAYERS } from "../src/club.js";
-import worker, { readNewClub, cleanClubName } from "../src/index.js";
+import worker, { readNewClub, cleanClubName, hide } from "../src/index.js";
 import { fakeCtx, fakeNamespace, FakeSocket, memorySql } from "./doshim.mjs";
 import { memoryDb } from "./d1shim.mjs";
 
@@ -222,6 +222,9 @@ test("clubs are made through the Worker and listed", async () => {
   assert.equal(found.club.id, pid);
   assert.equal(found.club.name, "Hidden Pines");
   assert.equal((await worker.fetch(new Request("https://w/clubs/code/00000000"), env)).status, pid.startsWith("00000000") ? 200 : 404);
+  // an admin hides a club from the list
+  assert.equal(await hide(env.DB, { club: id }, new Date()), true);
+  assert.ok(!(await (await worker.fetch(new Request("https://w/clubs"), env)).json()).clubs.some((c) => c.id === id));
   assert.equal(cleanClubName("  The   Old Course "), "The Old Course");
   assert.equal(cleanClubName("ab"), null);
   assert.equal(cleanClubName("Sh1t Hills"), null);

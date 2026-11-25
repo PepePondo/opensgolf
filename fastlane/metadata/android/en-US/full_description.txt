@@ -11,6 +11,8 @@
 <li>A course editor for your own scenarios, and content packs (mods)</li>
 </ul>
 
+<p>This build works fully offline and asks for no permissions, so it leaves out the online features (multiplayer and update checks) that the version on the project's GitHub page has.</p>
+
 <p>The game plays in landscape. How to play, and the touch controls: https://github.com/crspytopgn/opensgolf/blob/main/docs/PLAYING.md</p>
 
 <p>OpenSGolf is not affiliated with or endorsed by Electronic Arts or Firaxis Games. SimGolf and Sid Meier's are trademarks of their owners and are named here only to say which game's files OpenSGolf can use.</p>

@@ -28,7 +28,7 @@ jobs:
         uses: actions/cache@v4
         with:
           path: ${{ runner.temp }}/android-build/target
-          key: android-${{ hashFiles('Cargo.lock', 'crates/*/Cargo.toml', 'tools/android_build.sh') }}
+          key: android-${{ hashFiles('Cargo.lock', 'tools/android/Cargo.lock', 'crates/*/Cargo.toml', 'tools/android_build.sh') }}
           restore-keys: android-
       - name: Build the APK
         run: |

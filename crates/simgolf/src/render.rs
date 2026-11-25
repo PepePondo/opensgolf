@@ -906,6 +906,8 @@ impl App {
         self.draw_continue_button(g, &s);
         // and "Course editor..." (editor.rs)
         self.draw_editor_button(g, &s);
+        // and the big "Join us on Discord" (welcome.rs)
+        self.draw_discord_button(g, &s);
         // and the player's own time played (support.rs's counter; from a minute on): the free set's bottom left corner, the
         // top middle on the original's title, clear of its trademark lines
         let played = self.support.record.played.max(0.0) as u64;

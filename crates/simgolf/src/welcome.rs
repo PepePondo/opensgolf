@@ -37,8 +37,17 @@ use std::cell::RefCell;
 pub const CHANGELOG_URL: &str = "https://github.com/crspytopgn/opensgolf/blob/main/CHANGELOG.md";
 /// The website's feature guide (web/guide.html): every OpenSGolf feature, where it is and whether it starts on.
 pub const GUIDE_URL: &str = "https://crspytopgn.github.io/opensgolf/guide.html";
-/// The community Discord's invite (never expires; Preferences > More > Join the Discord).
+/// The community Discord's invite (never expires; Preferences > More > Join the Discord, and the title menu's button).
 pub const DISCORD_URL: &str = "https://discord.gg/DVsBzGN4dC";
+
+/// The title menu's "Join us on Discord" button's hover value (after backups::CONTINUE_HOVER).
+pub const DISCORD_HOVER: i32 = 12;
+
+/// The title menu's "Join us on Discord" button: big, at the bottom right between Select A Theme and the exit.
+pub fn discord_button_rect() -> crate::render::Rect {
+    let w = crate::ui::F_MANUAL20.width(tr("STR_TITLE_DISCORD")).max(170.0) + 36.0;
+    crate::render::Rect::new(790.0 - w, 476.0, w, 46.0)
+}
 /// settings.json's keys: "welcome_shown" is false from a new player's first start until the first box has shown (a
 /// player who quits before it is still new next time), true after; "last_version_seen" the minor version last shown.
 pub const WELCOME_KEY: &str = "welcome_shown";
@@ -525,6 +534,26 @@ impl App {
             miniquad::window::clipboard_set(DISCORD_URL);
             self.show_toast(&trf("STR_SUPPORT_NO_BROWSER", &[("URL", &DISCORD_URL)]));
         }
+    }
+
+    /// Draws the title menu's big "Join us on Discord" button (the port's own): under Select A Theme, beside Play a
+    /// Championship,
+    /// where the original's art and the free set's leave the background bare.
+    pub fn draw_discord_button(&self, g: &mut crate::gfx::Gfx, s: &crate::ui::Screen) {
+        use crate::ui::{rgba, F_ARIAL10, F_MANUAL20};
+        let r = discord_button_rect();
+        let lit = self.hover == DISCORD_HOVER;
+        // Discord's own blurple, lighter when pointed at
+        let fill = if lit { [0.47, 0.53, 0.98, 1.0] } else { [0.345, 0.396, 0.949, 1.0] };
+        if crate::glass_ui::active() {
+            crate::glass_ui::capsule(g, s, r.x - 2.0, r.y - 1.0, r.w + 4.0, r.h + 3.0, fill);
+        } else {
+            s.fill(g, r.x - 2.0, r.y - 2.0, r.w + 4.0, r.h + 4.0, rgba(1.0, 1.0, 1.0, 0.9));
+            s.fill(g, r.x, r.y, r.w, r.h, fill);
+        }
+        let white = [1.0, 1.0, 1.0, 1.0];
+        s.put_shadowed(g, F_MANUAL20, r.x + r.w / 2.0, r.y + 5.0, tr("STR_TITLE_DISCORD"), white, true);
+        s.put_centered(g, F_ARIAL10, r.x + r.w / 2.0, r.y + 31.0, tr("STR_TITLE_DISCORD_NOTE"), white);
     }
 
     /// The highlights the What's new box shows (none once it is answered).

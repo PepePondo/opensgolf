@@ -8,6 +8,15 @@ Almost everything OpenSGolf adds to the original game is **off until you switch 
 unless you choose otherwise. Most of it is in Preferences: *Game options* holds the extras and presets, *Graphics* holds
 Enhanced graphics and HD.
 
+## 0.9.4 (25 November 2026)
+
+- **Bigger mods:** packs can add their own buildings and objects with art, tools, panels and map views, with a much
+  bigger script API (pack.toml `api = 2`; the game's mod API is now 2). *Information > Mods* builds them and has
+  *Reload*; the example pack is `example-neighbourhood`. Multiplayer is refused while a mod with objects or scripts is
+  on.
+- *Preferences > Content* has a *Remove* button, and says when a newer version of a pack is on *Find more*.
+- **Join us on Discord:** a big button on the title screen opens the OpenSGolf community Discord.
+
 ## 0.9.3 (25 November 2026)
 
 - **Start New Game asks Single player or Multiplayer first.** Single player has the normal game (it was called "Free

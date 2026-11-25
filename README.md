@@ -242,9 +242,10 @@ More from me: [OpenMCM2](https://github.com/crspytopgn/openmcm2) · [OpenLinks20
 
 **Privacy: the play-time count.** So I can see how much OpenSGolf is played, the GitHub release builds and the browser
 version send an anonymous count to the project's own counter (a small Cloudflare Worker, [stats/](stats/)): one at start
-(`start/<platform>/<version>`) and one per 15 minutes of play (`play-15min/<platform>`), with the version and a random
-number made fresh at each start (never saved, so runs can't be linked to a player), nothing else (no names, saves or
-cookies). The game says so once; *Preferences > More > Count my play time (anonymous)* turns it off. Store
+(`start/<platform>/<version>`) and the seconds played in that run (`play/<platform>`, every 5 minutes of play and when
+you leave or quit, so play time is exact to the second), with the version and a random number made fresh at each start
+(kept only on your device until the run's last seconds are sent, so runs can't be linked to a player), nothing else (no
+names, saves or cookies). The game says so once; *Preferences > More > Count my play time (anonymous)* turns it off. Store
 builds (Flathub, F-Droid) do not include it. See [docs/PLAYING.md](docs/PLAYING.md#play-time-count).
 
 [![Buy me a coffee](https://img.shields.io/badge/Buy%20me%20a%20coffee-FFDD00?style=for-the-badge&logo=buymeacoffee&logoColor=black)](https://buymeacoffee.com/crspytopgn)

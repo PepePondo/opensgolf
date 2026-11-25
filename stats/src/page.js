@@ -4,6 +4,15 @@
 const esc = (s) => String(s).replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[c]);
 const h1 = (n) => (n >= 100 ? Math.round(n).toLocaleString("en-GB") : (Math.round(n * 10) / 10).toLocaleString("en-GB"));
 const hrs = (n) => `${h1(n)} h`;
+/** Seconds as "45 s", "12 min" or "1 h 05 min". */
+export const dur = (s) => {
+  s = Math.max(0, Math.round(s));
+  if (s < 60) return `${s} s`;
+  const m = Math.floor(s / 60);
+  return m < 60 ? `${m} min` : `${Math.floor(m / 60)} h ${String(m % 60).padStart(2, "0")} min`;
+};
+/** A run's play: exact for builds that send seconds, else from its 15-minute marks. */
+const runPlayed = (r) => (r.seconds != null ? dur(r.seconds) : r.beats ? `${r.beats * 15}+ min` : "under 15 min");
 
 /** Horizontal bars: rows of {label, value, note?}; one hue (one measure). */
 function bars(rows, fmt = hrs) {
@@ -60,7 +69,7 @@ export function page(s) {
     ["Last 7 days", hrs(t.hours_7d)],
     ["Last 30 days", hrs(t.hours_30d)],
     ["Launches counted here", t.runs.toLocaleString("en-GB")],
-    ["Typical session", t.median_session_marks == null ? "–" : t.median_session_marks === 0 ? "under 15 min" : `${t.median_session_marks * 15}–${t.median_session_marks * 15 + 15} min`],
+    ["Typical session", t.median_session_seconds == null ? "–" : dur(t.median_session_seconds)],
   ];
   return `<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
 <title>OpenSGolf play time</title><meta name="robots" content="noindex">
@@ -83,7 +92,7 @@ table{width:100%;border-collapse:collapse;font-size:13px}td,th{text-align:left;p
 td.n{text-align:right;font-variant-numeric:tabular-nums}details{margin-top:12px}
 </style></head><body><main>
 <h1>OpenSGolf play time</h1>
-<p class="muted">Updated ${esc(s.generated_at.slice(0, 16).replace("T", " "))} UTC. One count per 15 minutes on the course, so hours are counts ÷ 4.
+<p class="muted">Updated ${esc(s.generated_at.slice(0, 16).replace("T", " "))} UTC. Newer builds report the exact seconds played; older ones sent one count per 15 minutes on the course (900 s each).
 Store builds (Flathub, F-Droid) send nothing.</p>
 <div class="tiles">${tiles.map(([k, v]) => `<div class="tile"><b>${esc(v)}</b><span>${esc(k)}</span></div>`).join("")}</div>
 
@@ -105,7 +114,7 @@ ${s.daily.slice().reverse().map((d) => `<tr><td>${d.day}</td><td class="n">${h1(
 </div>
 
 <details class="card"><summary><b>Launches in the last 7 days (new builds)</b></summary><table><tr><th>Started (UTC)</th><th>Platform</th><th>Version</th><th>Country</th><th>Played</th></tr>
-${s.recent_runs.map((r) => `<tr><td>${esc(r.started_at.slice(0, 16).replace("T", " "))}</td><td>${esc(r.platform)}</td><td>${esc(r.version)}</td><td>${esc(r.country || "–")}</td><td class="n">${r.beats ? `${r.beats * 15}+ min` : "under 15 min"}</td></tr>`).join("")}</table></details>
+${s.recent_runs.map((r) => `<tr><td>${esc(r.started_at.slice(0, 16).replace("T", " "))}</td><td>${esc(r.platform)}</td><td>${esc(r.version)}</td><td>${esc(r.country || "–")}</td><td class="n">${esc(runPlayed(r))}</td></tr>`).join("")}</table></details>
 <details class="card"><summary><b>GoatCounter imports</b></summary><table><tr><th>When (UTC)</th><th>From</th><th>Rows</th><th>Hours in window</th><th>Problem</th></tr>
 ${s.imports.map((i) => `<tr><td>${esc(i.at.slice(0, 16).replace("T", " "))}</td><td>${esc(i.start_day)}</td><td class="n">${i.rows}</td><td class="n">${h1(i.play_marks / 4)}</td><td>${esc(i.error || "")}</td></tr>`).join("")}</table></details>
 </main></body></html>`;

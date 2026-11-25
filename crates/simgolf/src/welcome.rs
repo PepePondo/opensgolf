@@ -37,6 +37,8 @@ use std::cell::RefCell;
 pub const CHANGELOG_URL: &str = "https://github.com/crspytopgn/opensgolf/blob/main/CHANGELOG.md";
 /// The website's feature guide (web/guide.html): every OpenSGolf feature, where it is and whether it starts on.
 pub const GUIDE_URL: &str = "https://crspytopgn.github.io/opensgolf/guide.html";
+/// The community Discord's invite (never expires; Preferences > More > Join the Discord).
+pub const DISCORD_URL: &str = "https://discord.gg/DVsBzGN4dC";
 /// settings.json's keys: "welcome_shown" is false from a new player's first start until the first box has shown (a
 /// player who quits before it is still new next time), true after; "last_version_seen" the minor version last shown.
 pub const WELCOME_KEY: &str = "welcome_shown";
@@ -513,6 +515,15 @@ impl App {
             #[cfg(not(target_arch = "wasm32"))]
             miniquad::window::clipboard_set(GUIDE_URL);
             self.show_toast(&trf("STR_SUPPORT_NO_BROWSER", &[("URL", &GUIDE_URL)]));
+        }
+    }
+
+    /// Opens the community Discord's invite in the browser, or copies its address where there is none.
+    pub fn open_discord(&mut self) {
+        if !crate::bugreport::open_link(DISCORD_URL) {
+            #[cfg(not(target_arch = "wasm32"))]
+            miniquad::window::clipboard_set(DISCORD_URL);
+            self.show_toast(&trf("STR_SUPPORT_NO_BROWSER", &[("URL", &DISCORD_URL)]));
         }
     }
 

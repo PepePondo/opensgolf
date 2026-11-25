@@ -1,6 +1,7 @@
 # OpenSGolf
 
 [![Release](https://img.shields.io/github/v/release/crspytopgn/opensgolf?label=release)](https://github.com/crspytopgn/opensgolf/releases/latest)
+[![Discord](https://img.shields.io/badge/Discord-join%20the%20community-5865F2?logo=discord&logoColor=white)](https://discord.gg/DVsBzGN4dC)
 [![Licence: GPL-2.0-or-later](https://img.shields.io/badge/licence-GPL--2.0--or--later-blue)](LICENSE)
 [![Buy me a coffee](https://img.shields.io/badge/Buy%20me%20a%20coffee-FFDD00?logo=buymeacoffee&logoColor=black)](https://buymeacoffee.com/crspytopgn)
 [![Ko-fi](https://img.shields.io/badge/Ko--fi-FF5E5B?logo=kofi&logoColor=white)](https://ko-fi.com/crspytopgn)
@@ -13,6 +14,9 @@ have them, or its own free graphics and sound if you don't. It runs on Windows, 
 
 <sub>Screenshot taken with the original SimGolf files (not included). More pictures on the
 [website](https://crspytopgn.github.io/opensgolf/).</sub>
+
+**Join the community on [Discord](https://discord.gg/DVsBzGN4dC)**: chat with other players, show off your course, get help installing and
+talk about what comes next.
 
 **Watch the trailer** (one minute, 4K, played with the original SimGolf files):
 
@@ -185,7 +189,9 @@ How close each part is to the original is tracked in [docs/PARITY.md](docs/PARIT
 ## Reporting bugs and contributing
 
 Please report bugs and suggest ideas on the [issue tracker](https://github.com/crspytopgn/opensgolf/issues/new/choose)
-(in the game, Preferences → More → *Report a problem...* or Shift+F8 fills in the bug form for you).
+(in the game, Preferences → More → *Report a problem...* or Shift+F8 fills in the bug form for you), or ask in the
+[OpenSGolf Discord](https://discord.gg/DVsBzGN4dC) (#bug-reports, #install-help and #feature-ideas; in the game, Preferences → More →
+*Join the Discord...*).
 Contributions of code, art for the free base set and translations are welcome; see [CONTRIBUTING.md](CONTRIBUTING.md) and
 [docs/TRANSLATING.md](docs/TRANSLATING.md).
 

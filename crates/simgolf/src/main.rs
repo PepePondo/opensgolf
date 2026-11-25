@@ -2331,6 +2331,11 @@ impl Stage {
                 self.app.open_support_page();
                 self.app.open_popup(from);
             }
+            // Join the Discord... (welcome.rs): the community Discord's invite in the browser; Preferences stays
+            Line::Discord => {
+                self.app.open_discord();
+                self.app.open_popup(from);
+            }
             // What's new... (welcome.rs): this version's What's new box, whose See everything that's new opens the
             // changelog in the browser
             Line::WhatsNew => {

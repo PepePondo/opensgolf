@@ -462,7 +462,8 @@ golfers' thoughts**, **Advisor and first-time messages**, **Ambient animals** an
   (off by default), *Check for updates now* (where the title menu has its button), *Search options...*, *Report a
   problem...* (see *Reporting a problem*), *Launcher...* (see *The launcher*), *What's new...*, *Support OpenSGolf...* (see *Supporting OpenSGolf*; under it, a note of your own total time played, kept only on
   your device; the title menu shows it too, in the bottom left corner on the free graphics and at the top middle on the
-  original's, once you have played a minute) and *Count my play time
+  original's, once you have played a minute), *Join the Discord...* (opens the [community Discord](https://discord.gg/DVsBzGN4dC)'s invite in your
+  browser; Preferences stays open) and *Count my play time
   (anonymous)* (on by default; not in store builds; see *Play-time count*).
 
 The foot of Preferences and of each box says in a sentence what the OpenSGolf line under the pointer does (on a touch
@@ -1431,7 +1432,8 @@ The port's own helper (crates/simgolf/src/bugreport.rs); nothing changes until y
 Functions menu is left as it is). System Functions → Preferences → *More...* → *Report a problem...*, or **Shift+F8** on
 the course (Change keys can move it), open a small box that says what will happen, with an *Include a screenshot* tick (ticked), *OK, open the form* (the
 box's tick and Enter too), *Copy the details only* and *Cancel* (Esc too). *Copy the details only* puts the version, the
-platform and the system line below on the clipboard and nothing else, for a post on Discord or a forum. OK:
+platform and the system line below on the clipboard and nothing else, for a post on the
+[OpenSGolf Discord](https://discord.gg/DVsBzGN4dC) (#bug-reports) or a forum. OK:
 
 - opens the project's bug report form on GitHub in your browser with its one-line fields filled in: the version, the
   platform, the base set (your SimGolf files or the free set) and *System*, a short system line (system and processor,

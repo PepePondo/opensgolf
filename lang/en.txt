@@ -3606,6 +3606,8 @@ STR_TIME_HOURS                          :{N} hours
 STR_TIME_MINUTE                         :1 minute
 STR_TIME_MINUTES                        :{N} minutes
 STR_PREFS_DESC_SUPPORT                  :Buy Me a Coffee: OpenSGolf is built with paid AI tools, so a coffee helps future updates.
+STR_MENU_PREFS_DISCORD                  : Join the Discord...
+STR_PREFS_DESC_DISCORD                  :Opens the OpenSGolf community Discord: chat, show off your course, get help and report bugs.
 # The welcome boxes (the port's own, welcome.rs; docs/PLAYING.md "How would you like to play?"). The choices start with a
 # space (options); the notes under them are wrapped by the game. The four choices are the four presets (STR_PRESET_*).
 STR_WELCOME_TITLE                       :How would you like to play?

@@ -7,9 +7,12 @@
 //   each start (or "kept" for play sent late, with no run); `n` the count's number in the run. Nothing else is kept: no
 //   address, only the country Cloudflare reads from it.
 // * Every week (the cron in wrangler.toml), and on POST /admin/import: GoatCounter's counts from older builds, by hour.
-// * GET / (password): the stats page; GET /api/stats the same as JSON.
+// * GET / (password): the stats page; GET /api/stats the same as JSON. Its Multiplayer section reads the multiplayer
+//   server's database (src/mp.js), bound as BOARD.
 //
 // Copyright the OpenSGolf contributors. GPL-2.0-or-later.
+
+import { mpStats } from "./mp.js";
 
 /** Platforms the game names (playcount.rs `platform`). */
 export const PLATFORMS = new Set([
@@ -322,6 +325,17 @@ export function cmpVersion(a, b) {
 
 // ---------------------------------------------------------------- the Worker
 
+/** The page's numbers: play time, and multiplayer from the BOARD database (src/mp.js) when it answers. */
+export async function allStats(env, now = new Date()) {
+  const s = await stats(env.DB, now);
+  try {
+    s.mp = await mpStats(env.BOARD, now);
+  } catch (e) {
+    s.mp = { error: String(e && e.message ? e.message : e).slice(0, 200) };
+  }
+  return s;
+}
+
 /** Basic auth against STATS_PASSWORD (any user name). */
 export function authorized(request, env) {
   if (!env.STATS_PASSWORD) return false;
@@ -351,7 +365,7 @@ export default {
     if (url.pathname === "/robots.txt") return new Response("User-agent: *\nDisallow: /\n");
     if (!authorized(request, env)) return ASK();
     if (url.pathname === "/api/stats") {
-      return Response.json(await stats(env.DB), { headers: { "Cache-Control": "no-store" } });
+      return Response.json(await allStats(env), { headers: { "Cache-Control": "no-store" } });
     }
     if (url.pathname === "/admin/import" && request.method === "POST") {
       const from = url.searchParams.get("from");
@@ -360,7 +374,7 @@ export default {
     }
     if (url.pathname === "/") {
       const { page } = await import("./page.js");
-      return new Response(page(await stats(env.DB)), { headers: { "Content-Type": "text/html; charset=utf-8", "Cache-Control": "no-store" } });
+      return new Response(page(await allStats(env)), { headers: { "Content-Type": "text/html; charset=utf-8", "Cache-Control": "no-store" } });
     }
     return new Response("Not found", { status: 404 });
   },

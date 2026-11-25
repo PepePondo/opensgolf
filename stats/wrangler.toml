@@ -16,3 +16,9 @@ database_id = "4feb91e9-dbbd-4110-aee0-14d1d8f31b6e"
 
 [observability]
 enabled = true
+
+# The multiplayer server's database (multiplayer/worker), read only, for the page's Multiplayer section (src/mp.js).
+[[d1_databases]]
+binding = "BOARD"
+database_name = "opensgolf-board"
+database_id = "f9841ce7-7018-47cf-9c3a-0bc85ef1cdcc"

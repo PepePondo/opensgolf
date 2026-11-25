@@ -20,6 +20,10 @@ work in `multiplayer/`. Deployed at https://opensgolf-board.openmcm2-laps.worker
   hiding a result (`{challenge, player}`) or a nickname everywhere (`{nick}`; `show: true` undoes either). A hidden
   nickname shows as a generated one (`src/names.js`).
 
+For the play-time stats page's Multiplayer section, `src/activity.js` counts, per day, each player's club joins, league
+visits (made, joined, reported to) and results sent, in the `activity` table (day, mode, club id / league code / week,
+player id, count). The stats page reads it and shows only totals.
+
 Kept per result: the player's random id, nickname, group code, the numbers above, the platform and the version. No
 address, no country, no cookies.
 

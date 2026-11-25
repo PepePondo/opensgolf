@@ -59,6 +59,22 @@ test("a new club starts from its owner's game", async () => {
   assert.deepEqual(go[1].Act.action, { speed: 1 });
 });
 
+test("joins are counted for the stats page, and a missing table changes nothing", async () => {
+  clock = Date.parse("2026-11-25T12:00:00Z");
+  const DB = memoryDb();
+  const k = await made({ DB });
+  const o = await join(k, OWNER);
+  o.take();
+  await k.c.webSocketMessage(o, JSON.stringify({ Save: { tick: 40, data: "AAAA" } }));
+  await join(k, P2);
+  await join(k, P2); // joining again
+  const rows = DB.raw.prepare(`SELECT day, player, n FROM activity WHERE mode = 'club' ORDER BY player`).all();
+  assert.deepEqual(rows.map((r) => [r.day, r.player, r.n]), [["2026-11-25", OWNER, 1], ["2026-11-25", P2, 2]]);
+  DB.raw.exec("DROP TABLE activity");
+  const again = await join(k, P2);
+  assert.ok(again.take()[0].Welcome, "the join still works");
+});
+
 test("a joiner gets the save and every action since it, in order", async () => {
   clock = 1_000_000;
   const k = await made();

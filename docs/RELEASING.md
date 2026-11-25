@@ -64,6 +64,19 @@ it the step leaves a warning and does nothing, and a failed store update never f
   crspytopgn.OpenSGolf`, which opens a pull request to `microsoft/winget-pkgs` from the token's account (it needs the
   package to be in winget already, and that account to have signed Microsoft's CLA once).
 
+## Discord posts
+
+The community Discord ([invite](https://discord.gg/DVsBzGN4dC), never expires) gets two kinds of automatic post, each through a webhook
+whose address is a repository secret (Settings > Secrets and variables > Actions). Make a webhook in Discord with the
+channel's Edit Channel > Integrations > Webhooks, then *Copy Webhook URL* into the secret. Without a secret the job
+leaves a warning and posts nothing; a failed post never fails a release.
+
+- **DISCORD_RELEASE_WEBHOOK** (#releases): the `discord` job in `release.yml`, after the release is published, posts
+  "OpenSGolf X.Y.Z is out" with the minor version's highlights from `CHANGELOG.md` and the release's link.
+- **DISCORD_ISSUES_WEBHOOK** (#github-activity): `.github/workflows/discord-issues.yml` posts one line for a new issue,
+  a reply from the project (owner, member or collaborator), and an issue closed or reopened: the number, title, who and
+  a link, never the issue's or comment's text. Bots and pull requests are skipped.
+
 F-Droid needs nothing: its bot reads the new tag (the recipe's `AutoUpdateMode`). Flathub is updated by hand.
 
 ## What's new (CHANGELOG.md)

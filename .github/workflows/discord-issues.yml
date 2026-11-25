@@ -1,0 +1,68 @@
+# Issue activity in the community Discord's #github-activity channel: a new issue, a reply from the project (the owner,
+# a member or a collaborator), and an issue closed or reopened. Each post is one short line: what happened, the issue's
+# number and title, who did it and the link; no issue or comment text is copied (people may put logs or personal details
+# there). Bots' comments and pull requests are skipped. The webhook is in the DISCORD_ISSUES_WEBHOOK secret; without it
+# the run says so and does nothing.
+name: Discord issue posts
+
+on:
+  issues:
+    types: [opened, closed, reopened]
+  issue_comment:
+    types: [created]
+
+permissions: {}
+
+jobs:
+  post:
+    runs-on: ubuntu-latest
+    # comments on pull requests come through issue_comment too; and no bots (dependabot, github-actions, ...)
+    if: >-
+      github.event.issue.pull_request == null &&
+      github.event.sender.type != 'Bot' &&
+      (github.event_name == 'issues' ||
+       contains(fromJSON('["OWNER","MEMBER","COLLABORATOR"]'), github.event.comment.author_association))
+    steps:
+      - name: Post to Discord
+        env:
+          WEBHOOK: ${{ secrets.DISCORD_ISSUES_WEBHOOK }}
+          EVENT: ${{ github.event_name }}
+          ACTION: ${{ github.event.action }}
+          NUMBER: ${{ github.event.issue.number }}
+          TITLE: ${{ github.event.issue.title }}
+          ISSUE_URL: ${{ github.event.issue.html_url }}
+          COMMENT_URL: ${{ github.event.comment.html_url }}
+          WHO: ${{ github.event.sender.login }}
+          REASON: ${{ github.event.issue.state_reason }}
+        run: |
+          if [ -z "$WEBHOOK" ]; then echo "::warning::DISCORD_ISSUES_WEBHOOK is not set: no Discord post"; exit 0; fi
+          python3 - <<'PY'
+          import json, os, urllib.request
+          e = os.environ
+          title = " ".join(e["TITLE"].split())
+          if len(title) > 120:
+              title = title[:117].rstrip() + "..."
+          if e["EVENT"] == "issue_comment":
+              what, url, colour = "💬 Reply on", e["COMMENT_URL"], 0x5865F2
+          elif e["ACTION"] == "opened":
+              what, url, colour = "🆕 New issue", e["ISSUE_URL"], 0x2F8F4E
+          elif e["ACTION"] == "reopened":
+              what, url, colour = "🔁 Reopened", e["ISSUE_URL"], 0xE0A800
+          else:
+              done = e.get("REASON") != "not_planned"
+              what, url, colour = ("✅ Closed" if done else "🚫 Closed (not planned)"), e["ISSUE_URL"], 0x8250DF if done else 0x6E7781
+          payload = {
+              "username": "OpenSGolf GitHub",
+              # names and titles are shown as typed, never as pings
+              "allowed_mentions": {"parse": []},
+              "embeds": [{
+                  "title": f"{what} #{e['NUMBER']}: {title}"[:256],
+                  "url": url,
+                  "description": f"by {e['WHO']}",
+                  "color": colour,
+              }],
+          }
+          req = urllib.request.Request(e["WEBHOOK"], json.dumps(payload).encode(), {"Content-Type": "application/json", "User-Agent": "opensgolf-issues"})
+          with urllib.request.urlopen(req) as r:
+              print("Discord answered", r.status)
+          PY

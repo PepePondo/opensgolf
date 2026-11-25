@@ -282,6 +282,39 @@ pub enum Action {
     /// The Eyesore demolition extra: the eyesore on tile x, y pulled down and paid for.
     #[serde(rename = "demolish")]
     Demolish { x: i32, y: i32 },
+    /// One of the content packs' object types (crate::modkit) placed with its first tile on x, y, turned `turn`; or
+    /// (`remove`) the pack object on tile x, y taken away.
+    #[serde(rename = "mod")]
+    ModBuild {
+        x: i32,
+        y: i32,
+        #[serde(rename = "k", default)]
+        kind: String,
+        #[serde(default)]
+        turn: i32,
+        #[serde(rename = "rm", default)]
+        remove: bool,
+    },
+    /// Something done in a pack's part of the interface, which goes to its scripts: `event` is `tool` (id, x, y, remove),
+    /// `panel` (id opened), `button` (panel id, button in `arg`), `answer` (question id, button in `arg`), `overlay` (id
+    /// switched on) or `click` (the pack object on x, y clicked).
+    #[serde(rename = "mev")]
+    ModEvent {
+        #[serde(rename = "p", default)]
+        pack: String,
+        #[serde(rename = "e")]
+        event: String,
+        #[serde(rename = "i", default)]
+        id: String,
+        #[serde(rename = "a", default)]
+        arg: String,
+        #[serde(default)]
+        x: i32,
+        #[serde(default)]
+        y: i32,
+        #[serde(rename = "rm", default)]
+        remove: bool,
+    },
 
     // --- staff
     /// An employee hired: `kind` 0 groundskeeper .. 3, `skilled` the experienced one.

@@ -87,6 +87,7 @@ mod language;
 mod launcher;
 mod member_panel;
 mod message_ui;
+mod mods_ui;
 #[cfg(feature = "multiplayer")]
 mod mp;
 mod net;
@@ -1331,6 +1332,52 @@ fn apply_edit_spec(app: &mut App, spec: &str) {
                     println!("ejected golfer {gi} (hole now {})", app.club.g[gi].hole);
                 }
             }
+            b'O' => {
+                // test hook: a content pack's object (mods_ui.rs): O:x,y,type[,turn] places it through the Mods tool, O:x,y,-
+                // takes the pack object on the tile away
+                let p: Vec<&str> = rest.split(',').collect();
+                let (x, y) = (at(0), at(1));
+                let kind = p.get(2).copied().unwrap_or("-");
+                let turn = p.get(3).and_then(|t| t.parse().ok()).unwrap_or(0);
+                let ok = app.mod_build(x, y, kind, turn, kind == "-");
+                let n = app.mods.world.objects.len();
+                println!("pack object {kind} at {x},{y}: {ok}, {n} objects, toast '{}', cash {}", app.toast, app.econ.cash);
+            }
+            b'U' => {
+                // test hook: something done in a pack's interface (mods_ui.rs): U:pack,event,id,arg[,x,y]
+                let p: Vec<&str> = rest.split(',').collect();
+                let g = |k: usize| p.get(k).copied().unwrap_or("").to_string();
+                let n = |k: usize| p.get(k).and_then(|t| t.parse().ok()).unwrap_or(0);
+                if g(1) == "overlay" {
+                    app.mods.overlay = Some((g(0), g(2)));
+                }
+                let ok = app.mod_event(&g(0), &g(1), &g(2), &g(3), n(4), n(5), false);
+                let panel = app.mods.panel.as_ref().map(|p| (p.title.clone(), p.rows.len(), p.buttons.len()));
+                println!("pack event {}: {ok}, panel {panel:?}, toast '{}'", g(1), app.toast);
+            }
+            b'I' => {
+                // test hook: what the content packs add (mods_ui.rs)
+                let c = &app.mods.catalog;
+                println!(
+                    "mods: {} types, {} tools, {} panels, {} views; warnings {:?}; script errors {:?}",
+                    c.objects.len(),
+                    c.tools.len(),
+                    c.panels.len(),
+                    c.overlays.len(),
+                    app.mods.warnings,
+                    app.scen.errors
+                );
+                for o in &app.mods.world.objects {
+                    println!(
+                        "mod object {} {} at {},{} {}x{} dir {} level {} data {}",
+                        o.uid, o.kind, o.a, o.b, o.w, o.h, o.dir, o.level, o.data
+                    );
+                }
+                for (k, v) in &app.mods.world.overlays {
+                    println!("mod view {k}: {} values, {}..{}, '{}'", v.values.len(), v.low, v.high, v.legend);
+                }
+                println!("mod bonus tiles {}, value bonus at 10,10: {}", app.mods.world.bonus.len(), sg_core::modkit::value_bonus(10, 10));
+            }
             b'Q' => {
                 // test hook: the Move the clubhouse extra (clubhouse_move.rs): Q:x,y moves it there through the box's Yes
                 // and the building tool's click
@@ -1994,6 +2041,7 @@ impl Stage {
             PopupKind::Info if line == tr("STR_MENU_INFO_CHALLENGES") => self.app.open_challenges(),
             PopupKind::Info if line == tr("STR_MENU_INFO_HOLE_COMMENTS") => self.app.open_hole_comments(),
             PopupKind::Info if line == tr("STR_MENU_INFO_GRAPHS") => self.app.open_graphs(),
+            PopupKind::Info if line == tr("STR_MENU_INFO_MODS") => self.app.open_mods(),
             PopupKind::Info => match k {
                 0 => self.app.repeat_message(),
                 1 => self.open_report(),
@@ -3268,6 +3316,8 @@ impl Stage {
                 Screen::Content => app.draw_content(&mut self.g),
                 Screen::Keys => app.draw_keys(&mut self.g),
                 Screen::Goals => app.draw_goals(&mut self.g),
+                Screen::Mods => app.draw_mods(&mut self.g),
+                Screen::ModPanel => app.draw_mod_panel(&mut self.g),
                 Screen::Editor => app.draw_editor_box(&mut self.g),
                 // the hole's name prompt (extras_ui.rs) goes over Hole Stats
                 Screen::HoleStats => {
@@ -4152,6 +4202,16 @@ impl EventHandler for Stage {
                 if button == MouseButton::Left {
                     self.app.content_click(vx, vy);
                 }
+            } else if matches!(self.app.screen, Screen::Mods | Screen::ModPanel) {
+                // the content packs' Mods window and their scripts' panels (mods_ui.rs)
+                let (vx, vy) = self.app.view.to_virtual(x, y);
+                if button == MouseButton::Left {
+                    if self.app.screen == Screen::Mods {
+                        self.app.mods_click(vx, vy);
+                    } else {
+                        self.app.mod_panel_click(vx, vy);
+                    }
+                }
             } else if self.app.screen == Screen::Keys {
                 let (vx, vy) = self.app.view.to_virtual(x, y);
                 self.app.keys_click(vx, vy, button == MouseButton::Right);
@@ -4626,6 +4686,10 @@ impl Stage {
                 app.close_info();
             } else if app.screen == Screen::Content {
                 app.content_key(k);
+            } else if app.screen == Screen::Mods {
+                app.mods_key(k);
+            } else if app.screen == Screen::ModPanel {
+                app.mod_panel_key(k);
             } else if app.screen == Screen::Keys {
                 app.keys_key(k);
             } else if app.screen == Screen::Skills {

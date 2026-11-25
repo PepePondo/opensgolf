@@ -250,7 +250,7 @@ impl App {
 
     /// Makes a club from the game being played: the club starts where this game is.
     pub fn club_make(&mut self, name: &str, listed: bool) {
-        if self.terrain.ty.is_empty() || self.club_on() {
+        if self.terrain.ty.is_empty() || self.club_on() || self.refuse_multiplayer_for_mods() {
             return;
         }
         super::settings::with_player();
@@ -262,6 +262,10 @@ impl App {
 
     /// Joins the club `id` (its game replaces the one being played).
     pub fn club_join(&mut self, id: &str, name: &str) {
+        // content packs with objects or scripts keep shared clubs closed (mods_ui.rs)
+        if self.refuse_multiplayer_for_mods() {
+            return;
+        }
         if self.club_on() {
             self.club_leave("");
         }

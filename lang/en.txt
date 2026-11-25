@@ -2463,6 +2463,9 @@ STR_CONTENT_SCRIPT_ERROR                :script error: {ERROR}{MORE}
 STR_CONTENT_MORE                        : (+{N} more)
 STR_CONTENT_UP                          :Up
 STR_CONTENT_DOWN                        :Down
+STR_CONTENT_REMOVE                      :Remove
+STR_CONTENT_REMOVE_SURE                 :Sure?
+STR_CONTENT_UPDATE                      :Version {VERSION} is on Find more.
 STR_CONTENT_PREVIOUS                    :Previous
 STR_CONTENT_NEXT                        :Next
 STR_CONTENT_NOTE                        :Changes are saved at once and take effect when you restart the game.
@@ -2882,6 +2885,35 @@ STR_GOALS_LOST                          :The scenario is lost.
 STR_GOALS_SCRIPTS_ONLY                  :Goals set by the scripts of your content packs.
 STR_GOALS_NONE                          :There are no goals yet.
 STR_GOALS_CLOSE                         :Click anywhere or press a key to go back to the game.
+# Information > Mods: what content packs add (the port's own, mods_ui.rs; docs/MODDING.md 12). {NAME} an object type,
+# tool or map view, {COST} money, {W} {H} a footprint in tiles, {N} a number, {PACK} {PACKS} pack ids.
+STR_MENU_INFO_MODS                      : Mods
+STR_MODS_TITLE                          :Mods
+STR_MODS_BUILD                          :Build
+STR_MODS_TOOLS                          :Tools
+STR_MODS_PANELS                         :Panels
+STR_MODS_VIEWS                          :Map views
+STR_MODS_VIEW_ON                        :{NAME} (showing)
+STR_MODS_VIEW_OFF                       :Hide the map view
+STR_MODS_PROBLEMS                       :Problems
+STR_MODS_MISSING_LINE                   :{N} objects of the pack {PACK}, which is not on. They stay on the land until it is back, or until you take them away with the Undo tool.
+STR_MODS_MISSING                        :This game has {N} objects from packs that are not on ({PACKS}). They stay where they are. Switch the packs on in Preferences > Content to use them again.
+STR_MODS_MAKERS                         :For pack makers
+STR_MODS_RELOAD                         :Reload the packs' objects, art and scripts (this game is kept)
+STR_MODS_RELOADED                       :The packs were read again.
+STR_MODS_RELOADED_PROBLEMS              :The packs were read again, with {N} problems: see Information > Mods.
+STR_MODS_BUILD_LINE                     :{NAME}  {COST}  ({W} x {H})
+STR_MODS_HELP                           :Pick something to build or a tool, then click the course. Tab turns it, Shift+click takes a pack's object away, Esc puts the tool down.
+STR_MODS_TOOL_HELD                      :{NAME}: click the course. Tab turns it, Shift+click takes a pack's object away, Esc puts the tool down.
+STR_MODS_PLACING                        :{NAME}: {COST}
+STR_MODS_NOT_ON_LAND                    :That is not on your land.
+STR_MODS_WATER                          :That cannot go on this ground.
+STR_MODS_LIMIT                          :No more of these can be built.
+STR_MODS_FULL                           :The course holds as many pack objects as it can.
+STR_MODS_NEEDS_HOLES                    :This needs {N} open holes first.
+STR_MODS_CLOSE                          :Close
+STR_MODS_OK                             :OK
+STR_MODS_NO_MULTIPLAYER                 :Multiplayer is closed while content packs that add objects or scripts are on ({PACKS}). Switch them off in Preferences > Content and restart to play together.
 STR_GOAL_STATE_OPEN                     :open
 STR_GOAL_STATE_BY                       :open, by the end of {YEAR}
 STR_GOAL_STATE_DONE                     :reached

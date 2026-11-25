@@ -405,6 +405,10 @@ impl App {
 
     /// A new game on a seat's plot.
     pub fn start_league(&mut self, g: &mut Gfx, l: &League, seat: usize) {
+        // content packs with objects or scripts keep the leagues closed (mods_ui.rs)
+        if self.refuse_multiplayer_for_mods() {
+            return;
+        }
         self.scen.chosen = None;
         self.course_size = sg_core::mapsize::ORIGINAL;
         self.exe_rng = ExeRng { state: seat_seed(l.seed, seat) };

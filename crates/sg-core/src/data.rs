@@ -1064,6 +1064,21 @@ pub fn economy() -> &'static EconomyData {
     &get().economy
 }
 
+/// The id of a tile type (terrain.toml), e.g. "fairway"; empty for an unknown type.
+pub fn terrain_id(t: u8) -> &'static str {
+    TERRAIN_IDS.get(t as usize).copied().unwrap_or("")
+}
+
+/// The tile type of a terrain id (the first 23, the ones a tile holds).
+pub fn terrain_index(id: &str) -> Option<u8> {
+    TERRAIN_IDS.iter().take(23).position(|&t| t == id).map(|t| t as u8)
+}
+
+/// The kind of an object id (buildings.toml and amenities.toml).
+pub fn object_kind(id: &str) -> Option<i32> {
+    OBJECT_IDS.iter().position(|&t| t == id).map(|k| k as i32)
+}
+
 /// The id of an object kind (buildings.toml and amenities.toml), e.g. "snack-bar"; empty for an unknown kind.
 pub fn object_id(kind: usize) -> &'static str {
     OBJECT_IDS.get(kind).copied().unwrap_or("")

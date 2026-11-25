@@ -938,6 +938,11 @@ impl App {
         if kind == PopupKind::Info && self.has_goals() {
             lines.push(tr("STR_MENU_INFO_GOALS"));
         }
+        // the content packs' objects, tools, panels and map views (mods_ui.rs)
+        if kind == PopupKind::Info && self.has_mods() {
+            lines.push(tr("STR_MENU_INFO_MODS"));
+            top -= 24.0;
+        }
         // the OpenSGolf extras' lines (extras.rs), last: Buy land while the Keep the land offer extra keeps an approval
         if kind == PopupKind::Info {
             for (on, key) in [

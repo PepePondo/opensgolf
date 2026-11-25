@@ -2688,6 +2688,10 @@ impl App {
     pub fn open_hole(&mut self) -> bool {
         // the interface's call is an action (replay.rs): logged, then applied by App::apply
         if self.rec.depth_zero() {
+            #[cfg(feature = "multiplayer")]
+            if self.rival_refuses_hole() {
+                return false;
+            }
             return self.act(Action::OpenHole);
         }
         self.sync_course();
@@ -3364,6 +3368,10 @@ impl App {
         if let Some(m) = self.scen.start_money.take() {
             // a scenario's own starting cash (docs/MODDING.md 5)
             self.econ.start_cash = m as f64;
+        }
+        #[cfg(feature = "multiplayer")]
+        if self.mp.halve_money {
+            self.econ.start_cash = (self.econ.start_cash / 2.0).round();
         }
         let slot_index = self.slot_of[prop_idx];
         let land = land::generate(slot_index, self.offer[slot_index], self.difficulty, sandbox, &mut self.exe_rng, &self.noise);

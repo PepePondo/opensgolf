@@ -282,6 +282,11 @@ impl App {
 
     /// The `--scenario ID` test hook: starts the scenario pack with that id (Moderate when it names no difficulty).
     pub fn start_scenario_by_id(&mut self, g: &mut Gfx, id: &str) -> Result<(), String> {
+        // (any week's challenge, to try weeks ahead: the list only has this week's)
+        #[cfg(feature = "multiplayer")]
+        if id.starts_with(crate::mp::rival::ID_PREFIX) {
+            return if self.start_rival(g, id) { Ok(()) } else { Err(format!("{id} is not a week's challenge")) };
+        }
         self.scen.list = find_scenarios(&self.content);
         let k = self.scen.list.iter().position(|e| e.id == id).ok_or_else(|| format!("no scenario pack {id}"))?;
         if let Err(e) = &self.scen.list[k].def {
@@ -724,7 +729,8 @@ fn scenario_summary(sc: &Scenario) -> String {
         Some(m) => trf("STR_SCENARIOS_MONEY", &[("MONEY", &economy::money_digits(m))]),
         None => String::new(),
     };
-    trf("STR_SCENARIOS_SUMMARY", &[("PLACE", &place), ("DIFFICULTY", &diff), ("MONEY", &money), ("GOALS", &sc.goals.len())])
+    let key = if sc.goals.len() == 1 { "STR_SCENARIOS_SUMMARY_ONE" } else { "STR_SCENARIOS_SUMMARY" };
+    trf(key, &[("PLACE", &place), ("DIFFICULTY", &diff), ("MONEY", &money), ("GOALS", &sc.goals.len())])
 }
 
 #[cfg(test)]

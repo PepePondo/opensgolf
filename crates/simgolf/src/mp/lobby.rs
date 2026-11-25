@@ -330,10 +330,20 @@ impl App {
             f,
             x,
             BOX.y + 50.0,
-            &trf(
-                "STR_MP_WEEKLY_PLACE",
-                &[("PLACE", &place), ("DIFFICULTY", &diff), ("MEASURE", &measure_name(c.measure).to_lowercase()), ("YEAR", &c.end_year)],
-            ),
+            format!(
+                "{} {}",
+                trf(
+                    "STR_MP_WEEKLY_PLACE",
+                    &[
+                        ("PLACE", &place),
+                        ("DIFFICULTY", &diff),
+                        ("MEASURE", &measure_name(c.measure).to_lowercase()),
+                        ("YEAR", &c.end_year)
+                    ],
+                ),
+                rival::kind_text(c.kind)
+            )
+            .trim_end(),
             white,
         );
         s.put(g, f, x, BOX.y + 72.0, tr("STR_MP_WEEKLY_SAME"), white);

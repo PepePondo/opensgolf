@@ -89,9 +89,6 @@ impl Stories {
     /// the player's own file of the same name, else one with the same code (first 8 characters, any case) not shown yet,
     /// else the next of the player's other files in turn (the OpeningDay file shows the player's own).
     pub fn take_shared(&mut self, mut shared: Stories) {
-        if shared.slots.iter().all(|s| s.is_empty()) {
-            return;
-        }
         let own: Vec<String> = self.texts.keys().cloned().collect::<std::collections::BTreeSet<_>>().into_iter().collect();
         let own_tutorial = own.iter().find(|m| m.contains("OpeningDay")).cloned().unwrap_or_default();
         let code = |n: &str| n.get(..8).unwrap_or(n).to_ascii_lowercase();
@@ -123,7 +120,8 @@ impl Stories {
                 continue;
             }
             // unused ones first, then round again
-            let pick = (0..rest.len()).map(|k| rest[(next + k) % rest.len()]).find(|m| !used.contains(*m)).unwrap_or(rest[next % rest.len()]);
+            let pick =
+                (0..rest.len()).map(|k| rest[(next + k) % rest.len()]).find(|m| !used.contains(*m)).unwrap_or(rest[next % rest.len()]);
             next += 1;
             used.insert(pick.clone());
             shown[i] = pick.clone();

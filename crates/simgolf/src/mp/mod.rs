@@ -45,12 +45,18 @@ pub struct State {
     pub player: Option<String>,
     /// A club to make from the new game being started (clubs_ui.rs), by its name.
     pub make_next: Option<String>,
+    /// The next new game starts with half its usual money (a budget week: rival.rs).
+    pub halve_money: bool,
+    /// A private club being made: told its code and remembered once the server answers (club.rs).
+    pub making_private: bool,
+    /// The club to make next is private (clubs_ui.rs).
+    pub make_private: bool,
 }
 
 impl Default for State {
     fn default() -> State {
         texts();
-        State { session: None, live: None, player: None, make_next: None }
+        State { session: None, live: None, player: None, make_next: None, halve_money: false, making_private: false, make_private: false }
     }
 }
 

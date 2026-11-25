@@ -41,6 +41,32 @@ impl Measure {
 pub const THEMES: [Theme; 4] = [Theme::Parkland, Theme::Desert, Theme::Tropical, Theme::Links];
 /// Difficulties a challenge uses, in the seed's order (never Impossible: a week is short).
 pub const DIFFICULTIES: [Difficulty; 3] = [Difficulty::Easy, Difficulty::Moderate, Difficulty::Difficult];
+/// Kinds of week, in the rotation's order (challenge.js KINDS).
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum Kind {
+    /// The usual start.
+    Standard,
+    /// Half the usual starting money.
+    Budget,
+    /// A course of at most NINE_HOLES holes.
+    Nine,
+}
+
+impl Kind {
+    pub fn id(self) -> &'static str {
+        match self {
+            Kind::Standard => "standard",
+            Kind::Budget => "budget",
+            Kind::Nine => "nine",
+        }
+    }
+}
+
+pub const KINDS: [Kind; 5] = [Kind::Standard, Kind::Budget, Kind::Standard, Kind::Nine, Kind::Standard];
+/// The most holes a Nine week's course may have.
+pub const NINE_HOLES: usize = 9;
+/// The rotation's first week (the weeks before it were drawn from the hash alone).
+pub const ROTATION_FROM: &str = "2026-W49";
 /// A challenge ends at the end of this game year (2001 is the first).
 pub const END_YEAR: i32 = 2001;
 
@@ -52,6 +78,7 @@ pub struct Challenge {
     pub measure: Measure,
     pub theme: Theme,
     pub difficulty: Difficulty,
+    pub kind: Kind,
     /// The new game's seed (the land, the golfers' arrivals).
     pub seed: u32,
     pub end_year: i32,
@@ -107,17 +134,37 @@ pub fn is_week_id(id: &str) -> bool {
         && (1..=53).contains(&id[6..].parse::<u32>().unwrap_or(0))
 }
 
-/// The challenge of a week id.
+/// Days since 1970-01-01 of a week id's Monday (challenge.js mondayOf).
+pub fn monday_of(id: &str) -> i64 {
+    let year: i64 = id[0..4].parse().unwrap_or(1970);
+    let week: i64 = id[6..].parse().unwrap_or(1);
+    let jan4 = days_from_civil(year, 1, 4);
+    // 1970-01-01 was a Thursday: Monday is 1 .. Sunday 7
+    let day = (jan4 + 3).rem_euclid(7) + 1;
+    jan4 - (day - 1) + 7 * (week - 1)
+}
+
+/// The challenge of a week id. From ROTATION_FROM the weeks take turns (challenge.js `challenge`): the measure every 4
+/// weeks, the difficulty every 3 and the land type shifting so two weeks in a row never share it (48 weeks play every
+/// combination once); the kind of week comes round every 5. The land itself (the seed) still comes from the hash.
 pub fn challenge(id: &str) -> Challenge {
     let h = fnv1a(&format!("opensgolf-challenge/{id}"));
-    Challenge {
-        id: id.to_string(),
-        measure: Measure::ALL[(h % 4) as usize],
-        theme: THEMES[((h >> 2) % 4) as usize],
-        difficulty: DIFFICULTIES[((h >> 4) % 3) as usize],
-        seed: h >> 8,
-        end_year: END_YEAR,
-    }
+    let n = (monday_of(id) - monday_of(ROTATION_FROM)) / 7;
+    let (measure, theme, difficulty, kind) = if n >= 0 {
+        let n = n as usize;
+        (Measure::ALL[n % 4], THEMES[(n + n / 12 + 1) % 4], DIFFICULTIES[n % 3], KINDS[n % 5])
+    } else {
+        (Measure::ALL[(h % 4) as usize], THEMES[((h >> 2) % 4) as usize], DIFFICULTIES[((h >> 4) % 3) as usize], Kind::Standard)
+    };
+    Challenge { id: id.to_string(), measure, theme, difficulty, kind, seed: h >> 8, end_year: END_YEAR }
+}
+
+/// The property a week is played on: before the rotation the land type's first one; from it, one of that type's
+/// properties picked by the seed, so every property comes up (only the game needs it: the board scores the facts alone).
+pub fn property(c: &Challenge) -> usize {
+    let of_theme: Vec<usize> = (0..16).filter(|&i| sg_core::data::property_theme(i) == c.theme).collect();
+    let pick = if monday_of(&c.id) >= monday_of(ROTATION_FROM) { (c.seed >> 4) as usize % of_theme.len().max(1) } else { 0 };
+    of_theme.get(pick).copied().unwrap_or(0)
 }
 
 /// This week's challenge.
@@ -168,6 +215,7 @@ mod tests {
             assert_eq!(theme_id(ours.theme), c["theme"].as_str().unwrap());
             assert_eq!(difficulty_id(ours.difficulty), c["difficulty"].as_str().unwrap());
             assert_eq!(ours.seed as u64, c["seed"].as_u64().unwrap());
+            assert_eq!(ours.kind.id(), c["kind"].as_str().unwrap());
             assert_eq!(ours.end_year as i64, c["endYear"].as_i64().unwrap());
         }
         assert_eq!(fnv1a(""), 0x811c_9dc5);

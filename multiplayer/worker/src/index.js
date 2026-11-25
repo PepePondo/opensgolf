@@ -13,7 +13,7 @@
 //
 // Copyright the OpenSGolf contributors. GPL-2.0-or-later.
 
-import { challenge, isWeekId, previousWeekId, score, weekId } from "./challenge.js";
+import { breaks, challenge, isWeekId, previousWeekId, score, weekId } from "./challenge.js";
 import { clean, cleanNick, generatedNick } from "./names.js";
 import { isCompat } from "./club.js";
 
@@ -64,6 +64,8 @@ export function readResult(body, now, minVersion = "") {
     && int(f.skill, -1e6, 1e6) && int(f.members, 0, 1e5) && int(f.rank, 0, 3))) return "bad facts";
   const ch = challenge(c);
   if (f.year <= ch.endYear) return "the challenge's year is not over";
+  const broke = breaks(ch, f);
+  if (broke) return broke;
   const n = cleanNick(nick);
   if (!n) return "bad nickname";
   return {
@@ -197,6 +199,19 @@ export async function clubs(db, now) {
   return results.map((r) => ({ ...r, compat: JSON.parse(r.compat) }));
 }
 
+/** A private club's code: its id's first 8 hex digits. */
+export const CLUB_CODE = 8;
+
+/** The club a code names (listed or not, while not hidden), or null. */
+export async function clubByCode(db, code) {
+  if (typeof code !== "string" || !/^[0-9a-f]{8}$/.test(code)) return null;
+  const r = await db.prepare(
+    `SELECT id, name, version, compat, players, tick, at FROM clubs WHERE substr(id, 1, ${CLUB_CODE}) = ?1 AND hidden = 0
+     ORDER BY at DESC LIMIT 1`,
+  ).bind(code).first();
+  return r ? { ...r, compat: JSON.parse(r.compat) } : null;
+}
+
 const isClubId = (s) => typeof s === "string" && /^[0-9a-f]{64}$/.test(s);
 
 // ---------------------------------------------------------------- the Worker
@@ -256,6 +271,13 @@ export default {
     if (url.pathname === "/clubs" && request.method === "GET") {
       if (!env.CLUB) return json({ ok: false, error: "no shared clubs here" }, 404);
       return json({ ok: true, protocol: PROTOCOL, clubs: await clubs(env.DB, now) }, 200, { "Cache-Control": "no-store" });
+    }
+    const code = url.pathname.match(/^\/clubs\/code\/([0-9A-Fa-f]{8})$/);
+    if (code && request.method === "GET") {
+      if (!env.CLUB) return json({ ok: false, error: "no shared clubs here" }, 404);
+      const club = await clubByCode(env.DB, code[1].toLowerCase());
+      if (!club) return json({ ok: false, error: "no club has that code" }, 404, { "Cache-Control": "no-store" });
+      return json({ ok: true, protocol: PROTOCOL, club }, 200, { "Cache-Control": "no-store" });
     }
     if (url.pathname === "/clubs/new" && request.method === "GET") {
       if (!env.CLUB) return json({ ok: false, error: "no shared clubs here" }, 404);

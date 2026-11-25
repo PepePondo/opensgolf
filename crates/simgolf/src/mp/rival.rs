@@ -7,7 +7,7 @@
 //! The hooks outside this folder, each one line behind the `multiplayer` feature: scenario_ui.rs (the row, picking it,
 //! and the page's draw, click and key), app.rs (the year end) and main.rs (polling each frame, typed characters).
 
-use super::challenge::{self, Challenge, Measure};
+use super::challenge::{self, Challenge, Kind, Measure};
 use super::{result, settings};
 use crate::app::App;
 use crate::gfx::Gfx;
@@ -49,6 +49,16 @@ fn measure_text(m: Measure) -> &'static str {
     }
 }
 
+/// What the week's kind adds to its description (empty for the usual start).
+pub fn kind_text(k: Kind) -> String {
+    super::texts();
+    match k {
+        Kind::Standard => String::new(),
+        Kind::Budget => tr("STR_MP_KIND_BUDGET").into(),
+        Kind::Nine => trf("STR_MP_KIND_NINE", &[("N", &challenge::NINE_HOLES)]),
+    }
+}
+
 /// The challenge as a scenario. Its one goal only says what the week is about: it has no conditions or deadline, so it
 /// never ends the game (the board decides who did best).
 pub fn scenario(c: &Challenge) -> Scenario {
@@ -57,10 +67,19 @@ pub fn scenario(c: &Challenge) -> Scenario {
     Scenario {
         scenario: ScenarioDef {
             name: Some(trf("STR_MP_WEEKLY_NAME", &[("WEEK", &c.id)])),
-            description: trf("STR_MP_WEEKLY_DESCRIPTION", &[("GOAL", &goal), ("YEAR", &c.end_year)]),
+            description: format!("{} {}", trf("STR_MP_WEEKLY_DESCRIPTION", &[("GOAL", &goal), ("YEAR", &c.end_year)]), kind_text(c.kind))
+                .trim_end()
+                .to_string(),
             theme: Some(c.theme),
+            property: Some(sg_core::data::property_id(challenge::property(c)).to_string()),
             difficulty: Some(c.difficulty),
-            intro: trf("STR_MP_WEEKLY_INTRO", &[("WEEK", &c.id), ("GOAL", &goal), ("YEAR", &c.end_year)]),
+            intro: format!(
+                "{} {}",
+                trf("STR_MP_WEEKLY_INTRO", &[("WEEK", &c.id), ("GOAL", &goal), ("YEAR", &c.end_year)]),
+                kind_text(c.kind)
+            )
+            .trim_end()
+            .to_string(),
             ..Default::default()
         },
         goals: vec![GoalDef {
@@ -139,11 +158,24 @@ impl App {
         self.scen.start_money = None;
         println!("rival: weekly challenge {} ({:?}, {:?}, {}, seed {})", c.id, c.theme, c.difficulty, c.measure.id(), c.seed);
         self.scen.starting = Some((id.to_string(), sc));
+        // a budget week: start_game halves the money it starts with
+        self.mp.halve_money = c.kind == Kind::Budget;
         self.start_game(g, prop, false);
+        self.mp.halve_money = false;
         // everyone plays the week with the same people and stories, whatever their files and theme pack (each seeing their
         // own words where they have them: club.rs take_shared_tables)
         let t = tables();
         self.take_shared_tables(t);
+        true
+    }
+
+    /// Whether this week's rule keeps another hole from opening (a nine-hole week with its nine open), saying so.
+    pub fn rival_refuses_hole(&mut self) -> bool {
+        let Some(c) = challenge_of(self.scen.goals.scenario.as_deref()) else { return false };
+        if c.kind != Kind::Nine || (crate::scenario_ui::facts(self).holes as usize) < challenge::NINE_HOLES {
+            return false;
+        }
+        self.show_toast(&trf("STR_MP_WEEKLY_NINE_FULL", &[("N", &challenge::NINE_HOLES)]));
         true
     }
 

@@ -18,6 +18,29 @@ pub struct Settings {
     pub nick: String,
     /// A friends' group code (6 of A-Z 0-9), or empty for the public board.
     pub group: String,
+    /// The private clubs this player made or joined, newest first (the shared clubs' page lists them with their codes).
+    #[serde(skip_serializing_if = "Vec::is_empty")]
+    pub clubs: Vec<MyClub>,
+}
+
+/// A private club the player knows.
+#[derive(Clone, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(default)]
+pub struct MyClub {
+    pub id: String,
+    pub name: String,
+}
+
+/// Private clubs remembered.
+pub const MY_CLUBS: usize = 10;
+
+/// Remembers a private club (first in the list).
+pub fn remember_club(id: &str, name: &str) {
+    let mut s = get();
+    s.clubs.retain(|c| c.id != id);
+    s.clubs.insert(0, MyClub { id: id.into(), name: name.into() });
+    s.clubs.truncate(MY_CLUBS);
+    save(s);
 }
 
 thread_local! {

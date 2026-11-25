@@ -113,7 +113,10 @@ pub fn make(rel: &str) -> Option<Vec<u8>> {
         "progolfers.dta" => PROS.to_string(),
         "celebrities.dta" => CELEBRITIES.to_string(),
         // the title after the 8 character code
-        _ => STORIES.iter().find(|(name, _)| file.strip_suffix(".txt").and_then(|f| f.get(8..)) == Some(*name)).map(|(_, t)| t.to_string())?,
+        _ => STORIES
+            .iter()
+            .find(|(name, _)| file.strip_suffix(".txt").and_then(|f| f.get(8..)) == Some(*name))
+            .map(|(_, t)| t.to_string())?,
     };
     Some(text.replace('\n', "\r\n").into_bytes())
 }

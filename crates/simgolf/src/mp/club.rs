@@ -65,6 +65,8 @@ pub struct Live {
     last_check: Option<u32>,
     /// Times the game was loaded again (out of step).
     pub reloads: u32,
+    /// The hashes sent, by tick (the tests compare games on other machines with them).
+    pub checks: Vec<(u32, String)>,
 }
 
 impl Live {
@@ -85,6 +87,7 @@ impl Live {
             behind: 0,
             last_check: None,
             reloads: 0,
+            checks: Vec::new(),
         }
     }
 
@@ -253,6 +256,7 @@ impl App {
         super::settings::with_player();
         let url = make_url(&server(), &self.club_player(), name, listed, &self.club_compat());
         self.mp.live = Some(Live::new("", name, Phase::Making(crate::net::get(&url, 4096)), true));
+        self.mp.making_private = !listed;
         self.show_toast(&trf("STR_MP_CLUB_MAKING", &[("CLUB", &name)]));
     }
 
@@ -359,9 +363,14 @@ impl App {
                 .and_then(|v| v.get("id").and_then(|i| i.as_str()).map(String::from));
             match id {
                 Some(id) => {
-                    l.id = id;
+                    l.id = id.clone();
                     l.phase = Phase::Connecting;
+                    let name = l.name.clone();
                     self.club_connect();
+                    if std::mem::take(&mut self.mp.making_private) {
+                        super::settings::remember_club(&id, &name);
+                        self.show_toast(&trf("STR_MP_CLUBS_PRIVATE_MADE", &[("CODE", &super::clubs_ui::code_of(&id))]));
+                    }
                 }
                 None => self.club_leave(tr("STR_MP_CLUB_NOT_MADE")),
             }
@@ -547,8 +556,19 @@ impl App {
             if !checked {
                 let hash = format!("{:016x}", self.replay_hash());
                 if let Some(l) = self.mp.live.as_mut() {
-                    l.send(&ToServer::Check { tick, hash });
+                    l.send(&ToServer::Check { tick, hash: hash.clone() });
                     l.last_check = Some(tick);
+                    l.checks.push((tick, hash));
+                }
+                // (the several-machines test: each part's hash too, to say where games parted)
+                if std::env::var_os("OPENSGOLF_MACHINES_ROLE").is_some() {
+                    let parts: Vec<String> =
+                        self.start_parts().into_iter().filter(|(k, _)| k != "inputs").map(|(k, h)| format!("{k}={h:x}")).collect();
+                    if let Some(l) = self.mp.live.as_mut() {
+                        if let Some(c) = l.checks.last_mut().filter(|c| c.0 == tick && !c.1.contains(' ')) {
+                            c.1 = format!("{} {}", c.1, parts.join(" "));
+                        }
+                    }
                 }
             }
         }
@@ -657,6 +677,62 @@ mod tests {
     }
 
     #[test]
+    fn a_joiner_stays_in_step_through_the_next_save() {
+        // the club's saver saves (and reloads its own save) while a player who joined from an earlier save plays on: the two
+        // must stay one game (the several-machines run found them parting a few hundred ticks after such a save)
+        crate::mp::lockstep::set(true);
+        let mut a = shared_game(1);
+        a.apply(&Action::Speed(4));
+        a.apply(&Action::OpenHole);
+        let (data, extra) = a.club_snapshot().unwrap();
+        a.club_restore(None, &data, &extra, true).unwrap();
+        let acts = |k: u32| -> Option<Action> {
+            match k % 400 {
+                0 => Some(paint(13, &[(20 + (k / 400 % 10) as i32, 20), (20 + (k / 400 % 10) as i32, 21)])),
+                200 => Some(paint(4, &[(30, 10 + (k / 400 % 10) as i32)])),
+                _ => None,
+            }
+        };
+        for k in 0..6000 {
+            if let Some(x) = acts(k) {
+                a.apply(&x);
+            }
+            a.lockstep_step();
+        }
+        let (data, extra) = a.club_snapshot().unwrap();
+        a.club_restore(None, &data, &extra, true).unwrap();
+        let extra = a.club_extra().unwrap();
+        let mut b = shared_game(2);
+        b.club_restore(None, &data, &extra, false).unwrap();
+        for k in 6000..9500u32 {
+            if k == 8000 {
+                let (data, extra) = a.club_snapshot().unwrap();
+                a.club_restore(None, &data, &extra, true).unwrap();
+            }
+            if let Some(x) = acts(k) {
+                a.apply(&x);
+                b.apply(&x);
+            }
+            a.lockstep_step();
+            b.lockstep_step();
+            if k % 64 == 0 {
+                let (fa, fb) = (a.fingerprint(), b.fingerprint());
+                let mut parts: Vec<String> = fa
+                    .parts
+                    .iter()
+                    .zip(fb.parts.iter())
+                    .filter(|(x, y)| x.1 != y.1 && x.0 != "inputs")
+                    .map(|(x, _)| x.0.to_string())
+                    .collect();
+                let (la, lb) = (a.fingerprint_field_list(), b.fingerprint_field_list());
+                parts.extend(la.iter().zip(lb.iter()).filter(|(x, y)| x.1 != y.1).map(|(x, _)| x.0.clone()));
+                assert!(parts.is_empty(), "step {k} (tick {}): {parts:?}", a.game_tick);
+            }
+        }
+        crate::mp::lockstep::set(false);
+    }
+
+    #[test]
     fn players_with_other_game_files_play_the_same_club() {
         // the club's first player has stories, celebrities and pros of its own; the joiner's files have none of them (a
         // test game reads no files): it plays the club's scenes and looks with its own words and made-up names
@@ -664,7 +740,11 @@ mod tests {
         let mut a = shared_game(1);
         let text = " T\nA\n B\n C\nD\n E\nF\n G\nH\n I\n".to_string();
         a.club.stories = sg_core::stories::Stories::build(
-            &[("GxxxxxxxOpeningDay.txt".into(), text.clone()), ("RxxxxOxxDate.txt".into(), text.clone()), ("MxxTxxxxMyst.txt".into(), text)],
+            &[
+                ("GxxxxxxxOpeningDay.txt".into(), text.clone()),
+                ("RxxxxOxxDate.txt".into(), text.clone()),
+                ("MxxTxxxxMyst.txt".into(), text),
+            ],
             0,
         );
         a.club.celebrities = vec![sg_core::vips::Celebrity { name: "Star One".into(), kind: 3, skin: 1, hair: 2, shirt: 3, pants: 4 }];
@@ -762,5 +842,131 @@ mod tests {
         assert_eq!(b.mp.live.as_ref().unwrap().reloads, 0, "B never fell out of step");
         a.club_leave("");
         b.club_leave("");
+    }
+    /// One game of a club played by several machines at once through the deployed Worker (.github/workflows/mp-machines.yml):
+    /// OPENSGOLF_MACHINES_ROLE is `maker` (makes the listed club OPENSGOLF_MACHINES_CLUB, builds, plays and finally pauses it),
+    /// `joiner` (finds it by name and plays along) or `rejoiner` (also leaves halfway and joins again). The game's own theme
+    /// files are OPENSGOLF_MACHINES_GAME's. Each writes its hashes by tick, its reloads and the final tick and hash to
+    /// OPENSGOLF_MACHINES_OUT, for the workflow to compare. Skipped without the role.
+    #[test]
+    fn one_club_on_several_machines() {
+        let Ok(role) = std::env::var("OPENSGOLF_MACHINES_ROLE") else { return };
+        let name = std::env::var("OPENSGOLF_MACHINES_CLUB").expect("the club's name");
+        let out = std::env::var("OPENSGOLF_MACHINES_OUT").expect("where the results go");
+        let minutes: f64 = std::env::var("OPENSGOLF_MACHINES_MINUTES").ok().and_then(|m| m.parse().ok()).unwrap_or(15.0);
+        let mut a = shared_game(0);
+        a.mp.session = None;
+        a.mp.player = Some(format!("{:016x}", (now_ms() as u64) ^ ((std::process::id() as u64) << 40)));
+        if let Ok(dir) = std::env::var("OPENSGOLF_MACHINES_GAME") {
+            a.game_dir = std::path::PathBuf::from(dir);
+            a.load_story();
+        }
+        let playing = |a: &App| a.mp.live.as_ref().is_some_and(|l| matches!(l.phase, Phase::Playing));
+        let step = |a: &mut App| {
+            a.club_frame(None);
+            std::thread::sleep(std::time::Duration::from_millis(10));
+        };
+        let wait = |a: &mut App, secs: f64| {
+            let t = now_ms();
+            while now_ms() - t < secs * 1000.0 {
+                step(a);
+            }
+        };
+        let find = |name: &str| -> String {
+            let t = now_ms();
+            loop {
+                assert!(now_ms() - t < 25.0 * 60_000.0, "the club {name} turned up");
+                let mut r = crate::net::get(&format!("{}/clubs", server()), 256 * 1024);
+                let body = loop {
+                    if let Some(b) = r.poll() {
+                        break b;
+                    }
+                    std::thread::sleep(std::time::Duration::from_millis(50));
+                };
+                if let Ok(b) = body {
+                    let v: serde_json::Value = serde_json::from_slice(&b).unwrap_or_default();
+                    if let Some(id) =
+                        v["clubs"].as_array().and_then(|c| c.iter().find(|c| c["name"] == name)).and_then(|c| c["id"].as_str())
+                    {
+                        return id.to_string();
+                    }
+                }
+                std::thread::sleep(std::time::Duration::from_secs(5));
+            }
+        };
+        let join = |a: &mut App, id: &str| {
+            a.club_join(id, &name);
+            let t = now_ms();
+            while !playing(a) {
+                assert!(now_ms() - t < 60_000.0, "joined");
+                step(a);
+            }
+        };
+        let t0 = now_ms();
+        let mut reloads = 0;
+        let mut checks: Vec<(u32, String)> = Vec::new();
+        let mut keep = |a: &App| {
+            if let Some(l) = a.mp.live.as_ref() {
+                reloads = reloads.max(l.reloads);
+                for c in &l.checks {
+                    if !checks.contains(c) {
+                        checks.push(c.clone());
+                    }
+                }
+            }
+        };
+        if role == "maker" {
+            a.club_make(&name, true);
+            while !playing(&a) {
+                assert!(now_ms() - t0 < 30_000.0, "the club was made");
+                step(&mut a);
+            }
+            a.act(Action::OpenHole);
+            wait(&mut a, 2.0);
+            a.act(paint(13, &[(20, 20), (21, 20), (22, 20)]));
+            a.act(Action::Speed(4));
+            // play until the others have had their time, building now and then
+            let mut k = 0;
+            while now_ms() - t0 < minutes * 60_000.0 {
+                wait(&mut a, 20.0);
+                k += 1;
+                a.act(paint(if k % 2 == 0 { 4 } else { 13 }, &[(30 + k % 10, 12), (30 + k % 10, 13)]));
+                keep(&a);
+            }
+            // everyone plays up to the stopped clock
+            a.club_pause_toggle();
+            wait(&mut a, 20.0);
+        } else {
+            let id = find(&name);
+            join(&mut a, &id);
+            let mut k = 0;
+            let mut left = false;
+            // play along until the maker pauses (the clock stops after it ran here for a while)
+            loop {
+                wait(&mut a, 15.0);
+                keep(&a);
+                k += 1;
+                a.act(paint(if k % 2 == 0 { 13 } else { 4 }, &[(10 + k % 15, 40), (10 + k % 15, 41)]));
+                if role == "rejoiner" && !left && k == 8 {
+                    left = true;
+                    a.club_leave("");
+                    wait(&mut a, 10.0);
+                    join(&mut a, &id);
+                }
+                let stopped = a.mp.session.as_ref().and_then(|s| s.clock).is_some_and(|c| c.rate == 0 && a.game_tick == c.base_tick);
+                if (stopped && k > 4) || now_ms() - t0 > (minutes + 25.0) * 60_000.0 {
+                    break;
+                }
+            }
+        }
+        keep(&a);
+        let mut text = format!("role {role}\nreloads {reloads}\nfinal {} {:016x}\n", a.game_tick, a.replay_hash());
+        for (t, h) in &checks {
+            text.push_str(&format!("check {t} {h}\n"));
+        }
+        std::fs::write(&out, text).unwrap();
+        a.club_leave("");
+        assert_eq!(reloads, 0, "never out of step");
+        assert!(checks.len() > 20, "the club ran ({} checks)", checks.len());
     }
 }

@@ -122,6 +122,11 @@ impl App {
 
     /// The test hook's line after a game tick (or a save or load, `tag`), when SG_FINGERPRINT names a file.
     pub fn fingerprint_note(&self, tag: &str) {
+        // SG_FINGERPRINT_FROM=TICK: nothing before that tick (a long run looked at near where it goes wrong)
+        static FROM: std::sync::OnceLock<u32> = std::sync::OnceLock::new();
+        if self.game_tick < *FROM.get_or_init(|| std::env::var("SG_FINGERPRINT_FROM").ok().and_then(|v| v.parse().ok()).unwrap_or(0)) {
+            return;
+        }
         log::note(|parts| {
             let mut s = format!("{} {}", self.game_tick, self.fingerprint().text(parts > 0));
             if parts > 1 {

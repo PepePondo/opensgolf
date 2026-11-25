@@ -45,18 +45,46 @@ export function previousWeekId(d) {
   return weekId(new Date(d.getTime() - 7 * 86400000));
 }
 
-/** The challenge of a week id. */
+/** Kinds of week: the usual start, half the usual money, or a course of at most nine holes. */
+export const KINDS = ["standard", "budget", "standard", "nine", "standard"];
+/** The most holes a "nine" week's course may have (more keeps the result off the board). */
+export const NINE_HOLES = 9;
+/** The first week of the rotation: the weeks before it were drawn from the hash alone. */
+export const ROTATION_FROM = "2026-W49";
+
+/** Days since 1970-01-01 of a week id's Monday. */
+export function mondayOf(id) {
+  const year = Number(id.slice(0, 4));
+  const week = Number(id.slice(6));
+  const jan4 = Date.UTC(year, 0, 4) / 86400000;
+  const day = new Date(jan4 * 86400000).getUTCDay() || 7;
+  return jan4 - (day - 1) + 7 * (week - 1);
+}
+
+/**
+ * The challenge of a week id. From ROTATION_FROM the weeks take turns: the measure every 4 weeks, the difficulty every 3
+ * and the land type shifting so that two weeks in a row never share it, so 48 weeks play every measure, land type and
+ * difficulty together once; the kind of week comes round every 5. The land itself (the seed) still comes from the hash.
+ */
 export function challenge(id) {
   const h = fnv1a(`opensgolf-challenge/${id}`);
+  const n = (mondayOf(id) - mondayOf(ROTATION_FROM)) / 7;
+  const turn = n >= 0;
   return {
     id,
-    measure: MEASURES[h % 4],
-    theme: THEMES[(h >>> 2) % 4],
-    difficulty: DIFFICULTIES[(h >>> 4) % 3],
+    measure: turn ? MEASURES[n % 4] : MEASURES[h % 4],
+    theme: turn ? THEMES[(n + Math.floor(n / 12) + 1) % 4] : THEMES[(h >>> 2) % 4],
+    difficulty: turn ? DIFFICULTIES[n % 3] : DIFFICULTIES[(h >>> 4) % 3],
+    kind: turn ? KINDS[n % 5] : "standard",
     // the new game's seed (the land, the golfers' arrivals)
     seed: h >>> 8,
     endYear: END_YEAR,
   };
+}
+
+/** Why a result's facts break the week's own rule (null: they don't). */
+export function breaks(c, facts) {
+  return c.kind === "nine" && facts.holes > NINE_HOLES ? `more than ${NINE_HOLES} holes` : null;
 }
 
 /** The week's score of a result's facts: the measure's own number. */

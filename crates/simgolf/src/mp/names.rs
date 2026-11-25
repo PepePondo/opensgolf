@@ -2,20 +2,44 @@
 //! game files: mp/club.rs take_shared_tables). Every name is our own, put together from the lists below.
 
 const FIRST: [&str; 32] = [
-    "Ada", "Bea", "Cal", "Dot", "Eli", "Fay", "Gil", "Hal", "Ira", "Jo", "Kit", "Lou", "Mae", "Ned", "Ola", "Pip", "Quin",
-    "Ray", "Sid", "Tia", "Uma", "Viv", "Wes", "Xan", "Yul", "Zoe", "Bo", "Cy", "Di", "Gus", "Liv", "Moe",
+    "Ada", "Bea", "Cal", "Dot", "Eli", "Fay", "Gil", "Hal", "Ira", "Jo", "Kit", "Lou", "Mae", "Ned", "Ola", "Pip", "Quin", "Ray", "Sid",
+    "Tia", "Uma", "Viv", "Wes", "Xan", "Yul", "Zoe", "Bo", "Cy", "Di", "Gus", "Liv", "Moe",
 ];
 
 const LAST: [&str; 29] = [
-    "Birdwhistle", "Chipworth", "Divotson", "Eaglebury", "Fairbanks", "Greenleaf", "Hookham", "Ironmonger", "Linksley",
-    "Mulligan", "Niblick", "Overdrive", "Puttering", "Roughwood", "Sandtrap", "Teewell", "Underpar", "Wedgewood",
-    "Yardley", "Backswing", "Clubhouse", "Doglegg", "Flagstick", "Gimme", "Holloway", "Lofton", "Pinhigh", "Spinwell",
+    "Birdwhistle",
+    "Chipworth",
+    "Divotson",
+    "Eaglebury",
+    "Fairbanks",
+    "Greenleaf",
+    "Hookham",
+    "Ironmonger",
+    "Linksley",
+    "Mulligan",
+    "Niblick",
+    "Overdrive",
+    "Puttering",
+    "Roughwood",
+    "Sandtrap",
+    "Teewell",
+    "Underpar",
+    "Wedgewood",
+    "Yardley",
+    "Backswing",
+    "Clubhouse",
+    "Doglegg",
+    "Flagstick",
+    "Gimme",
+    "Holloway",
+    "Lofton",
+    "Pinhigh",
+    "Spinwell",
     "Waggle",
 ];
 
-const STAGE: [&str; 11] = [
-    "Blaze", "Starla", "Councillor", "Giggles", "Glamora", "Coach", "Chuckles", "Famously", "Princess", "Riff", "Hoops",
-];
+const STAGE: [&str; 11] =
+    ["Blaze", "Starla", "Councillor", "Giggles", "Glamora", "Coach", "Chuckles", "Famously", "Princess", "Riff", "Hoops"];
 
 /// A pro's name for row `i` (different for every row up to 928).
 pub fn pro(i: usize) -> String {

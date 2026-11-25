@@ -1,0 +1,126 @@
+name: multiplayer club on several machines
+
+# One shared club played at once by three GitHub machines (Linux makes it, Windows joins, macOS joins, leaves halfway and
+# joins again) through the deployed Worker, each a headless game (mp/club.rs one_club_on_several_machines). The last job
+# compares their hashes tick by tick: the club must be the same game on every machine and nobody may fall out of step.
+# By hand only; nothing here runs on a push.
+#
+# files: `same` gives every machine the same theme files (players on the same art set); `mixed` gives the maker its own
+# made-up stories and celebrities and the others none (players on different sets: the club's tables must win).
+on:
+  workflow_dispatch:
+    inputs:
+      files:
+        description: "same or mixed theme files"
+        required: false
+        default: "same"
+      minutes:
+        description: "How long the maker keeps the club running"
+        required: false
+        default: "30"
+
+jobs:
+  play:
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: ubuntu-22.04
+            role: maker
+          - os: windows-latest
+            role: joiner
+          - os: macos-latest
+            role: rejoiner
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 90
+    env:
+      OPENSGOLF_MACHINES_ROLE: ${{ matrix.role }}
+      OPENSGOLF_MACHINES_CLUB: "CI ${{ inputs.files }} ${{ github.run_id }}"
+      OPENSGOLF_MACHINES_MINUTES: ${{ inputs.minutes }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+      - name: Linux packages
+        if: runner.os == 'Linux'
+        run: |
+          sudo apt-get -o Acquire::Retries=5 update
+          sudo apt-get -o Acquire::Retries=5 install -y libasound2-dev libudev-dev
+      - name: Build
+        shell: bash
+        run: cargo test --release -p opensgolf --features multiplayer --no-run
+      - name: Theme files
+        shell: bash
+        run: |
+          # made-up files only (never the original's)
+          if [ "${{ inputs.files }}" = "mixed" ] && [ "${{ matrix.role }}" != "maker" ]; then exit 0; fi
+          d="$RUNNER_TEMP/game/Themes/Standard"
+          mkdir -p "$d"
+          codes="AxxxxxxxA BxxxxxxxB GxxxxxxxOpeningDay MxxTxxxxC RxxxxOxxD SxxxxxxxE"
+          i=0
+          for c in $codes; do
+            i=$((i+1))
+            if [ $i = 4 ]; then
+              printf ' Story %s\r\nOne\r\n Yes\r\nTwo\r\n' $i > "$d/$c.txt"
+            else
+              printf ' Story %s\r\nOne\r\n Best\r\n Ok\r\nTwo\r\n Best\r\nThree\r\n Best\r\nFour\r\n Best\r\n' $i > "$d/$c.txt"
+            fi
+          done
+          printf 'Star A, A, 1, 2, 3, 4\r\nStar B, B, 0, 1, 2, 3\r\nStar C, C, 2, 3, 4, 5\r\n' > "$d/celebrities.dta"
+          echo "OPENSGOLF_MACHINES_GAME=$RUNNER_TEMP/game" >> "$GITHUB_ENV"
+      - name: Play the club
+        shell: bash
+        run: |
+          export OPENSGOLF_MACHINES_OUT="$RUNNER_TEMP/${{ matrix.role }}.txt"
+          set +e
+          cargo test --release -p opensgolf --features multiplayer one_club_on_several_machines -- --nocapture > play.log 2>&1
+          status=$?
+          tail -40 play.log
+          cp "$OPENSGOLF_MACHINES_OUT" . 2>/dev/null
+          exit $status
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: ${{ matrix.role }}
+          path: ${{ matrix.role }}.txt
+          if-no-files-found: warn
+
+  compare:
+    needs: play
+    if: always()
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/download-artifact@v4
+      - name: Compare the machines
+        run: |
+          python3 - <<'EOF'
+          import glob, sys
+          runs = {}
+          for f in glob.glob('*/*.txt'):
+              d = {'checks': {}}
+              for line in open(f):
+                  p = line.split()
+                  if p[0] == 'check':
+                      d['checks'][int(p[1])] = p[2]
+                  elif p[0] == 'final':
+                      d['final'] = (int(p[1]), p[2])
+                  elif p[0] == 'reloads':
+                      d['reloads'] = int(p[1])
+              runs[f.split('/')[0]] = d
+          for k, d in sorted(runs.items()):
+              t = sorted(d['checks'])
+              print(f"{k}: {len(t)} checks, ticks {t[0] if t else '-'}..{t[-1] if t else '-'}, reloads {d.get('reloads')}, final {d.get('final')}")
+          ok = len(runs) == 3
+          names = sorted(runs)
+          for i in range(len(names)):
+              for j in range(i + 1, len(names)):
+                  a, b = runs[names[i]], runs[names[j]]
+                  common = sorted(set(a['checks']) & set(b['checks']))
+                  bad = [t for t in common if a['checks'][t] != b['checks'][t]]
+                  print(f"{names[i]} vs {names[j]}: {len(common)} ticks in common, {len(bad)} differ" + (f" (first {bad[0]})" if bad else ""))
+                  ok = ok and len(common) > 20 and not bad
+                  if a.get('final') and b.get('final') and a['final'][0] == b['final'][0] and a['final'] != b['final']:
+                      print("  final hashes differ"); ok = False
+          ok = ok and all(d.get('reloads') == 0 for d in runs.values())
+          print("PASS" if ok else "FAIL")
+          sys.exit(0 if ok else 1)
+          EOF

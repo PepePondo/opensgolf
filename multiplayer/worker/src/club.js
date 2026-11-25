@@ -15,7 +15,7 @@ import { RoomCore, pausedAt, tickAt, withRate, LEAD_MS, TICK_MS } from "./room.j
 /** The network protocol (mp/version.rs PROTOCOL). */
 export const PROTOCOL = 1;
 /** Players on at once. */
-export const MAX_PLAYERS = 8;
+export const MAX_PLAYERS = 4;
 /** The largest message from a game, in characters (a save is the big one). */
 export const MAX_MESSAGE = 4 * 1024 * 1024;
 /** The largest action, in characters. */

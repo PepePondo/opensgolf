@@ -129,7 +129,7 @@ test("joining twice drops the first socket", async () => {
   assert.equal(k.c.players().length, 1);
 });
 
-test("the club is full at 8", async () => {
+test("the club is full at MAX_PLAYERS", async () => {
   const k = await made();
   const o = await join(k, OWNER);
   await k.c.webSocketMessage(o, JSON.stringify({ Save: { tick: 40, data: "S" } }));
@@ -213,6 +213,15 @@ test("clubs are made through the Worker and listed", async () => {
   assert.equal(list2.clubs[0].players, 1);
   assert.equal((await worker.fetch(new Request(`https://w/clubs/${"0".repeat(64)}/state`), env)).status, 401);
   assert.equal((await worker.fetch(new Request(`https://w/clubs/nope/ws`), env)).status, 404);
+  // a private club: not in the list, found by its code
+  const dp = Buffer.from(JSON.stringify({ protocol: 1, player: OWNER, nick: "M", name: "Hidden Pines", compat: compat(), listed: false })).toString("base64url");
+  const { id: pid } = await (await worker.fetch(new Request(`https://w/clubs/new?d=${dp}`), env)).json();
+  const list3 = await (await worker.fetch(new Request("https://w/clubs"), env)).json();
+  assert.ok(!list3.clubs.some((c) => c.name === "Hidden Pines"));
+  const found = await (await worker.fetch(new Request(`https://w/clubs/code/${pid.slice(0, 8).toUpperCase()}`), env)).json();
+  assert.equal(found.club.id, pid);
+  assert.equal(found.club.name, "Hidden Pines");
+  assert.equal((await worker.fetch(new Request("https://w/clubs/code/00000000"), env)).status, pid.startsWith("00000000") ? 200 : 404);
   assert.equal(cleanClubName("  The   Old Course "), "The Old Course");
   assert.equal(cleanClubName("ab"), null);
   assert.equal(cleanClubName("Sh1t Hills"), null);

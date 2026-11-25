@@ -12,6 +12,9 @@ STR_MP_WEEKLY_NAME                      :Weekly challenge {WEEK}
 STR_MP_WEEKLY_DESCRIPTION               :Everyone gets the same land and start this week. Have {GOAL} at the end of {YEAR}. Your nickname and result go to the weekly board then.
 STR_MP_WEEKLY_INTRO                     :Weekly challenge {WEEK}: have {GOAL} when {YEAR} ends.
 STR_MP_WEEKLY_GOAL                      :Have {GOAL} when {YEAR} ends (the weekly board)
+STR_MP_KIND_BUDGET                      :This week starts with half the usual money.
+STR_MP_KIND_NINE                        :This week's course may have {N} holes at most.
+STR_MP_WEEKLY_NINE_FULL                 :This week's course may have {N} holes at most.
 STR_MP_GOAL_CASH                        :the most cash
 STR_MP_GOAL_FUN                         :the highest fun rating
 STR_MP_GOAL_MEMBERS                     :the most members
@@ -59,18 +62,27 @@ STR_MP_CLUBS_WHO                        :You play as {NICK} (the Weekly challeng
 STR_MP_CLUBS_NAME_MADE                  :a name made for you
 STR_MP_CLUBS_CLUB                       :Club
 STR_MP_CLUBS_ON_NOW                     :On now
-STR_MP_CLUBS_PLAYERS                    :{N} of 8
+STR_MP_CLUBS_PLAYERS                    :{N} of {MAX}
 STR_MP_CLUBS_LOADING                    :Loading the clubs...
 STR_MP_CLUBS_UNREACHABLE                :The clubs couldn't be reached: {ERROR}
 STR_MP_CLUBS_EMPTY                      :No clubs yet: make the first one below.
 STR_MP_CLUBS_NEW                        :New club
 STR_MP_CLUBS_NEW_NAME                   :its name
 STR_MP_CLUBS_MAKE                       :Make the club
-STR_MP_CLUBS_MAKE_NOTE                  :a new game, everyone's
+STR_MP_CLUBS_MAKE_NOTE                  :A new club is a new game for everyone. It starts on a Huge map, as bigger groups need room (Select Difficulty can change it).
 STR_MP_CLUBS_REFRESH                    :Refresh
+STR_MP_CLUBS_PUBLIC                     :Public: in the list
+STR_MP_CLUBS_PRIVATE                    :Private: by code
+STR_MP_CLUBS_PRIVATE_CODE               :private, code {CODE}
+STR_MP_CLUBS_PRIVATE_MADE               :Private club made. Friends join it with the code {CODE} (Shared clubs, Find).
+STR_MP_CLUBS_CODE_ENTER                 :Press Enter to look for the private club with the code {CODE}.
+STR_MP_CLUBS_LOOKING                    :Looking for the club...
+STR_MP_CLUBS_NO_CODE                    :No club has that code.
+STR_MP_CLUBS_FIND                       :Find: a name or a code
+STR_MP_CLUBS_NONE_FOUND                 :No club called "{FIND}": check the name, or Refresh.
 STR_MP_CLUBS_JOIN                       :Join
 STR_MP_CLUBS_CANT_JOIN                  :Can't join "{CLUB}": {WHY}.
-STR_MP_CLUBS_FULL                       :That club is full (8 on).
+STR_MP_CLUBS_FULL                       :That club is full ({MAX} on).
 STR_MP_CLUBS_NAME_FIRST                 :Type the new club's name first (3 to 32 letters).
 STR_MP_WHY_VERSION_OTHER                :needs another game version
 STR_MP_WHY_VERSION                      :needs version {VERSION}

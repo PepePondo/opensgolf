@@ -43,3 +43,23 @@ CREATE TABLE IF NOT EXISTS gc_imports (
   play_marks INTEGER NOT NULL,       -- play-15min counts in the window
   error      TEXT
 );
+
+-- Exact play time (builds after 0.8.7): `play/<platform>` counts carry `t`, the whole seconds played in the run so far.
+-- `t` only grows within a run, so the highest one seen is the run's play time: a repeat or a lost count changes nothing,
+-- and only the increase over the last one is added to the hour it arrived in.
+CREATE TABLE IF NOT EXISTS run_time (
+  sid     TEXT PRIMARY KEY,          -- the run (runs.sid)
+  seconds INTEGER NOT NULL DEFAULT 0
+);
+
+-- Seconds of play per hour (UTC). `kept` seconds were saved by an older build as unsent 15-minute marks (900 s each) and
+-- came later with no run.
+CREATE TABLE IF NOT EXISTS seconds_hourly (
+  hour     TEXT NOT NULL,            -- 'YYYY-MM-DDTHH' (UTC)
+  platform TEXT NOT NULL,
+  version  TEXT NOT NULL,
+  country  TEXT NOT NULL DEFAULT '',
+  kept     INTEGER NOT NULL DEFAULT 0,
+  seconds  INTEGER NOT NULL DEFAULT 0,
+  PRIMARY KEY (hour, platform, version, country, kept)
+);

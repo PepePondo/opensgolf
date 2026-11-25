@@ -3,10 +3,14 @@
 A Cloudflare Worker with a D1 database that keeps OpenSGolf's anonymous play-time count (docs/PLAYING.md "Play-time
 count", crates/simgolf/src/playcount.rs) and shows it on a password-protected page.
 
-* `GET /count?e=<event>&v=<version>&s=<run id>&n=<mark>`: what the game sends. `e` is `start/<platform>/<version>` once
-  at start and `play-15min/<platform>` for each 15 minutes of play; `s` is a random id made at each start and never saved
-  (or `kept` for counts sent late); `n` the mark's number in that run. Only the country Cloudflare reads from the address
-  is kept, never the address.
+* `GET /count?e=<event>&v=<version>&s=<run id>&n=<count>&t=<seconds>`: what the game sends. `e` is
+  `start/<platform>/<version>` once at start, and `play/<platform>` with `t` the whole seconds played in the run so far,
+  every 5 minutes of play and when the game is left or quit. `t` only grows within a run: the Worker keeps the highest per
+  run (`run_time`) and adds only the increase to that hour (`seconds_hourly`), so lost or repeated counts change nothing and
+  the total is exact to the second. Builds up to 0.8.7 send `play-15min/<platform>` for each 15 minutes instead, still
+  taken (`play_hourly`, 900 s each). `s` is a random id made at each start (or `kept` for an older build's unsent marks,
+  sent once as seconds); `n` the count's number in that run. Only the country Cloudflare reads from the address is kept,
+  never the address.
 * `GET /` and `GET /api/stats`: the stats (basic auth, any user name, the `STATS_PASSWORD` secret).
 * Weekly (the cron in `wrangler.toml`) and `POST /admin/import[?from=YYYY-MM-DD]`: GoatCounter's counts from builds
   before the switch, by hour (needs the `GOATCOUNTER_TOKEN` secret). The first import takes everything since 1 Oct 2026;
@@ -18,7 +22,7 @@ count", crates/simgolf/src/playcount.rs) and shows it on a password-protected pa
 ```sh
 cd stats
 npx wrangler@4.152.0 d1 create opensgolf-stats        # once; put the id in wrangler.toml
-npx wrangler@4.152.0 d1 execute opensgolf-stats --remote --file schema.sql
+npx wrangler@4.152.0 d1 execute opensgolf-stats --remote --file schema.sql   # again after it changes: it only adds
 npx wrangler@4.152.0 secret put GOATCOUNTER_TOKEN
 npx wrangler@4.152.0 secret put STATS_PASSWORD
 npx wrangler@4.152.0 deploy

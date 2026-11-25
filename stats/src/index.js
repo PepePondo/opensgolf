@@ -6,7 +6,7 @@
 //   the exact count sent play-15min/<platform> at each 15 minutes instead, still taken). `s` a random id the game makes at
 //   each start (or "kept" for play sent late, with no run); `n` the count's number in the run. Nothing else is kept: no
 //   address, only the country Cloudflare reads from it.
-// * Every week (the cron in wrangler.toml), and on POST /admin/import: GoatCounter's counts from older builds, by hour.
+// * Every day (the cron in wrangler.toml), and on POST /admin/import: GoatCounter's counts from older builds, by hour.
 // * GET / (password): the stats page; GET /api/stats the same as JSON. Its Multiplayer section reads the multiplayer
 //   server's database (src/mp.js), bound as BOARD.
 //
@@ -23,7 +23,7 @@ export const PLATFORMS = new Set([
 export const GOATCOUNTER = "https://opensgolf.goatcounter.com";
 /** The first day an import with nothing yet imported starts from (before the first play-time count). */
 export const FIRST_DAY = "2026-10-01";
-/** How far back the weekly import looks again (late counts from older builds land in recent hours). */
+/** How far back the daily import looks again (late counts from older builds land in recent hours). */
 export const REIMPORT_DAYS = 15;
 /** The most play time one run (or one kept count) can report: a week. */
 export const MAX_SECONDS = 7 * 24 * 3600;
@@ -153,7 +153,24 @@ export function gcRows(hits, fromDay) {
 }
 
 /** Imports GoatCounter's counts from `fromDay` to now; re-imported hours replace what was there. */
-export async function importGoatCounter(env, fromDay, now = new Date(), fetcher = fetch) {
+/** Waits before each retry of a GoatCounter call that failed (it now and then answers 404 or 5xx for a moment). */
+export const GC_RETRY_WAITS_MS = [5e3, 30e3, 120e3];
+
+/** One GoatCounter call, tried again after [GC_RETRY_WAITS_MS] when it fails with anything but a sign-in error. */
+export async function gcFetch(url, init, fetcher = fetch, waits = GC_RETRY_WAITS_MS, sleep = (ms) => new Promise((r) => setTimeout(r, ms))) {
+  for (let i = 0; ; i++) {
+    let res = null, err = null;
+    try { res = await fetcher(url, init); } catch (e) { err = e; }
+    if (res && (res.ok || res.status === 401 || res.status === 403)) return res;
+    if (i >= waits.length) {
+      if (res) return res;
+      throw err;
+    }
+    await sleep(waits[i]);
+  }
+}
+
+export async function importGoatCounter(env, fromDay, now = new Date(), fetcher = fetch, waits = GC_RETRY_WAITS_MS, sleep) {
   const db = env.DB;
   let rows = [];
   try {
@@ -165,7 +182,7 @@ export async function importGoatCounter(env, fromDay, now = new Date(), fetcher 
       u.searchParams.set("end", now.toISOString().slice(0, 19) + "Z");
       u.searchParams.set("limit", "100");
       if (seen.length) u.searchParams.set("exclude_paths", seen.join(","));
-      const res = await fetcher(u.toString(), { headers: { Authorization: `Bearer ${env.GOATCOUNTER_TOKEN}` } });
+      const res = await gcFetch(u.toString(), { headers: { Authorization: `Bearer ${env.GOATCOUNTER_TOKEN}` } }, fetcher, waits, sleep);
       if (!res.ok) throw new Error(`GoatCounter answered ${res.status}`);
       const d = await res.json();
       rows = rows.concat(gcRows(d.hits, fromDay));
@@ -196,7 +213,7 @@ async function logImport(db, now, fromDay, rows, marks, error) {
     .bind(now.toISOString(), fromDay, now.toISOString().slice(0, 10), rows, marks, error).run();
 }
 
-/** Where the weekly import starts: from [FIRST_DAY] when nothing was imported yet, else [REIMPORT_DAYS] back. */
+/** Where the daily import starts: from [FIRST_DAY] when nothing was imported yet, else [REIMPORT_DAYS] back. */
 export async function importStart(db, now) {
   const any = await db.prepare(`SELECT 1 AS x FROM gc_hourly LIMIT 1`).first();
   if (!any) return FIRST_DAY;

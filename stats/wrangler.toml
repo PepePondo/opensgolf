@@ -4,10 +4,10 @@ main = "src/index.js"
 compatibility_date = "2026-10-01"
 workers_dev = true
 
-# The weekly GoatCounter import of older builds' counts: Mondays 04:00 UTC. Remove this to retire it (the stats page says
-# when), then deploy again.
+# The GoatCounter import of older builds' counts: every day at 04:00 UTC (daily, so one failed run costs a day, not a
+# week). Remove this to retire it (the stats page says when), then deploy again.
 [triggers]
-crons = ["0 4 * * 1"]
+crons = ["0 4 * * *"]
 
 [[d1_databases]]
 binding = "DB"

@@ -15,8 +15,9 @@ count", crates/simgolf/src/playcount.rs) and shows it on a password-protected pa
   (`src/mp.js`) reads the multiplayer server's database (`multiplayer/worker`, its `activity`, `clubs`, `leagues` and `results`
   tables), bound as `BOARD`: counts only, never player ids, nicknames, club names or league codes. Players count on a day they
   join a shared club, make, join or report to a Neighbours league, or send a weekly challenge result.
-* Weekly (the cron in `wrangler.toml`) and `POST /admin/import[?from=YYYY-MM-DD]`: GoatCounter's counts from builds
-  before the switch, by hour (needs the `GOATCOUNTER_TOKEN` secret). The first import takes everything since 1 Oct 2026;
+* Daily at 04:00 UTC (the cron in `wrangler.toml`) and `POST /admin/import[?from=YYYY-MM-DD]`: GoatCounter's counts from builds
+  before the switch, by hour (needs the `GOATCOUNTER_TOKEN` secret). A failed GoatCounter call is tried again three
+  times over about 2.5 minutes before the run is logged as failed. The first import takes everything since 1 Oct 2026;
   later ones re-read the last 15 days, replacing those hours. The page says when older builds have stayed under an hour a
   week for three full weeks: then remove the cron and deploy again.
 

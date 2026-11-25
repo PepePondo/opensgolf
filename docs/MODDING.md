@@ -14,6 +14,7 @@ id = "my-desert-courses"          # unique, lower case, letters, digits and dash
 name = "Desert Courses"
 version = "1.2.0"                 # semantic version
 kind = "mod"                      # base | mod | translation | scenario
+api = 2                           # the mod API it was made for (section 12; 1 when left out)
 authors = ["Your Name"]
 license = "CC-BY-SA-4.0"          # SPDX identifier
 description = "Adds two desert properties and a cactus garden."
@@ -223,7 +224,7 @@ the scenario cannot be started. A scenario's `requires` must be loaded (they are
 **done** (crates/sg-core/src/script.rs, the game side in crates/simgolf/src/scenario_ui.rs). Game scripts, like OpenTTD's
 GameScripts, in [Rhai](https://rhai.rs) (pure Rust, sandboxed, works in the browser): every `scripts/*.rhai` of the
 enabled packs (and of the scenario a game was started from) is compiled when a game starts or is loaded, in load order,
-files by name. A file defines the hooks it wants:
+files by name. A file defines the hooks it wants (section 12 has more, for a pack's own objects, tools and panels):
 
 | Hook | When |
 |------|------|
@@ -298,6 +299,8 @@ packs must have a free licence and must not contain material from the original g
 | Course editor: scenarios made in the game, heightmap import (`tools/heightmaps`) | done |
 | Rhai scripts (`packs/example-script-bonus`) | done |
 | Content index and in-game downloader (Preferences > Content > Find more) | done; a public index is not set up yet |
+| New object types, tools, panels and map views from packs (section 12, `packs/example-neighbourhood`) | done |
+| Remove and update notes on the Content screen; Reload in Information > Mods | done |
 
 ## 9. Reference for pack makers
 
@@ -339,6 +342,7 @@ my-pack/
   video/Flics/...               the intro videos (planned: not read yet)
   lang/en.txt, lang/de.txt      text over the string table (section 4)
   scripts/*.rhai                game scripts (section 6)
+  data/objects.toml             new object types, tools, panels and map views (section 12)
   scenario.toml, course.sgs     a scenario pack's scenario and the saved game it starts from (section 5)
   README.md                     anything else is ignored
 ```
@@ -685,3 +689,154 @@ crates/simgolf/src/packart.rs) ask for them first and make the texture at the pa
 original's size, as the HD mode does. Every other read gets the picture scaled down (cached). Sheets are cut, scaled and
 recoloured by `sg_core::hires`; a sprite drawn from a high-resolution sheet is left alone by the Enhanced effects that
 redraw the classic frames (seasons, lit windows, soft shadows), as in HD.
+
+## 12. New objects, tools, panels and map views
+
+**done** (crates/sg-core/src/modkit.rs, the scripts in script.rs, the game side in crates/simgolf/src/mods_ui.rs). A mod can
+add things the original game never had, in the way OpenTTD's NewGRFs add vehicles and industries and its GameScripts run
+the rules: object types with their own art in `data/objects.toml`, tools, panels and map views, and a script
+(section 6) that gives them their behaviour. The example is `packs/example-neighbourhood` (a street, houses, a residents'
+association hall, a survey tool, the association's panel and a land value view). Copy it and make it your own: it is CC0.
+
+The game's own buildings, amenities and staff are untouched. A pack's objects live beside them, are saved with the game
+(a game saved with them lists the pack, and loading it without the pack says which objects are missing) and are built,
+paid for and taken back like the game's own. Open **Information > Mods** in a game to build them, pick up a tool, open a
+panel or switch a map view on.
+
+### objects.toml
+
+```toml
+[[object]]
+id = "nb-house"            # unique; the pack's id as a prefix is a good habit
+name = "House"
+description = "a family moves in and pays association dues"
+category = "Neighbourhood"  # the heading it is listed under in Information > Mods
+footprint = [2, 2]          # tiles, 1 to 16 each way
+price = 8000                # what building it costs (booked as Facilities)
+refund = 2000               # what taking it back gives
+upkeep = 0                  # a month, booked as Maintenance
+income = 0                  # a month, booked as Other income
+upgrade_price = 0           # for scripts that charge for a level
+art = "art/house.png"       # a PNG sheet: one row per view, one column per frame
+views = 4                   # 1, or 4 (Tab turns it while placing)
+frames = 3                  # frames per view, 1 to 256
+levels = 3                  # frames are split into this many levels (a script sets the level: a bigger house)
+anchor = [70, 96]           # the ground point in a frame (default: bottom middle)
+scale = 1                   # 2 or 4 for art drawn at twice or four times the game's size
+view = 6                    # what it adds to the view of the tiles round it (-1000 to 1000)
+view_radius = 3             # how far that reaches (0 to 16, default 4)
+limit = 1                   # at most this many (0: no limit)
+holes = 3                   # only once this many holes are open
+```
+
+More keys: `animated = true` with `frame_ms` (frames play in turn; needs `levels = 1`), `ground = true` (it lies flat on the
+ground, like a path, and does not block the tiles), `terrain = "rough"` (a ground object paints its
+tiles this type while it is there; not tee, green, building, home site or out of bounds), `join = true` (a ground object
+with 16 frames, picked by which neighbours of the same type it touches: 1 north, 2 east, 4 south, 8 west added up),
+`on_water = true` (may stand on water) or `water_only = true`, and `hidden = true` (not in the build list: only scripts
+place it). A building (not ground) flattens its tiles and blocks paint, paths and other buildings.
+
+```toml
+[[tool]]                    # a pointer for the course: each click calls on_tool
+id = "survey"
+name = "Survey a lot"
+footprint = [1, 1]
+drag = false                # true: called for every tile dragged over
+
+[[panel]]                   # a window the script fills (on_panel_open)
+id = "association"
+name = "Residents' association"
+
+[[overlay]]                 # a map view: one value a tile, coloured from low to high
+id = "value"
+name = "Home site values"
+low = "#c02020a0"           # RGB or RGBA
+high = "#20c040a0"
+```
+
+Unknown keys are an error (a typo must not pass quietly); the Content screen and the terminal show what is wrong, and the
+rest of the pack still loads.
+
+### More hooks
+
+Besides the hooks of section 6:
+
+| Hook | When |
+|------|------|
+| `on_load()` | a saved game was loaded (`this` is back) |
+| `on_day()` | each game day |
+| `on_object_placed(obj)`, `on_object_removed(obj)` | one of the pack's objects was built or taken back (by the player or a script) |
+| `on_object_clicked(obj)` | the player clicked one on the course |
+| `on_tool(tool, x, y, remove)` | the pack's tool was used on tile x, y (`remove`: with Shift or the right button) |
+| `on_panel_open(panel)`, `on_panel_button(panel, button)` | the player opened the pack's panel, or pressed one of its buttons |
+| `on_answer(question, button)` | the player answered an `ask` |
+| `on_overlay_open(overlay)` | the player switched the pack's map view on: time to `set_overlay` |
+
+`obj` is a map: `uid`, `type`, `pack`, `x`, `y` (its north corner), `w`, `h`, `dir`, `level` and `data` (the pack's own
+fields, saved with the object). The object hooks, tools, panels and answers go to the pack that owns them only.
+
+### More functions
+
+| Function | Gives or does |
+|----------|---------------|
+| `tick()`, `day()`, `map_size()` | the game's tick, the day of the year, the land's width in tiles |
+| `tile(x, y)`, `owned(x, y)`, `height(x, y)` | a tile's terrain id (`fairway`, `rough`, ...), whether the club owns it, a corner's height |
+| `land_value(x, y)` | what a home site there would sell for now |
+| `buildings()`, `home_sites()`, `building_at(x, y)` | the game's buildings: maps with `kind`, `x`, `y`, `size`, `level`, `value`, `owner` |
+| `objects()`, `objects_of(type)`, `object(uid)`, `object_at(x, y)`, `object_types()` | the packs' objects (maps as for the hooks) and the types loaded |
+| `toast(text)` | a short note at the top of the screen |
+| `place_object(type, x, y [, dir])` | builds one of the pack's types for free; gives its uid, or -1 when it does not fit |
+| `remove_object(uid)`, `set_object_level(uid, n)`, `set_object_data(uid, map)` | changes one of the pack's objects |
+| `set_tile(x, y, terrain)` | paints a tile (not under a building, a tee or a green) |
+| `set_land_value_bonus(x, y, amount)`, `clear_land_value_bonus()` | adds to (or takes from) what home sites there are worth |
+| `set_overlay(id, values, low, high [, legend])` | the map view's values, `map_size()` squared, at `x * map_size() + y`; `()` for none |
+| `show_panel(id, spec)`, `close_panel()` | fills and shows the pack's panel (below) |
+| `ask(id, text, buttons)` | a question with up to four buttons; the answer comes to `on_answer` |
+
+What a hook asks for happens when the hook returns, in order. The limits are higher than section 6's (2,000,000
+operations a call, arrays and maps of 100,000 items, strings of 64 KB) so a script can look at every tile.
+
+A panel's `spec` is a map:
+
+```rhai
+show_panel("association", #{
+    title: "Residents' association",
+    rows: [
+        #{ heading: "Level 2" },
+        #{ text: "12 families", colour: "#204080" },
+        #{ bar: 40, max: 100, label: "Funds" },
+        #{ button: "meet", label: "Hold a meeting", enabled: this.funds >= 500 },
+        #{ gap: true },
+    ],
+    buttons: [#{ id: "close", label: "Close" }],
+});
+```
+
+### Mod API version
+
+`api = 2` in the `[pack]` table of pack.toml says which mod API the pack was made for (1 when it is not given: packs made
+up to 0.9.2). The number goes up when a release changes what packs see in a way that can break them. A pack made for a
+newer API than the game's is not loaded, and the Content screen says the game needs updating. Old packs are not kept
+working by the game: when one has a problem, the message adds that it was made for an older OpenSGolf, so its maker knows
+to update it.
+
+### Determinism and multiplayer
+
+Building, taking back, tool clicks and panel buttons are player actions like the game's own: they go through the action
+log, so a replay or a loaded game goes on the same way, and every pack has its own random numbers. Multiplayer (rivals,
+leagues, shared clubs) is not offered while a mod with objects or scripts is on; it says so and points at Preferences >
+Content.
+
+### Making a pack in private, then publishing it
+
+A pack in the save folder's `packs/` is only on your computer. Nothing is sent anywhere until you publish it.
+
+1. Make the folder there (or copy `packs/example-neighbourhood` and change the ids), switch it on in Preferences >
+   Content and start the game again.
+2. Edit the files with the game running. **Information > Mods > Reload** reads the pack's objects and scripts again
+   without leaving the game; problems are listed on the same screen and in the terminal.
+3. When it is ready, give it a free licence, zip the folder and open a pull request to
+   <https://github.com/crspytopgn/opensgolf-content> (docs/CONTENT_INDEX.md). Players then find it in *Find more*, and
+   a newer version you publish shows as an update on their Content screen.
+
+Preferences > Content has a **Remove** button on the packs in the save folder that are not loaded now (click it twice).

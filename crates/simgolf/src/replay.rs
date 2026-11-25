@@ -317,6 +317,8 @@ impl App {
             }
             Action::SetPar { hole, par } => self.club.set_par((*hole).clamp(1, 18) as usize, *par),
             Action::Demolish { x, y } => self.demolish(*x, *y),
+            Action::ModBuild { x, y, kind, turn, remove } => self.mod_build(*x, *y, kind, *turn, *remove),
+            Action::ModEvent { pack, event, id, arg, x, y, remove } => self.mod_event(pack, event, id, arg, *x, *y, *remove),
             Action::Hire { kind, skilled } => self.hire_employee(*kind, *skilled),
             Action::Fire { employee } => self.fire_employee(*employee),
             Action::Post { employee, x, y } => match self.employees.get_mut(*employee) {

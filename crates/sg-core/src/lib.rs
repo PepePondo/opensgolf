@@ -46,6 +46,7 @@ pub mod lang;
 mod lang_golden;
 pub mod mapsize;
 pub mod mixer;
+pub mod modkit;
 pub mod mood;
 pub mod narration;
 pub mod objects;

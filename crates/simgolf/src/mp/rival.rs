@@ -147,6 +147,10 @@ impl App {
     /// Starts a week's challenge (`id` is the row's scenario id); false when it isn't one.
     pub fn start_rival(&mut self, g: &mut Gfx, id: &str) -> bool {
         let Some(c) = challenge_of(Some(id)) else { return false };
+        // content packs with objects or scripts keep the challenge closed (mods_ui.rs)
+        if self.refuse_multiplayer_for_mods() {
+            return true;
+        }
         self.scen.chosen = None;
         self.course_size = sg_core::mapsize::ORIGINAL;
         // the week's seed in place of the clock: the noise, the offer, the land and the club's first draws

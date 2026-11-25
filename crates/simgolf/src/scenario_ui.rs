@@ -34,9 +34,9 @@ pub struct ScenarioState {
     /// Problems of the scripts this session, as (pack id, message): logged, and shown on the Content screen.
     pub errors: Vec<(String, String)>,
     /// Hooks waiting for the end of the game tick.
-    pending: Vec<Hook>,
+    pub(crate) pending: Vec<Hook>,
     /// Messages for the ticker, posted one at a time.
-    messages: VecDeque<String>,
+    pub(crate) messages: VecDeque<String>,
     /// What the Start New Game screen shows: the first choice, or the rows of single player or of multiplayer.
     pub mode: Mode,
     /// The rows of the Start New Game screen for its mode: the scenario packs found (single player), or the online
@@ -506,6 +506,8 @@ impl App {
         };
         self.scen.messages.clear();
         self.scen.pending.clear();
+        // a new game has no pack objects yet (mods_ui.rs)
+        self.mods.world = Default::default();
         self.load_scripts();
         if let Some((_, sc)) = &starting {
             if !sc.scenario.intro.is_empty() {
@@ -527,6 +529,8 @@ impl App {
             }
         }
         let seed = self.course_id.unwrap_or(0) as u64 ^ (self.seed as u64) << 32;
+        // the same packs' object types, tools, panels and map views (mods_ui.rs)
+        self.load_mods(&ids);
         let mut host = Host::new();
         for id in ids {
             let Some(p) = self.content.found.packs.iter().find(|p| p.manifest.id == id) else { continue };
@@ -545,6 +549,8 @@ impl App {
     }
 
     fn script_error(&mut self, pack: &str, msg: String) {
+        let note = self.content.found.packs.iter().find(|p| p.manifest.id == pack).map(|p| p.manifest.older_api_note());
+        let msg = format!("{msg}{}", note.unwrap_or_default());
         crate::bugreport::warn(&format!("script {pack}: {msg}"));
         self.show_toast(&trf("STR_SCRIPT_ERROR_TOAST", &[("PACK", &pack)]));
         self.scen.errors.push((pack.to_string(), msg));
@@ -577,6 +583,7 @@ impl App {
             course: self.course_name.clone(),
             holes,
             golfers,
+            tick: self.game_tick,
         }
     }
 
@@ -603,9 +610,17 @@ impl App {
     /// The calendar side of a game tick: the month and year hooks, the goal checks, and the queued messages. The month and
     /// year go by the date (sg_core::extras::Calendar: the game tick itself unless the calendar is slowed or paused).
     pub fn scenario_tick(&mut self, tick: u32) {
+        // a pack's panel asked for while another screen was up (mods_ui.rs)
+        self.mod_panel_waiting();
         let date = self.club.cal.date(tick);
         let year_end = self.club.cal.new_year(tick);
+        // each game day, for the scripts that want it
+        if date > 0 && date & 31 == 0 && !self.club.cal.held && self.scen.host.defines("on_day") {
+            self.script_hook(Hook::Day);
+        }
         if date > 0 && self.club.cal.new_month(tick) {
+            // the content packs' objects' upkeep and income (mods_ui.rs)
+            self.mod_month();
             if year_end {
                 self.script_hook(Hook::YearEnd);
             } else {
@@ -654,8 +669,12 @@ impl App {
             return;
         }
         let hooks = std::mem::take(&mut self.scen.pending);
-        let view = self.game_view();
+        let mut view = self.game_view();
         for h in hooks {
+            // the land as it stands before each hook, with what the hooks before it changed (mods_ui.rs)
+            let world = std::rc::Rc::new(self.mod_snapshot());
+            self.scen.host.set_world(world);
+            view.cash = self.econ.cash as i64;
             let out = self.scen.host.call(&h, &view);
             for (id, line) in out.log {
                 println!("script {id}: {line}");
@@ -683,9 +702,16 @@ impl App {
                         let notes = self.scen.goals.finish(&id, &goal, done);
                         self.goal_notes(notes);
                     }
+                    // objects, tiles, land values, panels and map views (mods_ui.rs)
+                    other => {
+                        if self.mod_script_action(&id, other) {
+                            self.mods.dirty = true;
+                        }
+                    }
                 }
             }
         }
+        self.flush_mods();
     }
 
     /// What the saved game keeps of the scripts.
@@ -702,6 +728,18 @@ impl App {
         for (id, e) in self.scen.host.restore(saved) {
             self.script_error(&id, e);
         }
+        self.tell_missing_mods();
+        self.script_hook(Hook::Load);
+    }
+
+    /// The Mods window's Reload (mods_ui.rs): the scripts and the packs' objects read again, the scripts keeping their state.
+    pub fn reload_game_scripts(&mut self, saved: &BTreeMap<String, PackState>) {
+        self.load_scripts();
+        for (id, e) in self.scen.host.restore(saved) {
+            self.script_error(&id, e);
+        }
+        self.script_hook(Hook::Load);
+        self.run_script_hooks();
     }
 
     // ---- the goals report ------------------------------------------------------------------------------------------------

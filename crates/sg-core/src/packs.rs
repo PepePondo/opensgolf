@@ -186,6 +186,23 @@ pub struct Manifest {
     /// sheets are this many times the original's size (1, 2 or 4). The port's own.
     #[serde(default = "scale_one", skip_serializing_if = "is_scale_one")]
     pub scale: u32,
+    /// The mod API the pack was made for (docs/MODDING.md, section 12): 1 when not given (the packs made before it was
+    /// counted). A pack made for a newer one than [`MOD_API`] is not loaded, with a message saying so.
+    #[serde(default = "api_one", skip_serializing_if = "is_api_one")]
+    pub api: u32,
+}
+
+/// The mod API this game offers. It goes up by one whenever a release changes what packs see in a way that can break
+/// one (a data file's or objects.toml's keys, a script hook or function): 1 up to 0.9.2, 2 from the pack objects, tools,
+/// panels and map views. Old packs are not kept working: one that fails is told it was made for an older game.
+pub const MOD_API: u32 = 2;
+
+fn api_one() -> u32 {
+    1
+}
+
+fn is_api_one(a: &u32) -> bool {
+    *a == 1
 }
 
 fn scale_one() -> u32 {
@@ -208,8 +225,16 @@ struct ManifestFile {
 impl Manifest {
     /// Reads and checks a pack.toml.
     pub fn parse(text: &str) -> Result<Manifest, String> {
+        // a pack for a newer game says so, whatever else in its pack.toml this game does not know
+        let api = toml::from_str::<toml::Value>(text).ok().and_then(|v| v.get("pack")?.get("api")?.as_integer());
+        if let Some(a) = api.filter(|&a| a > MOD_API as i64) {
+            return Err(format!("made for a newer OpenSGolf (mod API {a}; this game has {MOD_API}): update the game to use it"));
+        }
         let f: ManifestFile = toml::from_str(text).map_err(|e| format!("pack.toml: {}", crate::data::toml_error(text, &e)))?;
         let m = f.pack;
+        if m.api == 0 {
+            return Err("pack.toml: api = 0 (1 or more)".into());
+        }
         if !valid_id(&m.id) {
             return Err(format!("pack.toml: bad id \"{}\" (lower case letters, digits and dashes)", m.id));
         }
@@ -227,6 +252,15 @@ impl Manifest {
             return Err(format!("pack.toml: scale = {} (1, 2 or 4)", m.scale));
         }
         Ok(m)
+    }
+
+    /// For a problem with an older pack's data or scripts: a note that it was made for an older game ("" otherwise).
+    pub fn older_api_note(&self) -> String {
+        if self.api < MOD_API {
+            format!(" (made for an older OpenSGolf, mod API {}; this game has {MOD_API})", self.api)
+        } else {
+            String::new()
+        }
     }
 
     pub fn version(&self) -> Version {
@@ -257,6 +291,7 @@ impl Manifest {
             requires: Vec::new(),
             conflicts: Vec::new(),
             scale: 1,
+            api: MOD_API,
         }
     }
 }
@@ -582,6 +617,7 @@ pub fn resolve(found: &Found, settings: &Settings) -> Plan {
             requires: Vec::new(),
             conflicts: Vec::new(),
             scale: 1,
+            api: MOD_API,
         };
         rows.push(Row { manifest, location: loc.clone(), pack: None, status: Status::Error(e.clone()), warnings: Vec::new() });
     }
@@ -664,7 +700,8 @@ pub fn load(found: &Found, plan: &Plan) -> Loaded {
         for rel in p.source.files() {
             let low = rel.to_lowercase();
             if let Some(f) = low.strip_prefix("data/").and_then(|f| f.strip_suffix(".toml")) {
-                if !crate::data::FILES.contains(&f) {
+                // (objects.toml is read with the pack's scripts: crate::modkit)
+                if !crate::data::FILES.contains(&f) && f != "objects" {
                     warnings.push((id.clone(), format!("data/{f}.toml is not a data file the engine reads")));
                 }
             }
@@ -710,7 +747,7 @@ pub fn apply(game_dir: &Path, loaded: Loaded) {
 pub fn attach_warnings(plan: &mut Plan, warnings: &[(String, String)]) {
     for (id, w) in warnings.iter().filter(|(id, _)| !id.is_empty()) {
         if let Some(r) = plan.rows.iter_mut().find(|r| &r.manifest.id == id) {
-            r.warnings.push(w.clone());
+            r.warnings.push(format!("{w}{}", r.manifest.older_api_note()));
         }
     }
 }
@@ -718,6 +755,18 @@ pub fn attach_warnings(plan: &mut Plan, warnings: &[(String, String)]) {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn a_pack_for_a_newer_game_says_so() {
+        let base = "[pack]\nid = \"x\"\nname = \"X\"\nversion = \"1.0\"\nkind = \"mod\"\n";
+        assert_eq!(Manifest::parse(base).unwrap().api, 1);
+        assert!(!Manifest::parse(base).unwrap().older_api_note().is_empty());
+        let now = Manifest::parse(&format!("{base}api = {MOD_API}\n")).unwrap();
+        assert!(now.older_api_note().is_empty());
+        // newer: refused with a plain message, even when it has keys this game does not know
+        let e = Manifest::parse(&format!("{base}api = {}\nshiny = true\n", MOD_API + 1)).unwrap_err();
+        assert!(e.starts_with("made for a newer OpenSGolf"), "{e}");
+    }
 
     fn manifest(id: &str, kind: &str, version: &str, requires: &[&str], conflicts: &[&str]) -> String {
         let list = |v: &[&str]| v.iter().map(|s| format!("\"{s}\"")).collect::<Vec<_>>().join(", ");

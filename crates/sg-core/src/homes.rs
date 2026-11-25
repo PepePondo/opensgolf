@@ -91,7 +91,13 @@ fn lot_value_without(c: &Course, holes: &[Hole], difficulty: i32, a: i32, b: i32
     if marina != 0 {
         best += marina * best / 3;
     }
-    best * ring / 40
+    // what content packs add (crate::modkit; 0 without packs that add value)
+    let bonus = crate::modkit::value_bonus(a, b);
+    if bonus == 0 {
+        best * ring / 40
+    } else {
+        (best * ring / 40 + bonus).max(0)
+    }
 }
 
 /// The hole that sets a lot's value (the best "fun over distance" of `lot_value`, the nearest of equals) and what it adds:

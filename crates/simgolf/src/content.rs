@@ -53,9 +53,22 @@ pub struct ContentState {
     /// A saved game made with other packs, waiting for the player's answer; and "load it anyway" chosen.
     pub pending_load: Option<crate::content_profiles::PendingLoad>,
     pub load_anyway: bool,
+    /// The newest version of each pack the content index lists (read quietly when the screen first opens, and again by
+    /// Find more): a row whose pack is older says an update is there.
+    pub latest: std::collections::BTreeMap<String, String>,
+    latest_req: Option<crate::net::Request>,
+    latest_asked: bool,
+    /// The pack whose Remove was clicked once: a second click deletes it.
+    pub removing: Option<String>,
 }
 
 impl ContentState {
+    /// The newer version the index lists for this pack, if any.
+    pub fn update_for(&self, m: &packs::Manifest) -> Option<&str> {
+        let v = self.latest.get(&m.id)?;
+        (sg_core::packs::Version::parse(v).ok()? > m.version()).then_some(v.as_str())
+    }
+
     /// Looks for the packs again (after a download or an export), keeping the choices; the packs loaded stay as they are
     /// until the next start.
     pub fn rediscover(&mut self) {
@@ -207,6 +220,11 @@ pub fn has_original(game_dir: &Path) -> bool {
     ["Interface", "Flics"].iter().all(|d| sg_core::fsutil::is_dir(sg_core::fsutil::resolve(game_dir, d)))
 }
 
+/// A row's Remove button (packs in the save folder that are not loaded now).
+fn remove_button(row_y: f32) -> Rect {
+    Rect::new(BOX.x + BOX.w - 168.0, row_y + 4.0, 50.0, 20.0)
+}
+
 /// What the screen does with a click.
 enum Hit {
     Toggle(usize),
@@ -214,6 +232,7 @@ enum Hit {
     Down(usize),
     Row(usize),
     More(bool),
+    Remove(usize),
     FindMore,
     Done,
 }
@@ -234,8 +253,68 @@ impl App {
         self.content.profile_name = None;
         self.content.scroll = 0;
         self.content.picked = None;
+        self.content.removing = None;
         self.replan_content();
         self.screen = Screen::Content;
+        // what the index offers, for the update notes (once a session; Find more reads it again)
+        if FIND_MORE && !self.content.latest_asked {
+            self.content.latest_asked = true;
+            let url = index_url();
+            if !url.is_empty() {
+                self.content.latest_req = Some(crate::net::get(&url, 16 * 1024 * 1024));
+            }
+        }
+    }
+
+    /// Reads the quiet index request when it is in.
+    fn latest_poll(&mut self) {
+        let Some(r) = self.content.latest_req.as_mut().and_then(|r| r.poll()) else { return };
+        self.content.latest_req = None;
+        match r.and_then(|d| sg_core::index::Index::parse(&d)) {
+            Ok((idx, _)) => self.content.latest = idx.packs.iter().map(|e| (e.id.clone(), e.version.clone())).collect(),
+            Err(e) => crate::bugreport::warn(&format!("content index (update notes): {e}")),
+        }
+    }
+
+    /// The path of row `i`'s pack when the player may delete it: a folder or zip in the save folder's packs (where
+    /// downloads and the editor's exports go), not loaded this session (its files may still be read).
+    fn content_removable(&self, i: usize) -> Option<PathBuf> {
+        let row = self.content.plan.as_ref()?.rows.get(i)?;
+        row.pack?;
+        if self.content.loaded.contains(&row.manifest.id) {
+            return None;
+        }
+        let p = PathBuf::from(&row.location);
+        p.starts_with(save_dir().join("packs")).then_some(p)
+    }
+
+    /// Remove: the first click asks, the second deletes the pack's folder or zip.
+    fn content_remove(&mut self, i: usize) {
+        let Some(p) = self.content_removable(i) else { return };
+        let id = self.content.plan.as_ref().map(|pl| pl.rows[i].manifest.id.clone()).unwrap_or_default();
+        if self.content.removing.as_deref() != Some(id.as_str()) {
+            self.content.removing = Some(id);
+            return;
+        }
+        self.content.removing = None;
+        let files = if sg_core::fsutil::is_dir(&p) { sg_core::fsutil::walk(&p) } else { vec![p.clone()] };
+        let mut ok = true;
+        for f in &files {
+            ok &= sg_core::fsutil::remove_file(f);
+        }
+        #[cfg(not(target_arch = "wasm32"))]
+        if p.is_dir() {
+            ok &= std::fs::remove_dir_all(&p).is_ok();
+        }
+        if !ok {
+            crate::bugreport::warn(&format!("content: could not remove all of {}", p.display()));
+        }
+        // its choice goes too, so a pack added again later starts off
+        self.content.settings.mods.retain(|m| m.id != id);
+        save_settings(&self.content.settings);
+        self.content.rediscover();
+        self.content.picked = None;
+        self.content.scroll = self.content.scroll.min(self.content_rows().saturating_sub(ROWS));
     }
 
     /// The plan the saved choices give, keeping the data warnings of the loaded packs on their rows.
@@ -287,6 +366,9 @@ impl App {
         if Rect::new(BOX.x + 16.0, ry + 2.0, 30.0, 30.0).has(x, y) {
             return Some(Hit::Toggle(i));
         }
+        if remove_button(ry).has(x, y) && self.content_removable(i).is_some() {
+            return Some(Hit::Remove(i));
+        }
         if Rect::new(BOX.x + BOX.w - 112.0, ry + 4.0, 44.0, 20.0).has(x, y) {
             return Some(Hit::Up(i));
         }
@@ -308,7 +390,12 @@ impl App {
         if self.profile_buttons_click(x, y) {
             return;
         }
-        match self.content_hit(x, y) {
+        let hit = self.content_hit(x, y);
+        if !matches!(hit, Some(Hit::Remove(_))) {
+            self.content.removing = None;
+        }
+        match hit {
+            Some(Hit::Remove(i)) => self.content_remove(i),
             Some(Hit::FindMore) => self.open_content_index(),
             Some(Hit::Done) => self.close_content(),
             Some(Hit::Toggle(i)) => self.content_toggle(i),
@@ -441,6 +528,7 @@ impl App {
             self.index_poll();
             return self.draw_index(g);
         }
+        self.latest_poll();
         if self.content.profiles.is_some() {
             self.draw_profiles(g);
             return self.draw_profile_name(g);
@@ -483,6 +571,7 @@ impl App {
             s.put(g, F_ARIAL10, BOX.x + 54.0, y + 24.0, &fit(&line, BOX.w - 190.0), colour);
             // a problem with its data, else with its scripts this session (scenario_ui)
             let script_errors: Vec<&String> = self.scen.errors.iter().filter(|(id, _)| *id == m.id).map(|(_, e)| e).collect();
+            let update = if row.pack.is_some() { self.content.update_for(m).map(str::to_string) } else { None };
             if let Some(w) = row.warnings.first() {
                 let more =
                     if row.warnings.len() > 1 { trf("STR_CONTENT_MORE", &[("N", &(row.warnings.len() - 1))]) } else { String::new() };
@@ -493,6 +582,16 @@ impl App {
                     if script_errors.len() > 1 { trf("STR_CONTENT_MORE", &[("N", &(script_errors.len() - 1))]) } else { String::new() };
                 let t = trf("STR_CONTENT_SCRIPT_ERROR", &[("ERROR", e), ("MORE", &more)]);
                 s.put(g, F_ARIAL10, BOX.x + 54.0, y + 34.0, &fit(&t, BOX.w - 190.0), red);
+            } else if let Some(v) = &update {
+                let t = trf("STR_CONTENT_UPDATE", &[("VERSION", v)]);
+                s.put(g, F_ARIAL10, BOX.x + 54.0, y + 34.0, &fit(&t, BOX.w - 190.0), navy);
+            }
+            if self.content_removable(k).is_some() {
+                let r = remove_button(y);
+                let asking = self.content.removing.as_deref() == Some(m.id.as_str());
+                crate::glass_ui::button_fill(g, &s, r.x, r.y, r.w, r.h, r.has(px, py));
+                let label = if asking { tr("STR_CONTENT_REMOVE_SURE") } else { tr("STR_CONTENT_REMOVE") };
+                s.put_centered(g, F_ARIAL10, r.x + r.w / 2.0, r.y + 4.0, label, if asking { red } else { navy });
             }
             if m.kind == Kind::Mod && row.pack.is_some() {
                 for (dx, label) in [(BOX.w - 112.0, tr("STR_CONTENT_UP")), (BOX.w - 62.0, tr("STR_CONTENT_DOWN"))] {
@@ -612,10 +711,12 @@ impl App {
     /// Looks at the requests in progress (each frame while the screen is open).
     pub fn index_poll(&mut self) {
         let Some(v) = self.content.index.as_mut() else { return };
+        let mut latest = None;
         if let Some(r) = v.loading.as_mut().and_then(|r| r.poll()) {
             v.loading = None;
             match r.and_then(|d| sg_core::index::Index::parse(&d)) {
                 Ok((idx, warnings)) => {
+                    latest = Some(idx.packs.iter().map(|e| (e.id.clone(), e.version.clone())).collect());
                     for w in &warnings {
                         crate::bugreport::warn(&format!("content index: {w}"));
                     }
@@ -635,6 +736,10 @@ impl App {
                 }
             }
         }
+        if let Some(l) = latest {
+            self.content.latest = l;
+        }
+        let Some(v) = self.content.index.as_mut() else { return };
         let done = v.download.as_mut().and_then(|(k, r)| r.poll().map(|r| (*k, r)));
         let Some((k, reply)) = done else { return };
         v.download = None;

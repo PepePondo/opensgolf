@@ -275,6 +275,9 @@ pub enum Screen {
     Scenarios,
     /// Information > Scenario goals: the goals of the game and how they stand.
     Goals,
+    /// Information > Mods: what the content packs add (mods_ui.rs), and a panel or question of a pack's script.
+    Mods,
+    ModPanel,
     /// Preferences > Keyboard controls: every key of the game (the port's own screen, keys_ui.rs).
     Keys,
     /// OpenSGolf extras (extras.rs): the People screen, the message history and a golfer's profile page.
@@ -396,6 +399,10 @@ pub struct SaveGame {
     /// The state of each pack's scripts (`this` and the script's random generator), by pack id.
     #[serde(default, skip_serializing_if = "std::collections::BTreeMap::is_empty")]
     pub scripts: std::collections::BTreeMap<String, sg_core::script::PackState>,
+    /// The content packs' objects on the land, and their scripts' land-value bonuses and map views (mods_ui.rs; older
+    /// saves: none).
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub mods: Option<sg_core::modkit::World>,
     /// What the OpenSGolf extras keep (extras.rs): the message history, employees' names, what golfers said, bios.
     #[serde(default, skip_serializing_if = "crate::extras::Kept::is_empty")]
     pub extras: crate::extras::Kept,
@@ -526,6 +533,7 @@ pub fn original_save(g: sg_core::sve::Game, game_dir: &Path) -> SaveGame {
         bought,
         goals: Default::default(),
         scripts: Default::default(),
+        mods: None,
         extras: Default::default(),
         shared: false,
         packs: None,
@@ -787,6 +795,8 @@ pub struct App {
     pub ctl: crate::controls_ui::CtlState,
     /// The scenario's goals and the packs' scripts of the game in progress (scenario_ui).
     pub scen: crate::scenario_ui::ScenarioState,
+    /// The content packs' object types, tools, panels and map views, and their objects in the game (mods_ui.rs).
+    pub mods: crate::mods_ui::ModsState,
     pub last_message: String,
     /// The main screen's message window (the exe's ticker).
     pub ticker: crate::message_ui::Ticker,
@@ -1126,6 +1136,7 @@ impl App {
             mp: Default::default(),
             ctl: Default::default(),
             scen: Default::default(),
+            mods: Default::default(),
             last_message: String::new(),
             ticker: Default::default(),
             rename: None,
@@ -3498,6 +3509,7 @@ impl App {
             bought: self.bought.clone(),
             goals: self.scen.goals.clone(),
             scripts: self.scripts_for_save(),
+            mods: (!self.mods.world.is_empty()).then(|| self.mods.world.clone()),
             extras: crate::extras::Kept {
                 // the insight extras' part only while their ticks are on (insight.rs)
                 insight: crate::insight::Kept::for_save(
@@ -3648,6 +3660,7 @@ impl App {
         self.pstate.alt = false;
         self.edit = false;
         self.dirty = true;
+        self.restore_mods(s.mods);
         if g.is_some() {
             self.restore_game_scripts(s.goals, &s.scripts);
         } else {
@@ -3790,7 +3803,8 @@ impl App {
             };
             let clear = Economy::terrain_clear_units(old as i32);
             let cost = clear + Economy::terrain_cost_units(pe.ty);
-            if !in_play || obstacle {
+            // nor the tiles under a content pack's building (mods_ui.rs)
+            if !in_play || obstacle || self.mods.world.blocks(x, y) {
                 refused = true;
                 continue;
             }
@@ -4318,8 +4332,8 @@ impl App {
     }
 
     fn take_back_tile(&mut self, x: i32, y: i32) {
-        // a lamp post of the Path styles and lamps extra comes off first (paths_lamps.rs)
-        if self.remove_lamp(x, y) {
+        // a lamp post of the Path styles and lamps extra comes off first (paths_lamps.rs), and a content pack's object
+        if self.remove_lamp(x, y) || self.mod_take_back(x, y) {
             return;
         }
         self.ensure_land();
@@ -4610,6 +4624,8 @@ impl App {
             5 => self.undo_tile(a, b),
             // the Hole boundaries extra's brush (bounds_ui.rs)
             crate::bounds_ui::TOOL => self.paint_bound(a, b, lower),
+            // a content pack's object or tool (mods_ui.rs)
+            crate::mods_ui::TOOL => self.mod_tool_click(a, b, lower, dragging),
             _ if self.pstate.elev_tool == 3 && self.panel == 2 && self.pstate.alt => {
                 if !dragging {
                     let t = self.terrain.tile_of(self.hit_x, self.hit_z);
@@ -5504,6 +5520,8 @@ impl App {
                 self.props.push(Prop { x, z, body, shadow, flat, facing, animated, object: true, tv, grow_tile, ..Default::default() });
             }
         }
+        // the content packs' objects (mods_ui.rs)
+        self.add_mod_props();
     }
 }
 
@@ -5582,6 +5600,10 @@ impl App {
             let clubhouse = o >= 0 && self.course.objects.get(o as usize).is_some_and(|ob| ob.kind == land::K_CLUBHOUSE);
             // a golfer under the click (or one held by the card's Move/Eject) comes before the clubhouse
             if self.golfer_click(wx, wz, clubhouse) || clubhouse && self.open_pair_screen() {
+                return;
+            }
+            // a content pack's object whose scripts listen for clicks (mods_ui.rs)
+            if self.mod_object_click(t.0, t.1) {
                 return;
             }
         }

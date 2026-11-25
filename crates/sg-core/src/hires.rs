@@ -424,6 +424,55 @@ fn build_sheet(flc: &Path, pal: Option<&Path>, base: &Sprite, art: &crate::vfs::
     Ok((s, sheet))
 }
 
+/// A sprite made from a pack object's sheet (crate::modkit, data/objects.toml): `views` rows of `frames` columns at `scale`
+/// times the original's size, the ground point at `anchor` (the original's pixels; default: the middle of the frame's
+/// bottom edge). Returns the sprite at the original's size and, when the sheet is larger, the sheet for sharp drawing.
+pub fn object_sprite(
+    png: &[u8],
+    views: u32,
+    frames: u32,
+    scale: u32,
+    anchor: Option<[i32; 2]>,
+    frame_ms: u32,
+) -> Result<(Sprite, Option<SheetSprite>), String> {
+    let sheet = crate::png::decode_image(png).ok_or("not a PNG this game reads (8 bits per channel, not interlaced)")?;
+    let (views, frames, scale) = (views.max(1), frames.max(1), scale.max(1));
+    if sheet.w % (frames * scale) != 0 || sheet.h % (views * scale) != 0 {
+        return Err(format!(
+            "the sheet is {}x{}: it must split into {frames} columns and {views} rows of whole pixels at scale {scale}",
+            sheet.w, sheet.h
+        ));
+    }
+    let (w, h) = (sheet.w / frames / scale, sheet.h / views / scale);
+    let [ax, ay] = anchor.unwrap_or([w as i32 / 2, h as i32]);
+    let grid = Grid { views, frames, w, h, ax, ay };
+    let small = downscale(&sheet, scale);
+    let frames_rgba = (0..grid.count()).filter_map(|i| slice(&small, &grid, 1, i)).map(crate::sprites::Frame::Rgba).collect();
+    let s = Sprite {
+        views: views as i32,
+        frames_per_view: frames as i32,
+        anchor_x: ax,
+        anchor_y: ay,
+        w,
+        h,
+        frame_ms,
+        view_mask: 0,
+        shadow: false,
+        frames: frames_rgba,
+    };
+    let big = (scale > 1).then(|| SheetSprite {
+        scale,
+        grid,
+        sheet,
+        mask: None,
+        base_pal: [0; 768],
+        used: Vec::new(),
+        people: false,
+        tables: Default::default(),
+    });
+    Ok((s, big))
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -444,6 +493,21 @@ mod tests {
             }
         }
         img
+    }
+
+    #[test]
+    fn an_object_sheet_is_cut_into_its_frames() {
+        let mut img = Rgba::new(8, 4);
+        img.px[3] = 255;
+        let png = crate::png::encode_png(&img).unwrap();
+        let (s, big) = object_sprite(&png, 2, 4, 1, None, 100).unwrap();
+        assert_eq!((s.views, s.frames_per_view, s.w, s.h, s.anchor_x, s.anchor_y), (2, 4, 2, 2, 1, 2));
+        assert_eq!(s.frames.len(), 8);
+        assert!(big.is_none());
+        let (s, big) = object_sprite(&png, 1, 2, 2, Some([0, 0]), 100).unwrap();
+        assert_eq!((s.w, s.h), (2, 2));
+        assert!(big.is_some());
+        assert!(object_sprite(&png, 3, 1, 1, None, 100).is_err());
     }
 
     #[test]

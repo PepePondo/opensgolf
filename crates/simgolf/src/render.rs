@@ -241,7 +241,8 @@ impl App {
 
     /// A frame's texture from a content pack's art or HD art, when either is on.
     fn sprite_texture_made(&mut self, g: &mut Gfx, si: usize, i: usize) -> Option<TextureId> {
-        if crate::packart::active() {
+        // (a content pack's object sheet is drawn from its own sheet whether or not a pack's art is mounted: mods_ui.rs)
+        if crate::packart::active() || !self.pack_art.is_empty() {
             if let Some(t) = self.pack_sprite_texture(g, si, i) {
                 return Some(t);
             }
@@ -1041,6 +1042,8 @@ impl App {
             self.draw_height_view(g, &s);
             // the Hole boundaries brush's area (bounds_ui.rs)
             self.draw_bounds_view(g, &s);
+            // a content pack's map view and the Mods tool's footprint (mods_ui.rs)
+            self.draw_mod_views(g, &s);
             self.draw_height_pick(g, &s);
         }
         // the golfers' names and thoughts belong to the course, under the HUD

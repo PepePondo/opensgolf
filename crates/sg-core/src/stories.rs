@@ -87,13 +87,13 @@ impl Stories {
 
     /// Takes the slots, tutorial and shape of a shared game (`shared`) over this player's own table, showing for each slot
     /// the player's own file of the same name, else one with the same code (first 8 characters, any case) not shown yet,
-    /// else the next of the player's other files in turn (the tutorial slot shows the player's tutorial).
+    /// else the next of the player's other files in turn (the OpeningDay file shows the player's own).
     pub fn take_shared(&mut self, mut shared: Stories) {
         if shared.slots.iter().all(|s| s.is_empty()) {
             return;
         }
         let own: Vec<String> = self.texts.keys().cloned().collect::<std::collections::BTreeSet<_>>().into_iter().collect();
-        let own_tutorial = self.name(self.tutorial).to_string();
+        let own_tutorial = own.iter().find(|m| m.contains("OpeningDay")).cloned().unwrap_or_default();
         let code = |n: &str| n.get(..8).unwrap_or(n).to_ascii_lowercase();
         let mut used = std::collections::HashSet::new();
         let mut shown = vec![String::new(); shared.slots.len()];
@@ -107,7 +107,7 @@ impl Stories {
             if n.is_empty() || !shown[i].is_empty() {
                 continue;
             }
-            if i as i32 == shared.tutorial || n.contains("OpeningDay") {
+            if n.contains("OpeningDay") {
                 shown[i] = own_tutorial.clone();
                 continue;
             }

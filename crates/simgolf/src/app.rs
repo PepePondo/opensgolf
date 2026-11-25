@@ -3578,9 +3578,16 @@ impl App {
         if let Some(g) = g.as_deref_mut() {
             self.register_portraits(g);
         }
+        #[cfg(feature = "multiplayer")]
+        let saved_tables = crate::mp::club::Tables::of(&self.club);
         let tutorial = self.club.stories.tutorial;
         self.load_story();
         self.club.stories.tutorial = tutorial;
+        // a week's challenge keeps the tables it started with (mp/rival.rs tables)
+        #[cfg(feature = "multiplayer")]
+        if crate::mp::rival::challenge_of(s.goals.scenario.as_deref()).is_some() {
+            self.take_shared_tables(saved_tables);
+        }
         self.course = s.course;
         self.econ = s.econ;
         self.econ.extras = self.club.extras;

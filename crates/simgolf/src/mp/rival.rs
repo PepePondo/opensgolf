@@ -87,6 +87,26 @@ pub fn entries() -> Vec<ScenarioEntry> {
     ]
 }
 
+/// The week's people, stories, celebrities and pros: the free set's Standard theme for every player.
+pub fn tables() -> super::club::Tables {
+    let files = sg_core::freeset::theme_files("Standard");
+    let mut stories: Vec<(String, String)> = files
+        .iter()
+        .filter(|(n, _)| n.to_lowercase().ends_with(".txt") && !n.to_lowercase().contains("shadow"))
+        .map(|(n, b)| (n.clone(), sg_core::formats::latin1(b)))
+        .collect();
+    stories.sort_by_key(|(n, _)| n.to_lowercase());
+    let mut stories = sg_core::stories::Stories::build(&stories, 0);
+    stories.fill_shape();
+    let text = |name: &str| files.iter().find(|(n, _)| n.eq_ignore_ascii_case(name)).map(|(_, b)| sg_core::formats::latin1(b));
+    super::club::Tables {
+        stories,
+        celebrities: text("celebrities.dta").map(|t| sg_core::vips::parse_celebrities(&t)).unwrap_or_default(),
+        pros: text("progolfers.dta").map(|t| sg_core::vips::parse_pros(&t)).unwrap_or_default(),
+        roster: Some(sg_core::roster::from_theme_files(&files)),
+    }
+}
+
 impl App {
     /// Start New Game's row picked: its page (lobby.rs) on Start New Game, else (the `--scenario` test hook) the game at
     /// once. False when `id` isn't a week's challenge.
@@ -120,6 +140,10 @@ impl App {
         println!("rival: weekly challenge {} ({:?}, {:?}, {}, seed {})", c.id, c.theme, c.difficulty, c.measure.id(), c.seed);
         self.scen.starting = Some((id.to_string(), sc));
         self.start_game(g, prop, false);
+        // everyone plays the week with the same people and stories, whatever their files and theme pack (each seeing their
+        // own words where they have them: club.rs take_shared_tables)
+        let t = tables();
+        self.take_shared_tables(t);
         true
     }
 
@@ -204,6 +228,34 @@ mod tests {
         let mut goals = sc.start_goals("*rival/2026-W47", "x");
         let f = sg_core::scenario::Facts { year: 2003, cash: 1 << 40, ..Default::default() };
         assert!(goals.check(&f, Some(2002)).is_empty() && goals.outcome.is_none());
+    }
+
+    #[test]
+    fn the_weeks_tables_are_the_free_sets() {
+        let t = super::tables();
+        assert_eq!(t.celebrities.len(), 22);
+        assert_eq!(t.pros.len(), 20);
+        assert!(t.stories.slots.iter().filter(|s| !s.is_empty()).count() >= 20);
+        // (the tutorial id is the OpeningDay file's list index, as the original has it: stories.rs)
+        assert!(t.stories.name(2 * t.stories.tutorial).contains("OpeningDay"));
+        assert_eq!(t.stories.shape.len(), t.stories.slots.len());
+        assert_eq!(t.roster.as_ref().map(|r| r.len()), Some(sg_core::roster::PEOPLE));
+    }
+
+    #[test]
+    fn a_weeks_game_keeps_its_tables_when_loaded() {
+        // (a test game reads no theme files: without the week's own tables a load would leave none)
+        let mut a = crate::mp::lockstep::tests::shared_game(0);
+        a.mp.session = None;
+        a.scen.goals.scenario = Some(format!("{ID_PREFIX}2026-W48"));
+        a.take_shared_tables(super::tables());
+        let b = a.save_bytes(6).unwrap();
+        let s = crate::app::read_save_bytes(&b, "week").unwrap();
+        a.load_save_into(None, s, false).unwrap();
+        assert_eq!(a.club.celebrities.len(), 22);
+        assert_eq!(a.club.stories.shape, super::tables().stories.shape);
+        // (the people are the week's; their names this player's own)
+        assert_eq!(a.club.roster[76].traits, super::tables().roster.unwrap()[76].traits);
     }
 
     #[test]

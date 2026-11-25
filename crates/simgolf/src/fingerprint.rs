@@ -21,12 +21,16 @@ impl App {
         let mut f = Fingerprint::new();
         #[cfg(not(feature = "multiplayer"))]
         f.add("club", &self.club);
-        // the famous people's names are each player's own in a shared club (mp/club.rs take_shared_tables)
+        // the people's names (and the best rounds' names) are each player's own in a shared club (mp/club.rs take_shared_tables)
         #[cfg(feature = "multiplayer")]
         {
             let mut c = self.club.clone();
             c.celebrities.iter_mut().for_each(|x| x.name.clear());
             c.pros.iter_mut().for_each(|x| x.name.clear());
+            for p in c.roster.iter_mut() {
+                (p.name, p.job, p.sayings, p.bio) = Default::default();
+            }
+            c.top_names = Default::default();
             f.add("club", &c);
         }
         f.add_hash("club_unsaved", club_unsaved(&self.club));

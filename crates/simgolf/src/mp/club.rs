@@ -124,6 +124,21 @@ pub struct Extra {
     pub sprouts: Vec<((i32, i32), u32)>,
 }
 
+/// What the rules read of the club's theme files, as a save has it (`App::take_shared_tables`).
+pub struct Tables {
+    pub stories: sg_core::stories::Stories,
+    pub celebrities: Vec<sg_core::vips::Celebrity>,
+    pub pros: Vec<sg_core::vips::Pro>,
+    /// The golfers (None: keep the game's own).
+    pub roster: Option<Vec<sg_core::roster::Person>>,
+}
+
+impl Tables {
+    pub fn of(c: &sg_core::golfer::Club) -> Tables {
+        Tables { stories: c.stories.clone(), celebrities: c.celebrities.clone(), pros: c.pros.clone(), roster: Some(c.roster.clone()) }
+    }
+}
+
 impl App {
     /// The room's save of this game: the save file (base64) and the [`Extra`] (JSON).
     pub fn club_snapshot(&mut self) -> Result<(String, String), String> {
@@ -146,7 +161,7 @@ impl App {
         let extra: Extra = serde_json::from_str(extra).map_err(|e| format!("the save's extra: {e}"))?;
         let b = crate::share::unbase64(data).ok_or_else(|| "not base64".to_string())?;
         let s = crate::app::read_save_bytes(&b, "club")?;
-        let shared = (s.club.stories.clone(), s.club.celebrities.clone(), s.club.pros.clone());
+        let shared = Tables::of(&s.club);
         self.keep_plan_on_load = extra.start.planned;
         let r = match g {
             Some(g) if keep_art => {
@@ -176,12 +191,13 @@ impl App {
         Ok(())
     }
 
-    /// The club's story table and famous people as the save has them (what the rules read: the stories' codes and scenes,
-    /// the celebrities' and pros' looks and skills), shown with this player's own words: the player's own stories with the
-    /// same codes, and the player's own names row by row (made up ones past the end of the player's tables). So a club
+    /// The club's story table, famous people and golfers as the save has them (what the rules read: the stories' codes and
+    /// scenes, the celebrities' and pros' looks and skills, the people's traits), shown with this player's own words: the
+    /// player's own stories with the same codes, and the player's own names row by row (made up ones past the end of the
+    /// player's tables; a golfer keeps the club's name when the player's own of that row is of the other sex). So a club
     /// plays the same with the original's files and with the free set, each player seeing their own.
-    pub fn take_shared_tables(&mut self, shared: (sg_core::stories::Stories, Vec<sg_core::vips::Celebrity>, Vec<sg_core::vips::Pro>)) {
-        let (stories, celebrities, pros) = shared;
+    pub fn take_shared_tables(&mut self, shared: Tables) {
+        let Tables { stories, celebrities, pros, roster } = shared;
         self.club.stories.take_shared(stories);
         if !celebrities.is_empty() {
             let own = std::mem::replace(&mut self.club.celebrities, celebrities);
@@ -193,6 +209,19 @@ impl App {
             let own = std::mem::replace(&mut self.club.pros, pros);
             for (i, p) in self.club.pros.iter_mut().enumerate() {
                 p.name = own.get(i).map(|o| o.name.clone()).unwrap_or_else(|| super::names::pro(i));
+            }
+        }
+        if let Some(roster) = roster.filter(|r| !r.is_empty()) {
+            let pack = crate::render::THEME_PACKS.get(self.theme_pack).copied().unwrap_or("Standard").replace(' ', "_");
+            let own = sg_core::roster::load(&self.game_dir, &pack);
+            self.club.roster = roster;
+            for (p, o) in self.club.roster.iter_mut().zip(own.iter()) {
+                if p.female() == o.female() {
+                    p.name = o.name.clone();
+                    p.job = o.job.clone();
+                    p.sayings = o.sayings.clone();
+                    p.bio = o.bio.clone();
+                }
             }
         }
     }
@@ -640,6 +669,7 @@ mod tests {
         );
         a.club.celebrities = vec![sg_core::vips::Celebrity { name: "Star One".into(), kind: 3, skin: 1, hair: 2, shirt: 3, pants: 4 }];
         a.club.pros = vec![sg_core::vips::Pro { name: "Pro One".into(), body: 2, skin: 1, hat: 0, shirt: 1, pants: 2, skills: [5; 12] }];
+        a.club.roster[5].name = "Founder Five".into();
         a.apply(&Action::Speed(1));
         a.apply(&Action::OpenHole);
         let (data, extra) = a.club_snapshot().unwrap();
@@ -651,6 +681,9 @@ mod tests {
         assert_ne!(b.club.celebrities[0].name, "Star One");
         assert_ne!(b.club.pros[0].name, "Pro One");
         assert_eq!(b.club.stories.slots, a.club.stories.slots);
+        // the golfer of that row has the joiner's own name (the built-in one here), and plays the same
+        assert_eq!(b.club.roster[5].name, sg_core::roster::fallback()[5].name);
+        assert_eq!(b.club.roster[5].traits, a.club.roster[5].traits);
         for _ in 0..3000 {
             a.lockstep_step();
             b.lockstep_step();

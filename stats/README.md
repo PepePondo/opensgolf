@@ -8,8 +8,9 @@ count", crates/simgolf/src/playcount.rs) and shows it on a password-protected pa
   (or `kept` for counts sent late); `n` the mark's number in that run. Only the country Cloudflare reads from the address
   is kept, never the address.
 * `GET /` and `GET /api/stats`: the stats (basic auth, any user name, the `STATS_PASSWORD` secret).
-* Weekly (the cron in `wrangler.toml`) and `POST /admin/import[?from=YYYY-MM-DD]`: GoatCounter's counts from builds
-  before the switch, by hour (needs the `GOATCOUNTER_TOKEN` secret). The first import takes everything since 1 Oct 2026;
+* Daily at 04:00 UTC (the cron in `wrangler.toml`) and `POST /admin/import[?from=YYYY-MM-DD]`: GoatCounter's counts from builds
+  before the switch, by hour (needs the `GOATCOUNTER_TOKEN` secret). A failed GoatCounter call is tried again three
+  times over about 2.5 minutes before the run is logged as failed. The first import takes everything since 1 Oct 2026;
   later ones re-read the last 15 days, replacing those hours. The page says when older builds have stayed under an hour a
   week for three full weeks: then remove the cron and deploy again.
 

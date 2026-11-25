@@ -1,7 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import { memoryDb } from "./d1shim.mjs";
-import worker, { readCount, storeCount, gcRows, importGoatCounter, importStart, stats, retirement, FIRST_DAY } from "../src/index.js";
+import worker, { readCount, storeCount, gcRows, importGoatCounter, gcFetch, importStart, stats, retirement, FIRST_DAY } from "../src/index.js";
 import { page } from "../src/page.js";
 
 const u = (q) => new URL(`https://x.test/count?${q}`);
@@ -74,6 +74,33 @@ test("the import replaces hours, pages, and logs problems", async () => {
   const bad = await importGoatCounter({ DB: db }, FIRST_DAY, now, fetcher);
   assert.match(bad.error, /GOATCOUNTER_TOKEN/);
   assert.equal(db.raw.prepare("SELECT COUNT(*) AS n FROM gc_imports WHERE error IS NOT NULL").get().n, 1);
+});
+
+test("a GoatCounter call that fails for a moment is tried again", async () => {
+  const waited = [];
+  const sleep = async (ms) => { waited.push(ms); };
+  let calls = 0;
+  const flaky = async () => (++calls < 3 ? new Response("no", { status: 404 }) : new Response("{}"));
+  assert.equal((await gcFetch("u", {}, flaky, [1, 2, 3], sleep)).status, 200);
+  assert.deepEqual(waited, [1, 2]);
+  // gives up after the last wait, with the last answer
+  calls = -10;
+  assert.equal((await gcFetch("u", {}, flaky, [1, 2], sleep)).status, 404);
+  // a sign-in error is not tried again
+  waited.length = 0;
+  assert.equal((await gcFetch("u", {}, async () => new Response("", { status: 401 }), [1], sleep)).status, 401);
+  assert.deepEqual(waited, []);
+  // network errors too
+  let n = 0;
+  const net = async () => { if (n++ === 0) throw new Error("reset"); return new Response("{}"); };
+  assert.equal((await gcFetch("u", {}, net, [1], sleep)).status, 200);
+  // the import goes through a 404 and logs no error
+  const db = memoryDb();
+  let first = true;
+  const f = async () => { if (first) { first = false; return new Response("", { status: 404 }); } return new Response(JSON.stringify(gcPage)); };
+  const r = await importGoatCounter({ DB: db, GOATCOUNTER_TOKEN: "t" }, FIRST_DAY, new Date("2026-11-16T04:00:00Z"), f, [1], sleep);
+  assert.equal(r.error, undefined);
+  assert.equal(r.rows, 3);
 });
 
 test("stats from both sources, and the page draws", async () => {

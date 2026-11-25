@@ -100,7 +100,7 @@ ${s.daily.slice().reverse().map((d) => `<tr><td>${d.day}</td><td class="n">${h1(
 <div class="card"><h2>Countries (new builds)</h2>${s.countries.length ? bars(s.countries.map((c) => ({ label: c.country, value: c.hours, note: `${c.runs} runs` }))) : `<p class="muted">Arrives with the first release that reports here.</p>`}</div>
 <div class="card"><h2>Older builds still reporting to GoatCounter</h2>${lastWeeks.length ? bars(lastWeeks) : `<p class="muted">Nothing imported yet.</p>`}
 <div class="status ${ob.can_retire ? "ok" : ""}">${ob.can_retire
-    ? "✓ Under 1 hour a week for 3 weeks in a row: the weekly GoatCounter import can be switched off."
+    ? "✓ Under 1 hour a week for 3 weeks in a row: the daily GoatCounter import can be switched off."
     : `This week so far: ${hrs(ob.this_week_hours)}. The import can be switched off once this stays under 1 hour a week for 3 full weeks.`}</div></div>
 </div>
 

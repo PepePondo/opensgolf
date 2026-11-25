@@ -84,6 +84,11 @@ impl App {
     /// action's own code returns (whether it did something, where it says). During a replay the player's actions are
     /// refused.
     pub fn act(&mut self, a: Action) -> bool {
+        // a shared game's actions go to the server, which orders them for everyone (mp/lockstep.rs)
+        #[cfg(feature = "multiplayer")]
+        if let Some(r) = self.lockstep_act(&a) {
+            return r;
+        }
         if self.rec.replaying() && self.rec.depth == 0 && !matches!(a, Action::Speed(_)) {
             if !std::mem::replace(&mut self.rec.told, true) {
                 self.show_toast(tr("STR_TOAST_REPLAY_PLAYING"));
@@ -527,7 +532,7 @@ impl App {
     }
 
     /// What the log's start holds besides the save.
-    fn log_start(&self) -> Start {
+    pub(crate) fn log_start(&self) -> Start {
         let c = &self.club;
         Start {
             tick: self.game_tick,
@@ -559,7 +564,7 @@ impl App {
     }
 
     /// The fingerprint's sections and the club's, the economy's and the course's fields, by name.
-    fn start_parts(&self) -> Vec<(String, u64)> {
+    pub(crate) fn start_parts(&self) -> Vec<(String, u64)> {
         let mut v: Vec<(String, u64)> = self.fingerprint().parts.into_iter().map(|(k, h)| (k.to_string(), h)).collect();
         v.extend(self.fingerprint_field_list());
         v
@@ -592,6 +597,11 @@ impl App {
     /// hole being built again after a terrain change. During a replay only the log's do it. Returns false when the caller
     /// must leave it.
     pub(crate) fn sync_hook(&mut self) -> bool {
+        // a shared game brings the course up to date at each tick's start only (mp/lockstep.rs)
+        #[cfg(feature = "multiplayer")]
+        if crate::mp::lockstep::on() {
+            return self.rec.depth > 0;
+        }
         if self.rec.depth > 0 || self.rec.log.is_none() && !self.rec.replaying() {
             return true;
         }
@@ -617,6 +627,8 @@ impl App {
             }
         }
         self.rec.depth += 1;
+        #[cfg(feature = "multiplayer")]
+        self.lockstep_tick();
     }
 
     /// The end of a game tick: every [`CHECK_EVERY`] ticks a hash of the game goes on the log.
@@ -657,6 +669,10 @@ impl App {
     /// The flags the simulation is handed before a tick: from the screen during play (logged when they change), the log's
     /// during a replay.
     pub(crate) fn tick_flags(&mut self) -> TickFlags {
+        #[cfg(feature = "multiplayer")]
+        if crate::mp::lockstep::on() {
+            return crate::mp::lockstep::FLAGS;
+        }
         if let Some(r) = &self.rec.replay {
             return r.flags;
         }
@@ -711,6 +727,10 @@ impl App {
     /// During play it is measured in the frame's view, and logged when it changes anything; during a replay only the log's
     /// measures count.
     pub(crate) fn screen_hook(&mut self) {
+        #[cfg(feature = "multiplayer")]
+        if crate::mp::lockstep::on() {
+            return self.lockstep_screen();
+        }
         if self.rec.replaying() {
             return;
         }
@@ -744,23 +764,9 @@ impl App {
         encode_replay(&self.rec.base, &log).ok()
     }
 
-    /// Starts a replay: the game the file's log starts from is loaded, with what no save keeps, and its actions are played
-    /// at their ticks from the next tick on.
-    pub fn start_replay(&mut self, g: Option<&mut crate::gfx::Gfx>, data: &[u8]) -> Result<(), String> {
-        let (save, log) = decode_replay(data)?;
-        let s = read_save_bytes(&save, "replay")?;
-        self.keep_plan_on_load = log.start.planned;
-        let r = match g {
-            Some(g) => self.load_save(g, s),
-            None => {
-                self.undo.clear();
-                self.editor = None;
-                self.load_save_into(None, s, false)
-            }
-        };
-        self.keep_plan_on_load = false;
-        r?;
-        let st = &log.start;
+    /// What no save keeps, as a log's start holds it, put back in the game just loaded (a replay; a shared club's save,
+    /// mp/club.rs).
+    pub(crate) fn apply_start(&mut self, st: &Start) {
         for (g, &(sx, sy)) in self.club.g.iter_mut().zip(&st.screen) {
             g.sx = sx;
             g.sy = sy;
@@ -791,6 +797,26 @@ impl App {
         self.speed = st.speed.max(1);
         self.rec.sim_speed = self.speed;
         self.club.turbo = self.speed > 1;
+    }
+
+    /// Starts a replay: the game the file's log starts from is loaded, with what no save keeps, and its actions are played
+    /// at their ticks from the next tick on.
+    pub fn start_replay(&mut self, g: Option<&mut crate::gfx::Gfx>, data: &[u8]) -> Result<(), String> {
+        let (save, log) = decode_replay(data)?;
+        let s = read_save_bytes(&save, "replay")?;
+        self.keep_plan_on_load = log.start.planned;
+        let r = match g {
+            Some(g) => self.load_save(g, s),
+            None => {
+                self.undo.clear();
+                self.editor = None;
+                self.load_save_into(None, s, false)
+            }
+        };
+        self.keep_plan_on_load = false;
+        r?;
+        let st = &log.start;
+        self.apply_start(st);
         self.rec.pending = false;
         self.rec.base = save;
         let now = self.replay_hash();

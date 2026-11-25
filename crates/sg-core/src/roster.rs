@@ -406,6 +406,36 @@ pub fn load(game_dir: &Path, pack: &str) -> Vec<Person> {
     people
 }
 
+/// The roster `load` makes from the Standard theme's files `files` (names and bytes) and the built-in records, without a
+/// game folder: the free set's own people, the same for every player whatever their files.
+pub fn from_theme_files(files: &[(String, Vec<u8>)]) -> Vec<Person> {
+    let mut people = fallback();
+    let get = |name: &str| files.iter().find(|(n, _)| n.eq_ignore_ascii_case(name)).map(|(_, b)| b);
+    // (as read_character: a file's own portrait is its head)
+    let parse = |name: &str, b: &Vec<u8>| {
+        (b.len() >= 0x30).then(|| {
+            let mut p = Person::parse_file(b);
+            if p.head_index(0) > 0x13 && b.windows(8).any(|w| w == b"*PCXFILE") {
+                p.portrait = Some(format!("Themes/Standard/{name}"));
+            }
+            p
+        })
+    };
+    for (slot, file) in [(76usize, "Joe Pro.glf"), (77, "I.M.Picky.glf"), (78, "Ivana Richman.glf"), (79, "J.P.Bigdome.glf")] {
+        if let Some(p) = get(file).and_then(|b| parse(file, b)) {
+            people[slot] = p;
+        }
+    }
+    let mut chars: Vec<&(String, Vec<u8>)> = files.iter().filter(|(n, _)| n.to_ascii_lowercase().ends_with(".chr")).collect();
+    chars.sort_by_key(|(n, _)| n.to_lowercase());
+    for (i, (n, b)) in chars.iter().enumerate().take(75) {
+        if let Some(p) = parse(n, b) {
+            people[i + 1] = p;
+        }
+    }
+    people
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

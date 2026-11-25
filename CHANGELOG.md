@@ -8,6 +8,23 @@ Almost everything OpenSGolf adds to the original game is **off until you switch 
 unless you choose otherwise. Most of it is in Preferences: *Game options* holds the extras and presets, *Graphics* holds
 Enhanced graphics and HD.
 
+## 0.9 (25 November 2026)
+
+**Highlights**
+
+- **Multiplayer (beta).** Start New Game has three new rows. Multiplayer stays off until you turn it on; the first page
+  says exactly what is sent (a nickname, a random player id and your results, nothing else about you or your computer).
+  - **Weekly challenge:** every week everyone gets the same property, land and start, and one thing to beat (the most
+    cash, fun, members or skill at the end of 2001); some weeks start with half the money or allow nine holes at most.
+    Results go to a weekly board, public or for a friends' group code.
+  - **Neighbours:** up to 4 friends each run their own course on their own plot of the same property, at their own pace.
+    A league table compares you as you play until the end of 2002, and you can look round a neighbour's latest course.
+    Make a league and share its 6-letter code.
+  - **Shared clubs:** up to 4 players build and run one course together, live: shared pause and speed, no undo or cheats.
+    Clubs are public (in the list, with search) or private (joined with a code), start on a Huge map, and pause when
+    nobody is on. Not in the browser version yet.
+- Players on the original art and on the free art set can play together.
+
 ## 0.8 (13 November 2026)
 
 **Highlights**

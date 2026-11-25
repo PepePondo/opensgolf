@@ -780,6 +780,9 @@ pub struct App {
     pub game_files_found: bool,
     /// The play-time count (playcount.rs; the port's own, kept in settings.json, never in saves).
     pub playcount: crate::playcount::State,
+    /// Multiplayer (mp/mod.rs).
+    #[cfg(feature = "multiplayer")]
+    pub mp: crate::mp::State,
     /// The Change keys screen, the hidden interface and the save's content packs question (controls_ui.rs).
     pub ctl: crate::controls_ui::CtlState,
     /// The scenario's goals and the packs' scripts of the game in progress (scenario_ui).
@@ -1119,6 +1122,8 @@ impl App {
             launcher: None,
             game_files_found: false,
             playcount: Default::default(),
+            #[cfg(feature = "multiplayer")]
+            mp: Default::default(),
             ctl: Default::default(),
             scen: Default::default(),
             last_message: String::new(),
@@ -2098,6 +2103,11 @@ impl App {
         if self.rec.replaying() {
             return;
         }
+        // a shared game's are set in its ticks (mp/lockstep.rs)
+        #[cfg(feature = "multiplayer")]
+        if crate::mp::lockstep::on() {
+            return;
+        }
         let camera = 2 * ((self.rot / 90.0).round() as i32).rem_euclid(4);
         if self.tee_arrows_change(camera) {
             self.log_tee_arrows(camera);
@@ -2106,7 +2116,7 @@ impl App {
     }
 
     /// Whether the tees' arrows for the view turned `camera` differ from those the tiles hold.
-    fn tee_arrows_change(&self, camera: i32) -> bool {
+    pub(crate) fn tee_arrows_change(&self, camera: i32) -> bool {
         self.tee_arrow_tiles(camera).iter().any(|&(o, v)| self.terrain.variation[o] != v)
     }
 
@@ -2238,6 +2248,10 @@ impl App {
     /// last frame of the tree or bed piece ends the growing (sg_core::decor::sprout_frame), and the plants are then drawn
     /// again as grown ones, exactly as they are drawn after a load.
     fn update_tree_growth(&mut self) {
+        #[cfg(feature = "multiplayer")]
+        if crate::mp::lockstep::on() {
+            return self.lockstep_tree_growth();
+        }
         let ticks = self.game_tick.wrapping_sub(self.sprout_tick);
         self.sprout_tick = self.game_tick;
         let hold = sprout_hold();
@@ -2674,6 +2688,10 @@ impl App {
     pub fn open_hole(&mut self) -> bool {
         // the interface's call is an action (replay.rs): logged, then applied by App::apply
         if self.rec.depth_zero() {
+            #[cfg(feature = "multiplayer")]
+            if self.rival_refuses_hole() {
+                return false;
+            }
             return self.act(Action::OpenHole);
         }
         self.sync_course();
@@ -2916,6 +2934,10 @@ impl App {
             let members = self.club.member_count();
             self.club.record_history(self.club.cash, members);
         }
+        #[cfg(feature = "multiplayer")]
+        if new_month {
+            self.league_month();
+        }
         if new_month && self.difficulty != 0 && !self.econ.sandbox && !self.club.championship() {
             // the monthly reminder for buildings with no path to the clubhouse
             let cut: Vec<(String, (i32, i32))> = self
@@ -2936,6 +2958,8 @@ impl App {
             println!("[{:6.1}s] end of year {}", self.sim_time, 2000 + (self.club.date() >> 13));
             self.open_year_end();
             self.top10_year_end();
+            #[cfg(feature = "multiplayer")]
+            self.rival_year_end();
         }
         self.wildlife_tick();
         self.tourney_after_tick();
@@ -3145,7 +3169,16 @@ impl App {
         if self.editor.is_some() {
             self.sim_time = self.time;
         }
-        while self.sim_time < self.time && self.great_shot.is_none() && !self.comfort.hold {
+        let to = self.time;
+        // test hook SG_MP_STEP=S: at most S seconds of play a frame, so a scripted run draws between ticks (mp/lockstep.rs)
+        #[cfg(feature = "multiplayer")]
+        let to = crate::mp::lockstep::frame_target(self.sim_time, to);
+        // a shared club plays its own clock's ticks (mp/club.rs club_frame): the game's stands still
+        #[cfg(feature = "multiplayer")]
+        if self.club_on() {
+            self.sim_time = to;
+        }
+        while self.sim_time < to && self.great_shot.is_none() && !self.comfort.hold {
             let t0 = now();
             self.step_game(1.0 / 60.0);
             tick_bench_add(now() - t0);
@@ -3340,6 +3373,10 @@ impl App {
             // a scenario's own starting cash (docs/MODDING.md 5)
             self.econ.start_cash = m as f64;
         }
+        #[cfg(feature = "multiplayer")]
+        if self.mp.halve_money {
+            self.econ.start_cash = (self.econ.start_cash / 2.0).round();
+        }
         let slot_index = self.slot_of[prop_idx];
         let land = land::generate(slot_index, self.offer[slot_index], self.difficulty, sandbox, &mut self.exe_rng, &self.noise);
         self.terrain = land.to_terrain();
@@ -3472,6 +3509,9 @@ impl App {
     /// Loads a whole game saved by `save_game` and goes on from where it was.
     pub fn load_game(&mut self, g: &mut Gfx, path: &Path) -> Result<(), String> {
         let s = read_save(path)?;
+        // a game of the player's own loaded while in a shared club leaves the club (mp/club.rs)
+        #[cfg(feature = "multiplayer")]
+        self.club_leave_for_load();
         self.load_save(g, s)?;
         self.fingerprint_note("load");
         Ok(())
@@ -3550,9 +3590,16 @@ impl App {
         if let Some(g) = g.as_deref_mut() {
             self.register_portraits(g);
         }
+        #[cfg(feature = "multiplayer")]
+        let saved_tables = crate::mp::club::Tables::of(&self.club);
         let tutorial = self.club.stories.tutorial;
         self.load_story();
         self.club.stories.tutorial = tutorial;
+        // a week's challenge keeps the tables it started with (mp/rival.rs tables)
+        #[cfg(feature = "multiplayer")]
+        if crate::mp::rival::challenge_of(s.goals.scenario.as_deref()).is_some() {
+            self.take_shared_tables(saved_tables);
+        }
         self.course = s.course;
         self.econ = s.econ;
         self.econ.extras = self.club.extras;
@@ -3574,6 +3621,9 @@ impl App {
         self.skip_plan = std::mem::take(&mut self.keep_plan_on_load);
         self.sync_course();
         self.skip_plan = false;
+        // the open holes' numbers now (a shared game's sync above waits for the next tick, mp/lockstep.rs), so that sync
+        // doesn't find them new and empty the figures loaded here
+        self.rebuild_hole_routes();
         self.hole_stats = s.hole_stats;
         // the Weather that matters extra's day as the save left it (sg_core::weather; nothing with the extra off)
         self.club.place = self.weather_place();
@@ -3977,8 +4027,19 @@ impl App {
         self.tool = 0;
         self.paint_idx = k;
         self.edit = true;
-        let v = if PAINT[k].ty == 1 { 0 } else { self.exe_rng.below(3) };
+        let v = if PAINT[k].ty == 1 { 0 } else { self.brush_roll() };
         self.paint_variant = Some((k, v));
+    }
+
+    /// The variant a brush picked rolls, 0..2 (the exe's generator). In a shared game the brush is the player's own (only the
+    /// paint action, which carries the variant as its turn, reaches everyone), so the pick must not step the shared generator
+    /// (mp/lockstep.rs). A paint action without a turn still rolls on the shared one, everywhere alike.
+    fn brush_roll(&mut self) -> i32 {
+        #[cfg(feature = "multiplayer")]
+        if crate::mp::lockstep::on() {
+            return crate::mp::lockstep::local_roll(3);
+        }
+        self.exe_rng.below(3)
     }
 
     /// The variant byte a sand trap tile takes from the brush (0x42059d: variant % 12 + 12, written on every tile the brush
@@ -4959,13 +5020,17 @@ impl App {
         let mut out = Vec::new();
         {
             let weed_frames = self.weed_sprite.map(|w| self.sprites[w].s.frames_per_view).unwrap_or(1);
+            let clicked = self.hover_tile;
+            // a shared game's are fixed (mp/lockstep.rs)
+            #[cfg(feature = "multiplayer")]
+            let (weed_frames, clicked) = crate::mp::lockstep::staff_inputs(weed_frames, clicked);
             let club = self.club_anchor();
             let mut world = staff::World {
                 terrain: &self.terrain,
                 tiles: &mut self.staff_tiles,
                 golfers: &mut self.staff_golfers,
                 club,
-                clicked: self.hover_tile,
+                clicked,
                 follow_pointer: self.club.holes[1].par == 0,
                 tick: self.game_tick,
                 difficulty: self.difficulty,
@@ -5251,7 +5316,7 @@ impl App {
     /// The generated land's objects as the exe draws them: landmarks (sprite 0x168 + type, animated, facing one of four ways)
     /// and buildings (layers by kind, theme and level; level 2 once the course has more than 10 holes), each standing in the
     /// middle of its footprint.
-    fn add_land_objects(&mut self) {
+    pub(crate) fn add_land_objects(&mut self) {
         let Some(land) = self.land.clone() else { return };
         let theme = land.slot.record().theme;
         let exe_theme = self.exe_theme();

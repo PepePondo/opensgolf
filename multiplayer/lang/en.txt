@@ -1,0 +1,138 @@
+# The multiplayer feature's English text (crates/simgolf/src/mp), kept apart from lang/en.txt so the private
+# multiplayer branch merges the public game cleanly. Same format as lang/en.txt (docs/TRANSLATING.md); a translation
+# pack's lang file may hold these keys too. Built into multiplayer builds only.
+
+# Shared
+STR_MP_CANT_IN_SHARED                   :Not in a shared game.
+STR_MP_CHECK_CONNECTION                 :check the connection and try again
+STR_MP_BOARD_UNREACHABLE                :The board couldn't be reached: {ERROR}
+
+# Weekly challenge: the row and the game (mp/rival.rs)
+STR_MP_WEEKLY_NAME                      :Weekly challenge {WEEK}
+STR_MP_WEEKLY_DESCRIPTION               :Everyone gets the same land and start this week. Have {GOAL} at the end of {YEAR}. Your nickname and result go to the weekly board then.
+STR_MP_WEEKLY_INTRO                     :Weekly challenge {WEEK}: have {GOAL} when {YEAR} ends.
+STR_MP_WEEKLY_GOAL                      :Have {GOAL} when {YEAR} ends (the weekly board)
+STR_MP_KIND_BUDGET                      :This week starts with half the usual money.
+STR_MP_KIND_NINE                        :This week's course may have {N} holes at most.
+STR_MP_WEEKLY_NINE_FULL                 :This week's course may have {N} holes at most.
+STR_MP_GOAL_CASH                        :the most cash
+STR_MP_GOAL_FUN                         :the highest fun rating
+STR_MP_GOAL_MEMBERS                     :the most members
+STR_MP_GOAL_SKILL                       :the highest skill rating
+STR_MP_WEEKLY_OVER_SENDING              :Weekly challenge over: {SCORE}. Sending it to the board...
+STR_MP_WEEKLY_OVER_CHEATS               :Weekly challenge over: {SCORE}. Cheats were used, so it isn't sent.
+STR_MP_RESULT_ON_BOARD                  :Your result is on the weekly board.
+STR_MP_RESULT_NOT_BETTER                :Result sent: your best this week is still the one on the board.
+STR_MP_RESULT_UPDATE                    :Update the game to send results to the board.
+STR_MP_RESULT_REFUSED                   :The board didn't take the result: {ERROR}.
+STR_MP_RESULT_UNREADABLE                :The board's answer couldn't be read.
+
+# Weekly challenge: its page (mp/lobby.rs)
+STR_MP_WEEKLY_PLACE                     :{PLACE}, {DIFFICULTY}. Score: {MEASURE} at the end of {YEAR}.
+STR_MP_WEEKLY_SAME                      :Everyone gets the same land and start this week. Cheats keep a result off the board.
+STR_MP_ON_NOTE                          :Multiplayer is on: your nickname, a random player id and your result go to the board when 2001 ends.
+STR_MP_OFF_NOTE                         :Multiplayer is off. Turning it on sends your nickname, a random player id and your result when 2001 ends.
+STR_MP_NOTHING_ELSE                     :Nothing else about you or your computer is sent.
+STR_MP_NICKNAME                         :Nickname
+STR_MP_NICKNAME_HINT                    :3 to 16 letters, digits, spaces, dots or dashes
+STR_MP_NICKNAME_MADE                    :one is made for you
+STR_MP_GROUP                            :Friends' group
+STR_MP_GROUP_HINT                       :6 letters or digits, or empty for the public board
+STR_MP_GROUP_NONE                       :none
+STR_MP_BOARD_TITLE                      :This week's board
+STR_MP_BOARD_TITLE_GROUP                :This week's board: group {GROUP}
+STR_MP_BOARD_LOADING                    :Loading the board...
+STR_MP_BOARD_EMPTY                      :No results yet this week: be the first.
+STR_MP_BOARD_YOU                        :You: {PLACE}. with {SCORE}
+STR_MP_MEASURE_CASH                     :Cash
+STR_MP_MEASURE_FUN                      :Fun
+STR_MP_MEASURE_MEMBERS                  :Members
+STR_MP_MEASURE_SKILL                    :Skill
+STR_MP_BACK                             :Back
+STR_MP_PLAY                             :Play
+STR_MP_TURN_ON_AND_PLAY                 :Turn on and play
+STR_MP_TURN_OFF                         :Turn Multiplayer off
+
+# Shared clubs: the row and the page (mp/clubs_ui.rs)
+STR_MP_CLUBS                            :Shared clubs
+STR_MP_CLUBS_DESCRIPTION                :Play one course together with friends: everyone builds and runs the same club, and it pauses when nobody is on.
+STR_MP_CLUBS_ROW                        :Play one course together: everyone builds and runs the same club.
+STR_MP_CLUBS_INTRO                      :Everyone in a club builds and runs the same course, together. It pauses when nobody is on.
+STR_MP_CLUBS_WHO                        :You play as {NICK} (the Weekly challenge page changes it). A club sends your nickname, a random player id and what you do in it; nothing else.
+STR_MP_CLUBS_NAME_MADE                  :a name made for you
+STR_MP_CLUBS_CLUB                       :Club
+STR_MP_CLUBS_ON_NOW                     :On now
+STR_MP_CLUBS_PLAYERS                    :{N} of {MAX}
+STR_MP_CLUBS_LOADING                    :Loading the clubs...
+STR_MP_CLUBS_UNREACHABLE                :The clubs couldn't be reached: {ERROR}
+STR_MP_CLUBS_EMPTY                      :No clubs yet: make the first one below.
+STR_MP_CLUBS_NEW                        :New club
+STR_MP_CLUBS_NEW_NAME                   :its name
+STR_MP_CLUBS_MAKE                       :Make the club
+STR_MP_CLUBS_MAKE_NOTE                  :A new club is a new game for everyone. It starts on a Huge map, as bigger groups need room (Select Difficulty can change it).
+STR_MP_CLUBS_REFRESH                    :Refresh
+STR_MP_CLUBS_PUBLIC                     :Public: in the list
+STR_MP_CLUBS_PRIVATE                    :Private: by code
+STR_MP_CLUBS_PRIVATE_CODE               :private, code {CODE}
+STR_MP_CLUBS_PRIVATE_MADE               :Private club made. Friends join it with the code {CODE} (Shared clubs, Find).
+STR_MP_CLUBS_CODE_ENTER                 :Press Enter to look for the private club with the code {CODE}.
+STR_MP_CLUBS_LOOKING                    :Looking for the club...
+STR_MP_CLUBS_NO_CODE                    :No club has that code.
+STR_MP_CLUBS_FIND                       :Find: a name or a code
+STR_MP_CLUBS_NONE_FOUND                 :No club called "{FIND}": check the name, or Refresh.
+STR_MP_CLUBS_JOIN                       :Join
+STR_MP_CLUBS_CANT_JOIN                  :Can't join "{CLUB}": {WHY}.
+STR_MP_CLUBS_FULL                       :That club is full ({MAX} on).
+STR_MP_CLUBS_NAME_FIRST                 :Type the new club's name first (3 to 32 letters).
+STR_MP_WHY_VERSION_OTHER                :needs another game version
+STR_MP_WHY_VERSION                      :needs version {VERSION}
+STR_MP_WHY_RULES                        :other rules settings (Fix original bugs, Random trees)
+STR_MP_WHY_MAP                          :another course size
+STR_MP_WHY_EXTRAS                       :other gameplay extras
+STR_MP_WHY_PACK_MISSING                 :needs the pack {PACK}
+STR_MP_WHY_PACK_EXTRA                   :turn off the pack {PACK}
+STR_MP_WHY_PACKS                        :other packs
+
+# Shared clubs: playing one (mp/club.rs)
+STR_MP_LEAGUES                          :Neighbours
+STR_MP_LEAGUES_ROW                      :Up to 4 friends, each on their own plot of one property: who runs the best club?
+STR_MP_LEAGUES_INTRO                    :Each player builds their own course on their own plot of the same property.
+STR_MP_LEAGUES_INTRO2                   :The table compares you as you play (each at their own pace) until the end of {YEAR}. Pick a neighbour to look round their course.
+STR_MP_LEAGUES_MINE                     :Your leagues
+STR_MP_LEAGUES_NONE                     :None yet: make one below, or join a friend's with its code.
+STR_MP_LEAGUE_CODE                      :code {CODE}
+STR_MP_LEAGUE_LOADING                   :Loading the league...
+STR_MP_LEAGUE_ABOUT                     :{LEAGUE}: {PLACE}, {DIFFICULTY}. Best: {MEASURE}.
+STR_MP_LEAGUE_WHO                       :Player
+STR_MP_LEAGUE_DATE                      :Reached
+STR_MP_LEAGUE_MONTHS                    :March,April,May,June,July,August,September,October
+STR_MP_LEAGUE_YOU                       :{NICK} (you)
+STR_MP_LEAGUE_NOT_YET                   :not started
+STR_MP_LEAGUE_PLAY                      :Play my plot
+STR_MP_LEAGUE_VISIT                     :Look round their course
+STR_MP_LEAGUE_NEW                       :New league
+STR_MP_LEAGUE_PROPERTY                  :Land: {PLACE}
+STR_MP_LEAGUE_SCORES                    :Best: {MEASURE}
+STR_MP_LEAGUE_MAKE                      :Make the league
+STR_MP_LEAGUE_JOIN_CODE                 :Join with a code
+STR_MP_LEAGUE_JOIN                      :Join
+STR_MP_LEAGUE_NAME_FIRST                :Type the new league's name first (3 to 32 letters).
+STR_MP_LEAGUE_CODE_FIRST                :Type the league's code first (6 letters and digits).
+STR_MP_LEAGUE_MADE                      :League made. Friends join it with the code {CODE}.
+STR_MP_LEAGUE_REFUSED                   :Couldn't do that: {WHY}.
+STR_MP_LEAGUE_NO_SAVE                   :{NICK} hasn't sent their course yet.
+STR_MP_LEAGUE_VISITING                  :Looking round {NICK}'s course: a copy, so nothing you change is kept or sent. Neighbours > Play my plot takes you back.
+STR_MP_LEAGUE_OVER                      :The league's season is over: see the final table on the Neighbours page.
+STR_MP_LEAGUE_GAME                      :League {LEAGUE}
+STR_MP_LEAGUE_GOAL                      :Have {GOAL} of your league when {YEAR} ends
+STR_MP_LEAGUE_INTRO                     :Welcome to your plot in the league {LEAGUE}. Have {GOAL} of your neighbours when {YEAR} ends: the league's table shows how you're doing.
+STR_MP_CLUB_MAKING                      :Making the club "{CLUB}"...
+STR_MP_CLUB_JOINING                     :Joining "{CLUB}"...
+STR_MP_CLUB_LEFT                        :You left the club.
+STR_MP_CLUB_NOT_MADE                    :The club could not be made. Check the connection and try again.
+STR_MP_CLUB_LOST                        :Lost the club ({WHY}). The game goes on as your own copy.
+STR_MP_CLUB_REFUSED                     :Can't join the club: {WHY}.
+STR_MP_CLUB_NOT_LOADED                  :The club's game could not be loaded: {ERROR}
+STR_MP_CLUB_BAD_SAVE                    :The club's save was not at its tick.
+STR_MP_CLUB_CAME                        :{NICK} joined the club.
+STR_MP_CLUB_WENT                        :{NICK} left the club.

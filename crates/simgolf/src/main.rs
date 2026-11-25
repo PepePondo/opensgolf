@@ -87,6 +87,8 @@ mod language;
 mod launcher;
 mod member_panel;
 mod message_ui;
+#[cfg(feature = "multiplayer")]
+mod mp;
 mod net;
 mod packart;
 mod panels_ui;
@@ -1905,6 +1907,11 @@ impl Stage {
     }
 
     fn toggle_pause(&mut self) {
+        // in a shared club the pause is everyone's (mp/club.rs)
+        #[cfg(feature = "multiplayer")]
+        if self.app.club_pause_toggle() {
+            return;
+        }
         let t = now();
         self.app.paused = !self.app.paused;
         // the player's own pause or unpause: no longer one the comfort pauses made (comfort.rs)
@@ -3625,6 +3632,12 @@ impl EventHandler for Stage {
         }
         // "Check for updates": the answer from GitHub (update.rs), and "Update now" under way (autoupdate.rs)
         self.app.poll_update_check();
+        #[cfg(feature = "multiplayer")]
+        {
+            self.app.rival_poll();
+            // a shared club's network and ticks (mp/club.rs)
+            self.app.club_frame(Some(&mut self.g));
+        }
         #[cfg(all(not(target_arch = "wasm32"), feature = "net"))]
         self.app.poll_update_job();
         // the course editor: the browser's file picker, and the editor left for the title menu (editor.rs)
@@ -3698,7 +3711,14 @@ impl EventHandler for Stage {
         // the play-time count at each 5 minutes of that time, and its one-time notice (playcount.rs)
         app.playcount_frame();
         // the exe's fast mode follows the speed the game is played at (replay.rs: a replay's own, whatever the keys say)
-        app.club.turbo = app.rec.sim_speed > 1;
+        #[cfg(feature = "multiplayer")]
+        let shared = crate::mp::lockstep::on();
+        #[cfg(not(feature = "multiplayer"))]
+        let shared = false;
+        // (a shared game's is set by the speed action at its stamped tick, never by the frame: mp/lockstep.rs)
+        if !shared {
+            app.club.turbo = app.rec.sim_speed > 1;
+        }
         let (w, h) = window::screen_size();
         app.draw_w = w.max(1.0);
         app.draw_h = h.max(1.0);
@@ -3801,7 +3821,11 @@ impl EventHandler for Stage {
         }
         if let Some(out) = self.png_out.clone() {
             // (an import the test hook started finishes first: it starts the program again on the files)
-            if self.frames >= 2 && !gamefiles::importing() {
+            #[cfg(feature = "multiplayer")]
+            let mp_wait = crate::mp::lockstep::test_waiting(&self.app);
+            #[cfg(not(feature = "multiplayer"))]
+            let mp_wait = false;
+            if self.frames >= 2 && !gamefiles::importing() && !mp_wait {
                 // SG_FX_BENCH=N: the frame time over N frames drawn offscreen (Classic or with the effects), for measuring
                 if let Some(n) = std::env::var("SG_FX_BENCH").ok().and_then(|v| v.parse::<u32>().ok()) {
                     self.bench(n.max(1));
@@ -4429,6 +4453,8 @@ impl EventHandler for Stage {
         self.app.save_char(c);
         self.app.profile_char(c);
         self.app.cust_char(c);
+        #[cfg(feature = "multiplayer")]
+        self.app.rival_lobby_char(c);
     }
 
     fn touch_event(&mut self, phase: TouchPhase, id: u64, x: f32, y: f32) {

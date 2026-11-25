@@ -245,6 +245,17 @@ pub fn files() -> Vec<String> {
 }
 
 /// The bytes of one file of the set, by its path in the pack (case-insensitive), made now.
+/// The set's own files in its theme folder `Themes/<pack>` (not its subfolders): their names and bytes, in name order.
+pub fn theme_files(pack: &str) -> Vec<(String, Vec<u8>)> {
+    let dir = format!("text/themes/{}/", pack.to_lowercase());
+    manifest()
+        .files
+        .iter()
+        .filter(|f| f.to_lowercase().starts_with(&dir) && !f[dir.len()..].contains('/'))
+        .filter_map(|f| Some((f[dir.len()..].to_string(), read(f)?)))
+        .collect()
+}
+
 pub fn read(rel: &str) -> Option<Vec<u8>> {
     let m = manifest();
     match *m.by_pack.get(&rel.to_lowercase())? {

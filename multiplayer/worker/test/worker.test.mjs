@@ -118,6 +118,7 @@ test("the Worker's routes", async () => {
   assert.equal(r.status, 400);
   r = await call(`/board?c=${wk}`);
   assert.equal((await r.json()).rows.length, 2);
+  assert.equal(env.DB.raw.prepare(`SELECT SUM(n) AS n FROM activity WHERE mode = 'challenge' AND place = ?`).get(wk).n, 2);
   assert.match(r.headers.get("Cache-Control"), /max-age=60/);
   r = await call("/board?c=bad");
   assert.equal(r.status, 400);

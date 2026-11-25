@@ -10,6 +10,7 @@
 //
 // Copyright the OpenSGolf contributors. GPL-2.0-or-later.
 
+import { noteActivity } from "./activity.js";
 import { RoomCore, pausedAt, tickAt, withRate, LEAD_MS, TICK_MS } from "./room.js";
 
 /** The network protocol (mp/version.rs PROTOCOL). */
@@ -251,6 +252,7 @@ export class Club {
     }
     this.broadcast([{ Players: this.seats() }]);
     await this.list();
+    await noteActivity(this.env.DB, "club", this.info.id, h.player, new Date(now));
   }
 
   async takeSave(ws, a, s, now) {

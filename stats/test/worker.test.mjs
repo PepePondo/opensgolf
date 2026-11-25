@@ -1,7 +1,8 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import { memoryDb } from "./d1shim.mjs";
-import worker, { readCount, storeCount, gcRows, importGoatCounter, importStart, stats, retirement, FIRST_DAY } from "../src/index.js";
+import worker, { readCount, storeCount, gcRows, importGoatCounter, importStart, stats, allStats, retirement, FIRST_DAY } from "../src/index.js";
+import { mpStats } from "../src/mp.js";
 import { page } from "../src/page.js";
 
 const u = (q) => new URL(`https://x.test/count?${q}`);
@@ -157,4 +158,46 @@ test("the Worker: counts are open, the rest needs the password", async () => {
   const ok = await worker.fetch(new Request("https://x.test/api/stats", { headers: right }), env, {});
   assert.equal((await ok.json()).totals.runs, 1);
   assert.equal((await worker.fetch(new Request("https://x.test/", { headers: right }), { DB: db }, {})).status, 401, "no password set: closed");
+});
+
+test("multiplayer: counts from the server's database, without hidden clubs, ids or names", async () => {
+  const board = memoryDb(new URL("../../multiplayer/worker/schema.sql", import.meta.url));
+  const now = new Date("2026-11-27T12:00:00Z");
+  const q = (sql, ...p) => board.raw.prepare(sql).run(...p);
+  const club = (id, hidden, players, at, made = "2026-11-25T10:00:00Z") =>
+    q(`INSERT INTO clubs (id, name, version, compat, listed, hidden, players, tick, made, at) VALUES (?, 'Secret Name', '0.9.0', '{}', 1, ?, ?, 0, ?, ?)`, id, hidden, players, made, at);
+  club("c1", 0, 2, "2026-11-27T11:40:00Z");
+  club("c2", 0, 1, "2026-11-26T08:00:00Z"); // its row is old: not counted as on now
+  club("test", 1, 3, "2026-11-27T11:50:00Z");
+  const act = (day, mode, place, player, n = 1) => q(`INSERT INTO activity (day, mode, place, player, n) VALUES (?, ?, ?, ?, ?)`, day, mode, place, player, n);
+  act("2026-11-27", "club", "c1", "aaaa000000000001", 2);
+  act("2026-11-27", "club", "c1", "aaaa000000000002");
+  act("2026-11-27", "club", "test", "aaaa000000000009"); // a hidden club
+  act("2026-11-27", "league", "ABC123", "aaaa000000000001");
+  act("2026-11-26", "challenge", "2026-W48", "aaaa000000000003", 3);
+  act("2026-11-10", "challenge", "2026-W46", "aaaa000000000004");
+  q(`INSERT INTO leagues (code, name, property, difficulty, measure, seed, owner, made) VALUES ('ABC123', 'L', 0, 0, 'cash', 1, 'x', '2026-11-27T09:00:00Z')`);
+  q(`INSERT INTO league_players (code, seat, player, nick, at) VALUES ('ABC123', 0, 'aaaa000000000001', 'Nick', '2026-11-27T09:00:00Z')`);
+  q(`INSERT INTO results (challenge, player, nick, grp, score, cash, fun, skill, members, holes, rank, platform, version, at)
+     VALUES ('2026-W48', 'aaaa000000000003', 'Nick', 'FRIEND', 1, 1, 1, 1, 1, 1, 0, 'web', '0.9.0', '2026-11-26T10:00:00Z')`);
+  const m = await mpStats(board, now);
+  assert.deepEqual(m.players, { today: 2, d7: 3, d30: 4, all: 4 });
+  assert.deepEqual(m.clubs, { total: 2, public: 2, busy: 1, on_now: 2, new_7d: 2 });
+  assert.deepEqual(m.leagues, { total: 1, seats: 1, new_7d: 1 });
+  assert.deepEqual(m.modes_7d.map((r) => [r.mode, r.players, r.places, r.events]), [["club", 2, 1, 3], ["league", 1, 1, 1], ["challenge", 1, 1, 3]]);
+  assert.equal(m.daily.length, 30);
+  assert.deepEqual(m.daily.at(-1), { day: "2026-11-27", players: 2, club: 2, league: 1, challenge: 0 });
+  assert.deepEqual(m.weekly.map((w) => [w.week, w.players]), [["2026-11-09", 1], ["2026-11-23", 3]]);
+  assert.deepEqual(m.challenge_weeks, [{ week: "2026-W48", players: 1, in_groups: 1, results: 3 }]);
+  const json = JSON.stringify(m);
+  for (const secret of ["aaaa", "Nick", "Secret Name", "ABC123", "FRIEND", "c1"]) assert.ok(!json.includes(`"${secret}`) && !json.includes(secret + '"'), secret);
+  assert.equal(await mpStats(undefined, now), null);
+
+  const db = memoryDb();
+  const html = page({ ...(await stats(db, now)), mp: m });
+  assert.match(html, /Multiplayer players per day/);
+  assert.ok(!html.includes("aaaa0000") && !html.includes("Secret Name") && !html.includes("ABC123"));
+  assert.match(page({ ...(await stats(db, now)), mp: null }), /not bound/);
+  const env = { DB: db, BOARD: { prepare() { throw new Error("down"); } } };
+  assert.match((await allStats(env, now)).mp.error, /down/, "a board that fails leaves the rest of the page");
 });

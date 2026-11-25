@@ -2,9 +2,9 @@
 import { DatabaseSync } from "node:sqlite";
 import { readFileSync } from "node:fs";
 
-export function memoryDb() {
+export function memoryDb(schema = new URL("../schema.sql", import.meta.url)) {
   const raw = new DatabaseSync(":memory:");
-  raw.exec(readFileSync(new URL("../schema.sql", import.meta.url), "utf8"));
+  raw.exec(readFileSync(schema, "utf8"));
   const stmt = (sql, params = []) => ({
     bind: (...p) => stmt(sql, p),
     run: async () => { const r = raw.prepare(sql).run(...params); return { meta: { changes: Number(r.changes) } }; },

@@ -48,4 +48,7 @@ test("a league is made, joined, reported to and looked round", async () => {
   assert.equal((await worker.fetch(new Request(`https://w/leagues/${code}/save/0`), env)).status, 404);
   assert.equal((await get(env, `/leagues/${code}?p=${P(0)}`)).body.players[1].save, true);
   assert.equal((await get(env, "/leagues/ZZZZZZ")).status, 404);
+  // counted for the stats page: made + 3 joins + a join again + one good report; refused ones not at all
+  const act = env.DB.raw.prepare(`SELECT player, n FROM activity WHERE mode = 'league' AND place = ? ORDER BY player`).all(code);
+  assert.deepEqual(act.map((r) => [r.player, r.n]), [[P(0), 1], [P(1), 2], [P(2), 2], [P(3), 1]]);
 });

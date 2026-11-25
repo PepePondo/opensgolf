@@ -69,3 +69,14 @@ CREATE TABLE IF NOT EXISTS league_players (
   PRIMARY KEY (code, seat),
   UNIQUE (code, player)
 );
+
+-- Multiplayer use by day (src/activity.js), for the play-time stats page's Multiplayer section, which shows only counts.
+-- `place` is the club id, league code or challenge week; `n` how many times that day (club joins, league reports, results).
+CREATE TABLE IF NOT EXISTS activity (
+  day    TEXT NOT NULL,              -- YYYY-MM-DD (UTC)
+  mode   TEXT NOT NULL,              -- club, league, challenge
+  place  TEXT NOT NULL,
+  player TEXT NOT NULL,
+  n      INTEGER NOT NULL DEFAULT 1,
+  PRIMARY KEY (day, mode, place, player)
+);

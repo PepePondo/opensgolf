@@ -19,6 +19,7 @@
 import { breaks, challenge, isWeekId, previousWeekId, score, weekId } from "./challenge.js";
 import { clean, cleanNick, generatedNick } from "./names.js";
 import { isCompat } from "./club.js";
+import { noteActivity } from "./activity.js";
 import {
   isLeagueCode, joinLeague, league, LEAGUE_SAVE_MAX, makeLeague, readFacts, readNewLeague, report, seatSave, storeSave,
 } from "./league.js";
@@ -265,6 +266,7 @@ export default {
         env.MIN_VERSION || "");
       if (typeof r === "string") return json({ ok: false, error: r }, 400);
       const better = await storeResult(env.DB, r, now);
+      await noteActivity(env.DB, "challenge", r.challenge, r.player, now);
       return json({ ok: true, better }, 200, { "Cache-Control": "no-store" });
     }
     if (url.pathname === "/board" && request.method === "GET") {
@@ -320,6 +322,7 @@ export default {
       const l = readNewLeague(b);
       if (typeof l === "string") return json({ ok: false, error: l }, 400);
       const code = await makeLeague(env.DB, l, now);
+      await noteActivity(env.DB, "league", code, l.player, now);
       return json({ ok: true, ...(await league(env.DB, code, l.player)) }, 200, { "Cache-Control": "no-store" });
     }
     if (lg && isLeagueCode(lg[1])) {
@@ -334,6 +337,7 @@ export default {
         if (b.protocol !== PROTOCOL) return json({ ok: false, error: "update the game" }, 400);
         const seat = await joinLeague(env.DB, code, b.player, b.nick, now);
         if (typeof seat === "string") return json({ ok: false, error: seat }, 400, noStore);
+        await noteActivity(env.DB, "league", code, b.player, now);
         return json({ ok: true, seat, ...(await league(env.DB, code, b.player)) }, 200, noStore);
       }
       if (lg[2] === "report" && request.method === "GET") {
@@ -341,7 +345,9 @@ export default {
         const f = readFacts(b.facts);
         if (!f || typeof b.player !== "string") return json({ ok: false, error: "bad report" }, 400);
         if (b.cheats !== false) return json({ ok: false, error: "cheats were on" }, 400);
-        return json({ ok: await report(env.DB, code, b.player, f, now) }, 200, noStore);
+        const ok = await report(env.DB, code, b.player, f, now);
+        if (ok) await noteActivity(env.DB, "league", code, b.player, now);
+        return json({ ok }, 200, noStore);
       }
       if (lg[2] === "save" && lg[3] === undefined && request.method === "POST") {
         const bytes = new Uint8Array(await request.arrayBuffer());

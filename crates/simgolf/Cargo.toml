@@ -58,8 +58,8 @@ ndk-context = "0.1"
 # The Android app (docs/PLAYING.md, "Android"), built with cargo-quad-apk (the notfl3/cargo-apk docker image,
 # .github/workflows/android.yml): `cargo quad-apk build --release -p opensgolf`.
 [package.metadata.android]
-package_name = "org.opensgolf.game"
-label = "OpenSGolf"
+package_name = "org.opensgolf.game.porthub"
+label = "OpenSGolf (PortHub)"
 version_code = 80
 version_name = "0.9.6"
 min_sdk_version = 26
@@ -84,6 +84,9 @@ icon = "@mipmap/ic_launcher"
 name = "android.permission.INTERNET"
 [[package.metadata.android.permission]]
 name = "android.permission.REQUEST_INSTALL_PACKAGES"
+# PortHub: read the game PortHub copied to Internal storage/PortHub/SimGolf (only when the player allows it)
+[[package.metadata.android.permission]]
+name = "android.permission.MANAGE_EXTERNAL_STORAGE"
 
 [package.metadata.android.activity_attributes]
 # landscape either way up (SimGolf's screens are 800 x 600): a turn half round needs no restart, and the game reads the

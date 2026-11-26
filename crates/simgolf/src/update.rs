@@ -16,9 +16,11 @@ use crate::app::App;
 use sg_core::lang::{tr, trf};
 
 /// GitHub's API answer for the newest release (not a draft or a prerelease); its `tag_name` is like "v0.3.1".
-pub const LATEST_API: &str = "https://api.github.com/repos/crspytopgn/opensgolf/releases/latest";
+// PortHub build: its own releases (PortHub installs and updates it; "Update now" refuses them, as they carry no
+// SHA256SUMS signed with the original project's key).
+pub const LATEST_API: &str = "https://api.github.com/repos/PepePondo/opensgolf/releases/latest";
 /// The newest release's page, with its downloads.
-pub const RELEASES_PAGE: &str = "https://github.com/crspytopgn/opensgolf/releases/latest";
+pub const RELEASES_PAGE: &str = "https://github.com/PepePondo/opensgolf/releases/latest";
 /// This build's version.
 pub const VERSION: &str = env!("CARGO_PKG_VERSION");
 /// The API's answer is a few KB (the release notes and the list of files); anything far larger is not it.

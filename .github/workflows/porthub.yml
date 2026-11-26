@@ -1,0 +1,118 @@
+# PortHub build of OpenSGolf.
+# - When run by hand (Actions > PortHub > Run workflow) merges the original project's changes into the porthub branch.
+#   If the PortHub patch no longer merges cleanly, it opens an issue instead.
+# - Builds a signed APK and publishes it as the latest release, which PortHub installs.
+name: PortHub
+
+on:
+  push:
+    branches:
+      - porthub
+  workflow_dispatch:
+
+permissions:
+  contents: write
+  issues: write
+
+concurrency:
+  group: porthub
+  cancel-in-progress: false
+
+defaults:
+  run:
+    shell: bash
+
+env:
+  UPSTREAM: https://github.com/crspytopgn/opensgolf.git
+  UPSTREAM_BRANCH: main
+
+jobs:
+  sync:
+    name: Merge upstream
+    if: github.event_name != 'push'
+    runs-on: ubuntu-latest
+    outputs:
+      changed: ${{ steps.merge.outputs.changed }}
+    steps:
+      - name: Clone
+        uses: actions/checkout@v4
+        with:
+          ref: porthub
+          fetch-depth: 0
+
+      - name: Merge
+        id: merge
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git fetch "$UPSTREAM" "$UPSTREAM_BRANCH"
+          if git merge-base --is-ancestor FETCH_HEAD HEAD; then
+            echo "Already up to date with upstream."
+            echo "changed=false" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          git merge --no-edit -m "Merge upstream changes" FETCH_HEAD
+          git push origin HEAD:porthub
+          echo "changed=true" >> "$GITHUB_OUTPUT"
+
+      - name: Report a failed merge
+        if: failure()
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh issue create -R "$GITHUB_REPOSITORY" \
+            --title "Upstream changes no longer merge with the PortHub patch" \
+            --body "The merge from $UPSTREAM ($UPSTREAM_BRANCH) failed: $GITHUB_SERVER_URL/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID. The last release keeps working; merge by hand to resume updates."
+
+  build:
+    name: Build and release
+    needs: sync
+    if: >-
+      always() && (github.event_name == 'push' ||
+      (needs.sync.result == 'success' &&
+      (needs.sync.outputs.changed == 'true' || github.event_name == 'workflow_dispatch')))
+    runs-on: ubuntu-latest
+    steps:
+      - name: Clone
+        uses: actions/checkout@v4
+        with:
+          ref: porthub
+
+      - name: Cache the Android build
+        uses: actions/cache@v4
+        with:
+          path: ${{ runner.temp }}/android-build/target
+          key: porthub-android-${{ hashFiles('Cargo.lock', 'tools/android/Cargo.lock', 'crates/*/Cargo.toml', 'tools/android_build.sh') }}
+          restore-keys: porthub-android-
+
+      - name: Build the APK (notfl3/cargo-apk image, as upstream's release does)
+        run: |
+          sed -i "s/^version_code = .*/version_code = $((1000 + GITHUB_RUN_NUMBER))/" crates/simgolf/Cargo.toml
+          mkdir -p "$RUNNER_TEMP/android-build"
+          docker run --rm -v "$PWD":/root/src -v "$RUNNER_TEMP/android-build":/tmp/opensgolf-android -w /root/src \
+            -e ANDROID_TARGETS=aarch64-linux-android notfl3/cargo-apk tools/android_build.sh release /root/src/apk
+          sudo chown -R "$(id -u):$(id -g)" "$RUNNER_TEMP/android-build" apk
+          git checkout crates/simgolf/Cargo.toml
+
+      - name: Sign
+        env:
+          KEYSTORE_BASE64: ${{ secrets.PORTHUB_KEYSTORE_BASE64 }}
+          KEYSTORE_PASSWORD: ${{ secrets.PORTHUB_KEYSTORE_PASSWORD }}
+        run: |
+          printf '%s' "$KEYSTORE_BASE64" | tr -d '\r\n ' | base64 --decode > "$RUNNER_TEMP/porthub.jks"
+          export PORTHUB_PW=$(printf '%s' "$KEYSTORE_PASSWORD" | tr -d '\r\n')
+          BT=$(ls -d "$ANDROID_HOME"/build-tools/* | sort -V | tail -1)
+          "$BT/apksigner" sign --ks "$RUNNER_TEMP/porthub.jks" --ks-key-alias porthub \
+            --ks-pass env:PORTHUB_PW --key-pass env:PORTHUB_PW --out opensgolf-porthub.apk apk/opensgolf-release.apk
+          rm -f "$RUNNER_TEMP/porthub.jks"
+          "$BT/apksigner" verify opensgolf-porthub.apk
+
+      - name: Release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          tag="porthub-$GITHUB_RUN_NUMBER"
+          gh release create "$tag" opensgolf-porthub.apk -R "$GITHUB_REPOSITORY" \
+            --target "$(git rev-parse HEAD)" --latest \
+            --title "OpenSGolf for PortHub (build $GITHUB_RUN_NUMBER)" \
+            --notes "OpenSGolf with PortHub's patch: imports SimGolf from Internal storage/PortHub/SimGolf, where PortHub copies it, by itself on first start instead of asking for the folder. Installs next to the original app as org.opensgolf.game.porthub. arm64. Built from $(git rev-parse --short HEAD)."

@@ -357,6 +357,9 @@ struct Import {
 }
 
 static IMPORT: std::sync::Mutex<Option<Import>> = std::sync::Mutex::new(None);
+/// PortHub: the automatic import from Internal storage/PortHub/SimGolf was tried this run.
+#[cfg(target_os = "android")]
+static PORTHUB_TRIED: AtomicBool = AtomicBool::new(false);
 
 /// True while an import is in progress (a still drawn to a file waits for it: the SG_PICK_FOLDER test hook).
 pub fn importing() -> bool {
@@ -672,6 +675,17 @@ impl App {
     /// Each frame: an import in progress shows how far it is, and once done the game starts again on the files (a failure
     /// is explained).
     pub fn poll_import(&mut self) {
+        #[cfg(target_os = "android")]
+        if !PORTHUB_TRIED.swap(true, Ordering::Relaxed)
+            && self.on_free_set()
+            && IMPORT.lock().unwrap_or_else(|e| e.into_inner()).is_none()
+            && Path::new("/storage/emulated/0/PortHub/SimGolf").is_dir()
+            && !crate::android::files_dir().join("porthub_declined").exists()
+        {
+            println!("PortHub's SimGolf folder is there: importing it");
+            self.choose_game_folder(false);
+            return;
+        }
         let mut slot = IMPORT.lock().unwrap_or_else(|e| e.into_inner());
         #[cfg(target_os = "android")]
         if let Some(job @ Import { stage: Stage::Java, .. }) = slot.as_mut() {

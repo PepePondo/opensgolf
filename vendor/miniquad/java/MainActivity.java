@@ -32,6 +32,9 @@ import android.content.pm.PackageInstaller;
 import android.database.Cursor;
 import android.net.Uri;
 import android.provider.DocumentsContract;
+import android.app.AlertDialog;
+import android.os.Environment;
+import android.provider.Settings;
 
 import java.io.File;
 import java.io.FileInputStream;
@@ -372,6 +375,7 @@ public class MainActivity extends Activity {
     protected void onResume() {
         super.onResume();
         QuadNative.activityOnResume();
+        portHubResume();
 
         //% MAIN_ACTIVITY_ON_RESUME
     }
@@ -430,9 +434,115 @@ public class MainActivity extends Activity {
         return importState;
     }
 
+    // PortHub: it copies SimGolf to Internal storage/PortHub/SimGolf. A folder import takes the game from there by path
+    // (after asking once for All files access) instead of Android's picker; "Pick a folder instead" keeps the picker.
+    private static File portHubDir() {
+        return new File(Environment.getExternalStorageDirectory(), "PortHub/SimGolf");
+    }
+
+    private File portHubDeclined() {
+        return new File(getFilesDir(), "porthub_declined");
+    }
+
+    private boolean awaitingPortHubAccess = false;
+
+    private void portHubResume() {
+        if (!awaitingPortHubAccess) return;
+        awaitingPortHubAccess = false;
+        if (Environment.isExternalStorageManager()) {
+            importFromPortHub(importDest);
+        } else {
+            importState = "cancelled";
+        }
+    }
+
+    private void importFromPortHub(final String dest) {
+        importFiles = 0;
+        importBytes = 0;
+        importState = "copying:0:0";
+        new Thread(new Runnable() {
+                @Override
+                public void run() {
+                    try {
+                        File out = new File(dest);
+                        deleteTree(out);
+                        out.mkdirs();
+                        copyDir(portHubDir(), out);
+                        importState = "dir:" + out.getAbsolutePath();
+                    } catch (Throwable e) {
+                        Log.e("OpenSGolf", "copying PortHub's SimGolf folder failed", e);
+                        importState = "failed:" + e.getMessage();
+                    }
+                }
+            }, "opensgolf-porthub-copy").start();
+    }
+
+    // As copyTree, but from a folder read by path.
+    private void copyDir(File from, File to) throws IOException {
+        File[] kids = from.listFiles();
+        if (kids == null) throw new IOException("cannot list " + from);
+        for (File k : kids) {
+            if (skipName(k.getName().toLowerCase())) continue;
+            File out = new File(to, k.getName());
+            if (k.isDirectory()) {
+                out.mkdirs();
+                copyDir(k, out);
+            } else {
+                InputStream in = new FileInputStream(k);
+                OutputStream o = new FileOutputStream(out);
+                try {
+                    byte[] buf = new byte[1 << 16];
+                    int n;
+                    while ((n = in.read(buf)) > 0) {
+                        o.write(buf, 0, n);
+                        importBytes += n;
+                        importState = "copying:" + importFiles + ":" + importBytes;
+                    }
+                } finally {
+                    in.close();
+                    o.close();
+                }
+                importFiles++;
+            }
+        }
+    }
+
     public void pickGameFiles(final boolean folder, final String dest) {
         importState = "picking";
         importDest = dest;
+        if (folder && Build.VERSION.SDK_INT >= 30 && portHubDir().isDirectory() && !portHubDeclined().exists()) {
+            if (Environment.isExternalStorageManager()) {
+                importFromPortHub(dest);
+                return;
+            }
+            runOnUiThread(new Runnable() {
+                    @Override
+                    public void run() {
+                        new AlertDialog.Builder(MainActivity.this)
+                            .setTitle("Use the game PortHub copied?")
+                            .setMessage("PortHub copied SimGolf to Internal storage/PortHub/SimGolf. To use it without picking a "
+                                + "folder, switch on \"All files access\" for this app on the next screen, then come back.")
+                            .setPositiveButton("Open settings", new android.content.DialogInterface.OnClickListener() {
+                                @Override
+                                public void onClick(android.content.DialogInterface d, int w) {
+                                    awaitingPortHubAccess = true;
+                                    startActivity(new Intent(Settings.ACTION_MANAGE_APP_ALL_FILES_ACCESS_PERMISSION,
+                                        Uri.parse("package:" + getPackageName())));
+                                }
+                            })
+                            .setNegativeButton("Pick a folder instead", new android.content.DialogInterface.OnClickListener() {
+                                @Override
+                                public void onClick(android.content.DialogInterface d, int w) {
+                                    try { portHubDeclined().createNewFile(); } catch (IOException ignored) { }
+                                    pickGameFiles(true, dest);
+                                }
+                            })
+                            .setCancelable(false)
+                            .show();
+                    }
+                });
+            return;
+        }
         runOnUiThread(new Runnable() {
                 @Override
                 public void run() {
